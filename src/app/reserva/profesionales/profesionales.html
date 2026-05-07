@@ -1,0 +1,151 @@
+<section class="page">
+  <header class="page__head">
+    <div>
+      <h1>Profesionales</h1>
+      <p>Equipo del salón. Cada profesional puede tener servicios y horario propio.</p>
+    </div>
+    @if (puedeCrear()) {
+      <button type="button" class="btn btn-primary" (click)="abrirCrear()">
+        <lucide-icon name="plus" [size]="16" /> Nuevo profesional
+      </button>
+    }
+  </header>
+
+  <div class="bar">
+    <div class="bar__search">
+      <lucide-icon name="search" [size]="16" />
+      <input class="input" type="text" placeholder="Buscar por nombre o especialidad…"
+             [value]="busqueda()" (input)="busqueda.set($any($event.target).value)" />
+    </div>
+    <label class="check">
+      <input type="checkbox" [checked]="incluirInactivos()" (change)="toggleInactivos()" />
+      <span>Incluir inactivos</span>
+    </label>
+  </div>
+
+  @if (cargando()) { <p class="hint">Cargando…</p> }
+  @else if (profesionalesFiltrados().length === 0) {
+    <p class="hint">No hay profesionales registrados.</p>
+  } @else {
+    <div class="grid">
+      @for (p of profesionalesFiltrados(); track p.id_profesional) {
+        <article class="card pro" [class.pro--inactivo]="p.estado === 'I'">
+          <div class="pro__avatar" [style.background]="p.color_hex || '#10b981'">
+            @if (p.foto_url) {
+              <img [src]="p.foto_url" [alt]="p.nombre" />
+            } @else {
+              <lucide-icon name="user" [size]="22" />
+            }
+          </div>
+          <div class="pro__body">
+            <strong>{{ p.nombre }}</strong>
+            @if (p.especialidad) { <span class="pro__esp">{{ p.especialidad }}</span> }
+            @if (p.email) { <span class="pro__meta"><lucide-icon name="mail" [size]="12" /> {{ p.email }}</span> }
+            @if (p.telefono) { <span class="pro__meta"><lucide-icon name="phone" [size]="12" /> {{ p.telefono }}</span> }
+            @if (p.estado === 'I') { <span class="badge b-off">Inactivo</span> }
+          </div>
+          <footer class="pro__foot">
+            @if (puedeEditar() && p.estado === 'A') {
+              <button type="button" class="btn btn-outline" (click)="abrirServicios(p)" title="Asignar servicios">
+                <lucide-icon name="scissors" [size]="14" />
+              </button>
+              <button type="button" class="btn btn-outline" (click)="abrirEditar(p)">
+                <lucide-icon name="pencil" [size]="14" /> Editar
+              </button>
+            }
+            @if (puedeEliminar() && p.estado === 'A') {
+              <button type="button" class="btn btn-ghost" (click)="pedirInactivar(p)">
+                <lucide-icon name="trash-2" [size]="14" />
+              </button>
+            }
+          </footer>
+        </article>
+      }
+    </div>
+  }
+</section>
+
+<reserva-modal [open]="modalAbierto()"
+               [title]="editando() ? 'Editar profesional' : 'Nuevo profesional'"
+               (close)="cerrarModal()">
+  <form [formGroup]="form" (ngSubmit)="guardar()" class="form">
+    <div class="form__row">
+      <label>
+        <span>Nombre *</span>
+        <input class="input" type="text" formControlName="nombre" maxlength="150" />
+      </label>
+    </div>
+    <div class="form__grid-2">
+      <label>
+        <span>Especialidad</span>
+        <input class="input" type="text" formControlName="especialidad" />
+      </label>
+      <label>
+        <span>Color</span>
+        <input class="input input--color" type="color" formControlName="color_hex" />
+      </label>
+    </div>
+    <div class="form__grid-2">
+      <label>
+        <span>Teléfono</span>
+        <input class="input" type="tel" formControlName="telefono" />
+      </label>
+      <label>
+        <span>Email</span>
+        <input class="input" type="email" formControlName="email" />
+      </label>
+    </div>
+    <div class="form__row">
+      <label>
+        <span>URL de foto (opcional)</span>
+        <input class="input" type="url" formControlName="foto_url" placeholder="https://…" />
+      </label>
+    </div>
+  </form>
+  <div modal-footer style="display:flex; gap:.5rem;">
+    <button type="button" class="btn btn-outline" (click)="cerrarModal()" [disabled]="guardando()">Cancelar</button>
+    <button type="button" class="btn btn-primary" (click)="guardar()" [disabled]="guardando() || form.invalid">
+      @if (guardando()) { Guardando… } @else { Guardar }
+    </button>
+  </div>
+</reserva-modal>
+
+<reserva-modal [open]="modalServiciosAbierto()"
+               [title]="'Servicios de ' + (profesionalServicios()?.nombre || '')"
+               (close)="cerrarServicios()">
+  <p class="hint" style="margin: 0 0 .75rem;">
+    Marca los servicios que este profesional puede realizar. Si no marcas ninguno,
+    se asume que puede realizar todos.
+  </p>
+  @if (servicios().length === 0) {
+    <p class="hint">No hay servicios creados todavía.</p>
+  } @else {
+    <ul class="srv-list">
+      @for (s of servicios(); track s.id_servicio) {
+        <li>
+          <label class="check">
+            <input type="checkbox"
+                   [checked]="serviciosSeleccionados().has(s.id_servicio)"
+                   (change)="toggleServicio(s.id_servicio)" />
+            <span>{{ s.nombre }} <em>· {{ s.duracion_min }}min</em></span>
+          </label>
+        </li>
+      }
+    </ul>
+  }
+  <div modal-footer style="display:flex; gap:.5rem;">
+    <button type="button" class="btn btn-outline" (click)="cerrarServicios()" [disabled]="guardando()">Cancelar</button>
+    <button type="button" class="btn btn-primary" (click)="guardarServicios()" [disabled]="guardando()">
+      @if (guardando()) { Guardando… } @else { Guardar }
+    </button>
+  </div>
+</reserva-modal>
+
+<reserva-confirm
+  [open]="confirmAbierto()"
+  title="Inactivar profesional"
+  [message]="'¿Inactivar a ' + (profesionalAInactivar()?.nombre || '?') + '? No aparecerá en el flujo de reserva.'"
+  confirmText="Inactivar"
+  kind="danger"
+  (cancel)="cerrarConfirm()"
+  (confirm)="inactivarConfirmado()" />

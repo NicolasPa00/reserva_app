@@ -1,0 +1,114 @@
+<section class="page">
+  <header class="page__head">
+    <div>
+      <h1>Servicios</h1>
+      <p>Catálogo de servicios que ofrece el salón.</p>
+    </div>
+    @if (puedeCrear()) {
+      <button type="button" class="btn btn-primary" (click)="abrirCrear()">
+        <lucide-icon name="plus" [size]="16" /> Nuevo servicio
+      </button>
+    }
+  </header>
+
+  <div class="bar">
+    <div class="bar__search">
+      <lucide-icon name="search" [size]="16" />
+      <input class="input" type="text" placeholder="Buscar servicio…"
+             [value]="busqueda()" (input)="busqueda.set($any($event.target).value)" />
+    </div>
+    <label class="check">
+      <input type="checkbox" [checked]="incluirInactivos()" (change)="toggleInactivos()" />
+      <span>Incluir inactivos</span>
+    </label>
+  </div>
+
+  @if (cargando()) { <p class="hint">Cargando…</p> }
+  @else if (serviciosFiltrados().length === 0) {
+    <p class="hint">No hay servicios que coincidan con tu búsqueda.</p>
+  } @else {
+    <div class="grid">
+      @for (s of serviciosFiltrados(); track s.id_servicio) {
+        <article class="card servicio" [class.servicio--inactivo]="s.estado === 'I'">
+          <header class="servicio__head" [style.background]="s.color_hex || '#1565c0'">
+            <lucide-icon name="scissors" [size]="20" />
+            @if (s.estado === 'I') { <span class="badge b-off">Inactivo</span> }
+          </header>
+          <div class="servicio__body">
+            <strong>{{ s.nombre }}</strong>
+            <span class="servicio__meta">{{ s.duracion_min }} min</span>
+            <span class="servicio__precio">{{ s.precio | currency:'COP':'symbol':'1.0-0' }}</span>
+            @if (s.descripcion) { <p>{{ s.descripcion }}</p> }
+          </div>
+          <footer class="servicio__foot">
+            @if (puedeEditar() && s.estado === 'A') {
+              <button type="button" class="btn btn-outline" (click)="abrirEditar(s)">
+                <lucide-icon name="pencil" [size]="14" /> Editar
+              </button>
+            }
+            @if (puedeEliminar() && s.estado === 'A') {
+              <button type="button" class="btn btn-ghost" (click)="pedirInactivar(s)">
+                <lucide-icon name="trash-2" [size]="14" />
+              </button>
+            }
+          </footer>
+        </article>
+      }
+    </div>
+  }
+</section>
+
+<reserva-modal [open]="modalAbierto()"
+               [title]="editando() ? 'Editar servicio' : 'Nuevo servicio'"
+               (close)="cerrarModal()">
+  <form [formGroup]="form" (ngSubmit)="guardar()" class="form">
+    <div class="form__row">
+      <label>
+        <span>Nombre *</span>
+        <input class="input" type="text" formControlName="nombre" maxlength="150" autocomplete="off" />
+      </label>
+    </div>
+    <div class="form__grid">
+      <label>
+        <span>Duración (min) *</span>
+        <input class="input" type="number" formControlName="duracion_min" min="5" max="600" step="5" />
+      </label>
+      <label>
+        <span>Precio (COP) *</span>
+        <input class="input" type="number" formControlName="precio" min="0" step="500" />
+      </label>
+      <label>
+        <span>Color</span>
+        <input class="input input--color" type="color" formControlName="color_hex" />
+      </label>
+    </div>
+    <div class="form__row">
+      <label>
+        <span>Descripción</span>
+        <textarea class="textarea" formControlName="descripcion" rows="3" maxlength="500"></textarea>
+      </label>
+    </div>
+    <div class="form__row">
+      <label>
+        <span>URL de imagen (opcional)</span>
+        <input class="input" type="url" formControlName="imagen_url" placeholder="https://…" />
+      </label>
+    </div>
+  </form>
+
+  <div modal-footer style="display:flex; gap:.5rem;">
+    <button type="button" class="btn btn-outline" (click)="cerrarModal()" [disabled]="guardando()">Cancelar</button>
+    <button type="button" class="btn btn-primary" (click)="guardar()" [disabled]="guardando() || form.invalid">
+      @if (guardando()) { Guardando… } @else { Guardar }
+    </button>
+  </div>
+</reserva-modal>
+
+<reserva-confirm
+  [open]="confirmAbierto()"
+  title="Inactivar servicio"
+  [message]="'¿Seguro que quieres inactivar ' + (servicioAInactivar()?.nombre || 'el servicio') + '? Quedará oculto del flujo de reserva.'"
+  confirmText="Inactivar"
+  kind="danger"
+  (cancel)="cerrarConfirm()"
+  (confirm)="inactivarConfirmado()" />

@@ -1,0 +1,156 @@
+<section class="page">
+  <header class="page__head">
+    <div>
+      <h1>Horarios</h1>
+      <p>Horario laboral semanal y bloqueos puntuales (vacaciones, festivos, descansos).</p>
+    </div>
+  </header>
+
+  <div class="bar">
+    <label>
+      <span>Aplicar a:</span>
+      <select class="select"
+              [value]="profesionalSeleccionado() == null ? '' : profesionalSeleccionado()"
+              (change)="cambiarTarget($any($event.target).value)">
+        <option [value]="''">Horario general del negocio</option>
+        @for (p of profesionales(); track p.id_profesional) {
+          <option [value]="p.id_profesional">{{ p.nombre }}</option>
+        }
+      </select>
+    </label>
+    <span class="hint">
+      @if (profesionalSeleccionado() == null) {
+        El horario general aplica cuando un profesional no tiene horario propio.
+      } @else {
+        Sobrescribe el horario general para este profesional.
+      }
+    </span>
+  </div>
+
+  @if (cargando()) { <p class="hint">Cargando…</p> }
+  @else {
+    <div class="dias">
+      @for (dia of diasSemana; track $index) {
+        <div class="dia card">
+          <header>
+            <strong>{{ dia }}</strong>
+            <button type="button" class="btn btn-ghost" (click)="agregarBloque($index)">
+              <lucide-icon name="plus" [size]="14" /> Bloque
+            </button>
+          </header>
+          @if (bloquesPorDia().get($index)?.length === 0) {
+            <p class="hint hint--center">Cerrado</p>
+          } @else {
+            @for (b of bloquesPorDia().get($index) || []; track $index; let i = $index) {
+              <div class="bloque">
+                <input class="input" type="time"
+                       [value]="b.hora_inicio"
+                       (change)="actualizarHora(b, 'hora_inicio', $any($event.target).value)" />
+                <span>—</span>
+                <input class="input" type="time"
+                       [value]="b.hora_fin"
+                       (change)="actualizarHora(b, 'hora_fin', $any($event.target).value)" />
+                <button type="button" class="btn btn-ghost" (click)="eliminarBloque(b, i)" title="Quitar bloque">
+                  <lucide-icon name="trash-2" [size]="14" />
+                </button>
+              </div>
+            }
+          }
+        </div>
+      }
+    </div>
+
+    <div class="actions">
+      <button type="button" class="btn btn-primary" (click)="guardar()" [disabled]="guardando()">
+        <lucide-icon name="save" [size]="16" />
+        @if (guardando()) { Guardando… } @else { Guardar horario }
+      </button>
+    </div>
+  }
+
+  <div class="card bloqueos">
+    <header class="bloqueos__head">
+      <div>
+        <h3>Bloqueos puntuales</h3>
+        <p class="hint">Vacaciones, festivos o descansos que impiden reservas en un rango.</p>
+      </div>
+      <button type="button" class="btn btn-outline" (click)="abrirNuevoBloqueo()">
+        <lucide-icon name="plus" [size]="14" /> Nuevo bloqueo
+      </button>
+    </header>
+
+    @if (bloqueos().length === 0) {
+      <p class="hint">No hay bloqueos registrados.</p>
+    } @else {
+      <ul class="bloqueos__list">
+        @for (b of bloqueos(); track b.id_bloqueo) {
+          <li>
+            <div>
+              <strong>{{ nombreProfesional(b.id_profesional) }}</strong>
+              <span class="hint">
+                {{ b.fecha_inicio | date:'dd MMM yyyy HH:mm':'':'es-CO' }} —
+                {{ b.fecha_fin    | date:'dd MMM yyyy HH:mm':'':'es-CO' }}
+              </span>
+              @if (b.motivo) { <em>{{ b.motivo }}</em> }
+            </div>
+            <button type="button" class="btn btn-ghost" (click)="pedirEliminarBloqueo(b)">
+              <lucide-icon name="trash-2" [size]="14" />
+            </button>
+          </li>
+        }
+      </ul>
+    }
+  </div>
+</section>
+
+<reserva-modal [open]="modalBloqueoAbierto()" title="Nuevo bloqueo"
+               (close)="modalBloqueoAbierto.set(false)">
+  <div class="form">
+    <label>
+      <span>Aplicar a</span>
+      <select class="select"
+              [value]="bloqueoForm().id_profesional == null ? '' : bloqueoForm().id_profesional"
+              (change)="setBloqueoProfesional($any($event.target).value)">
+        <option [value]="''">Todo el negocio</option>
+        @for (p of profesionales(); track p.id_profesional) {
+          <option [value]="p.id_profesional">{{ p.nombre }}</option>
+        }
+      </select>
+    </label>
+    <div class="form__grid-2">
+      <label>
+        <span>Inicio</span>
+        <input class="input" type="datetime-local"
+               [value]="bloqueoForm().fecha_inicio"
+               (change)="setBloqueoCampo('fecha_inicio', $any($event.target).value)" />
+      </label>
+      <label>
+        <span>Fin</span>
+        <input class="input" type="datetime-local"
+               [value]="bloqueoForm().fecha_fin"
+               (change)="setBloqueoCampo('fecha_fin', $any($event.target).value)" />
+      </label>
+    </div>
+    <label>
+      <span>Motivo (opcional)</span>
+      <input class="input" type="text"
+             [value]="bloqueoForm().motivo"
+             (change)="setBloqueoCampo('motivo', $any($event.target).value)" />
+    </label>
+  </div>
+  <div modal-footer style="display:flex; gap:.5rem;">
+    <button type="button" class="btn btn-outline" (click)="modalBloqueoAbierto.set(false)" [disabled]="guardando()">Cancelar</button>
+    <button type="button" class="btn btn-primary" (click)="guardarBloqueo()" [disabled]="guardando()">
+      @if (guardando()) { Guardando… } @else { Crear }
+    </button>
+  </div>
+</reserva-modal>
+
+<reserva-confirm
+  [open]="confirmAbierto()"
+  title="Eliminar bloqueo"
+  message="¿Quieres eliminar este bloqueo? La franja quedará disponible nuevamente."
+  confirmText="Eliminar"
+  kind="danger"
+  (cancel)="cerrarConfirm()"
+  (confirm)="eliminarBloqueoConfirmado()" />

@@ -1,0 +1,233 @@
+<section class="page">
+  <header class="page__head">
+    <div>
+      <h1>Citas</h1>
+      <p>Gestión de reservas, validación de pagos y acciones por cita.</p>
+    </div>
+    @if (puedeCrear()) {
+      <button type="button" class="btn btn-primary" (click)="modalNuevaCita.set(true)">
+        <lucide-icon name="plus" [size]="16" /> Nueva cita
+      </button>
+    }
+  </header>
+
+  <div class="tabs">
+    <button class="tab" [class.tab--on]="tab() === 'todas'" (click)="cambiarTab('todas')">
+      Todas las citas
+    </button>
+    <button class="tab" [class.tab--on]="tab() === 'pagos'" (click)="cambiarTab('pagos')">
+      <lucide-icon name="credit-card" [size]="14" /> Validar pagos
+    </button>
+  </div>
+
+  @if (tab() === 'todas') {
+    <div class="filtros">
+      <label>
+        <span>Desde</span>
+        <input class="input" type="date" [value]="desde()" (change)="desde.set($any($event.target).value); recargar()" />
+      </label>
+      <label>
+        <span>Hasta</span>
+        <input class="input" type="date" [value]="hasta()" (change)="hasta.set($any($event.target).value); recargar()" />
+      </label>
+      <label>
+        <span>Profesional</span>
+        <select class="select"
+                [value]="idProfesionalFiltro() == null ? '' : idProfesionalFiltro()"
+                (change)="setProfesionalFiltro($any($event.target).value); recargar()">
+          <option value="">Todos</option>
+          @for (p of profesionales(); track p.id_profesional) {
+            <option [value]="p.id_profesional">{{ p.nombre }}</option>
+          }
+        </select>
+      </label>
+      <label>
+        <span>Estado</span>
+        <select class="select" [value]="estadoFiltro()" (change)="estadoFiltro.set($any($event.target).value); recargar()">
+          <option value="">Todos</option>
+          <option value="pendiente">Pendiente</option>
+          <option value="confirmada">Confirmada</option>
+          <option value="completada">Completada</option>
+          <option value="cancelada">Cancelada</option>
+          <option value="no_show">No-show</option>
+        </select>
+      </label>
+    </div>
+  }
+
+  @if (cargando()) { <p class="hint">Cargando…</p> }
+  @else if (citas().length === 0) {
+    <p class="hint">
+      @if (tab() === 'pagos') { No hay pagos por validar. } @else { Sin citas en este rango. }
+    </p>
+  } @else {
+    <div class="card list">
+      @for (c of citas(); track c.id_cita) {
+        <article class="row" (click)="abrirDetalle(c)">
+          <div class="row__time">
+            <strong>{{ c.fecha_hora_inicio | date:'EEE dd MMM':'':'es-CO' }}</strong>
+            <span>{{ c.fecha_hora_inicio | date:'HH:mm':'':'es-CO' }} – {{ c.fecha_hora_fin | date:'HH:mm':'':'es-CO' }}</span>
+          </div>
+          <div class="row__main">
+            <strong>{{ c.cliente_nombre }}</strong>
+            <span class="row__svc">
+              @for (s of c.servicios || []; track s.id_servicio) {
+                {{ s.nombre }}@if (!$last) {, }
+              }
+            </span>
+            <span class="row__pro">
+              <i [style.background]="c.profesional?.color_hex || '#10b981'"></i>
+              {{ c.profesional?.nombre }}
+            </span>
+          </div>
+          <div class="row__meta">
+            <span class="badge" [class]="badgeEstado(c.estado)">{{ estadoLabel(c.estado) }}</span>
+            @if (c.requiere_pago) {
+              <span class="badge"
+                    [class.b-warn]="c.pago_estado === 'pendiente_validacion'"
+                    [class.b-ok]="c.pago_estado === 'aprobado'"
+                    [class.b-err]="c.pago_estado === 'rechazado'">
+                <lucide-icon name="credit-card" [size]="11" /> {{ pagoLabel(c.pago_estado) }}
+              </span>
+            }
+            <span class="row__monto">{{ c.monto_total | currency:'COP':'symbol':'1.0-0' }}</span>
+          </div>
+          @if (tab() === 'pagos') {
+            <div class="row__actions" (click)="$event.stopPropagation()">
+              <button type="button" class="btn btn-outline" (click)="abrirValidarPago(c)">
+                <lucide-icon name="eye" [size]="14" /> Validar
+              </button>
+            </div>
+          }
+        </article>
+      }
+    </div>
+  }
+</section>
+
+<!-- Detalle de cita + acciones -->
+<reserva-modal [open]="modalDetalle()" [title]="'Cita #' + (citaDetalle()?.id_cita || '')" size="lg" (close)="cerrarDetalle()">
+  @if (citaDetalle()) {
+    <div class="detalle">
+      <div class="detalle__head">
+        <strong>{{ citaDetalle()!.cliente_nombre }}</strong>
+        <span class="badge" [class]="badgeEstado(citaDetalle()!.estado)">{{ estadoLabel(citaDetalle()!.estado) }}</span>
+      </div>
+      <p>
+        <lucide-icon name="calendar-clock" [size]="14" />
+        {{ citaDetalle()!.fecha_hora_inicio | date:'EEEE dd MMM yyyy, HH:mm':'':'es-CO' }} —
+        {{ citaDetalle()!.fecha_hora_fin | date:'HH:mm':'':'es-CO' }}
+      </p>
+      <p><lucide-icon name="user" [size]="14" /> {{ citaDetalle()!.profesional?.nombre }}</p>
+      @if (citaDetalle()!.cliente_telefono) {
+        <p><lucide-icon name="phone" [size]="14" /> {{ citaDetalle()!.cliente_telefono }}</p>
+      }
+      @if (citaDetalle()!.cliente_email) {
+        <p><lucide-icon name="mail" [size]="14" /> {{ citaDetalle()!.cliente_email }}</p>
+      }
+
+      <h4>Servicios</h4>
+      <ul class="srv">
+        @for (s of citaDetalle()!.servicios || []; track s.id_servicio) {
+          <li>
+            <span>{{ s.nombre }}</span>
+            <em>{{ s.duracion_min }}min</em>
+            <strong>{{ s.precio | currency:'COP':'symbol':'1.0-0' }}</strong>
+          </li>
+        }
+      </ul>
+      <p class="total">
+        <span>Total</span>
+        <strong>{{ citaDetalle()!.monto_total | currency:'COP':'symbol':'1.0-0' }}</strong>
+      </p>
+
+      @if (citaDetalle()!.notas) {
+        <h4>Notas</h4>
+        <p class="hint">{{ citaDetalle()!.notas }}</p>
+      }
+
+      @if (citaDetalle()!.requiere_pago) {
+        <h4>Pago adelantado</h4>
+        <p>Estado: <span class="badge"
+              [class.b-warn]="citaDetalle()!.pago_estado === 'pendiente_validacion'"
+              [class.b-ok]="citaDetalle()!.pago_estado === 'aprobado'"
+              [class.b-err]="citaDetalle()!.pago_estado === 'rechazado'">
+            {{ pagoLabel(citaDetalle()!.pago_estado) }}
+        </span></p>
+        @if (citaDetalle()!.pago_rechazo_motivo) {
+          <p class="hint">Motivo: {{ citaDetalle()!.pago_rechazo_motivo }}</p>
+        }
+      }
+
+      @if (citaDetalle()!.cancelado_motivo) {
+        <h4>Cancelación</h4>
+        <p class="hint">{{ citaDetalle()!.cancelado_motivo }} ({{ citaDetalle()!.cancelado_por }})</p>
+      }
+    </div>
+  }
+  <div modal-footer style="display:flex; gap:.5rem; flex-wrap: wrap;">
+    @if (puedeEditar() && citaDetalle() && (citaDetalle()!.estado === 'pendiente' || citaDetalle()!.estado === 'confirmada')) {
+      @if (citaDetalle()!.estado === 'pendiente' && citaDetalle()!.pago_estado !== 'pendiente_validacion') {
+        <button type="button" class="btn btn-primary" (click)="confirmar(citaDetalle()!); cerrarDetalle()">Confirmar</button>
+      }
+      @if (citaDetalle()!.pago_estado === 'pendiente_validacion') {
+        <button type="button" class="btn btn-primary" (click)="abrirValidarPago(citaDetalle()!); cerrarDetalle()">
+          <lucide-icon name="credit-card" [size]="14" /> Validar pago
+        </button>
+      }
+      <button type="button" class="btn btn-outline" (click)="completar(citaDetalle()!); cerrarDetalle()">Completar</button>
+      <button type="button" class="btn btn-outline" (click)="noShow(citaDetalle()!); cerrarDetalle()">No-show</button>
+      <button type="button" class="btn btn-danger" (click)="pedirCancelar(citaDetalle()!); cerrarDetalle()">Cancelar</button>
+    }
+    <button type="button" class="btn btn-ghost" (click)="cerrarDetalle()" style="margin-left: auto;">Cerrar</button>
+  </div>
+</reserva-modal>
+
+<!-- Validar pago: ver comprobante y aprobar/rechazar -->
+<reserva-modal [open]="modalPago()" title="Validar pago adelantado" size="lg" (close)="cerrarValidarPago()">
+  @if (citaPago()) {
+    <div class="pago">
+      <div class="pago__info">
+        <p><strong>{{ citaPago()!.cliente_nombre }}</strong></p>
+        <p class="hint">
+          {{ citaPago()!.fecha_hora_inicio | date:'EEEE dd MMM, HH:mm':'':'es-CO' }} ·
+          {{ citaPago()!.profesional?.nombre }}
+        </p>
+        <p class="pago__monto">{{ citaPago()!.monto_total | currency:'COP':'symbol':'1.0-0' }}</p>
+      </div>
+      @if (citaPago()!.comprobante_pago_url) {
+        <div class="pago__img">
+          <img [src]="comprobanteUrl(citaPago()!)" alt="Comprobante de pago" />
+        </div>
+      } @else {
+        <p class="hint">El cliente no adjuntó comprobante.</p>
+      }
+      <label class="block">
+        <span>Motivo de rechazo (requerido si rechazas)</span>
+        <input class="input" type="text"
+               [value]="motivoRechazo()"
+               (input)="motivoRechazo.set($any($event.target).value)" />
+      </label>
+    </div>
+  }
+  <div modal-footer style="display:flex; gap:.5rem;">
+    <button type="button" class="btn btn-outline" (click)="cerrarValidarPago()">Cancelar</button>
+    <button type="button" class="btn btn-danger" (click)="rechazarPago()">Rechazar</button>
+    <button type="button" class="btn btn-primary" (click)="aprobarPago()">Aprobar</button>
+  </div>
+</reserva-modal>
+
+<reserva-confirm
+  [open]="confirmAbierto()"
+  title="Cancelar cita"
+  message="¿Cancelar esta cita? Se notificará al cliente y el slot quedará libre."
+  confirmText="Cancelar cita"
+  kind="danger"
+  (cancel)="confirmAbierto.set(false); citaACancelar.set(null)"
+  (confirm)="cancelarConfirmado()" />
+
+<reserva-cita-form
+  [idNegocio]="idNegocio()"
+  [open]="modalNuevaCita()"
+  (close)="modalNuevaCita.set(false)"
+  (created)="recargar()" />

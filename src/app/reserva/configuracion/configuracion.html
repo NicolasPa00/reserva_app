@@ -1,0 +1,65 @@
+<section class="page">
+  <header class="page__head">
+    <div>
+      <h1>Configuración</h1>
+      <p>Reglas de negocio para reservas.</p>
+    </div>
+  </header>
+
+  @if (cargando()) {
+    <p class="hint">Cargando…</p>
+  } @else {
+    <form [formGroup]="form" (ngSubmit)="guardar()" class="cfg">
+      <div class="card">
+        <h3>Reservas</h3>
+        <p class="hint">Tiempos y ventanas que se aplican a todas las citas.</p>
+
+        <div class="grid">
+          <label>
+            <span>Anticipación mínima (horas)</span>
+            <input class="input" type="number" formControlName="anticipacion_min_horas" min="0" max="168" />
+            <small>Cuánto antes debe reservar un cliente.</small>
+          </label>
+          <label>
+            <span>Buffer de limpieza (min)</span>
+            <input class="input" type="number" formControlName="buffer_limpieza_min" min="0" max="240" step="5" />
+            <small>Tiempo libre entre citas consecutivas.</small>
+          </label>
+          <label>
+            <span>Ventana de cancelación (horas)</span>
+            <input class="input" type="number" formControlName="ventana_cancelacion_horas" min="0" max="168" />
+            <small>Tiempo mínimo para que el cliente cancele.</small>
+          </label>
+          <label>
+            <span>Paso de slots (min)</span>
+            <input class="input" type="number" formControlName="paso_slot_min" min="5" max="60" step="5" />
+            <small>Granularidad de horarios disponibles.</small>
+          </label>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Pago adelantado</h3>
+        <label class="toggle">
+          <input type="checkbox" formControlName="cobro_adelantado" />
+          <span>Requerir pago anticipado para reservar</span>
+        </label>
+        @if (form.value.cobro_adelantado) {
+          <label class="block">
+            <span>Instrucciones de pago para el cliente</span>
+            <textarea class="textarea" formControlName="instrucciones_pago" rows="4"
+                      placeholder="Ej: Nequi 3001234567, Bancolombia ahorros 12345..."></textarea>
+            <small>El cliente verá esto al reservar y deberá adjuntar comprobante.</small>
+          </label>
+        }
+      </div>
+
+      <div class="actions">
+        <button type="submit" class="btn btn-primary" [disabled]="guardando() || form.invalid">
+          <lucide-icon name="save" [size]="16" />
+          @if (guardando()) { Guardando… } @else { Guardar cambios }
+        </button>
+      </div>
+    </form>
+  }
+</section>

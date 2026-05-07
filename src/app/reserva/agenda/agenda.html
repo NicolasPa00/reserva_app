@@ -1,0 +1,86 @@
+<section class="page">
+  <header class="page__head">
+    <div>
+      <h1>Agenda</h1>
+      <p>Vista del día. Bloques por profesional.</p>
+    </div>
+    <button type="button" class="btn btn-primary" (click)="modalNuevaCita.set(true)">
+      <lucide-icon name="plus" [size]="16" /> Nueva cita
+    </button>
+  </header>
+
+  <div class="bar">
+    <div class="bar__nav">
+      <button type="button" class="btn btn-outline" (click)="cambiarDia(-1)" title="Día anterior">
+        <lucide-icon name="chevron-left" [size]="16" />
+      </button>
+      <button type="button" class="btn btn-outline" (click)="irAHoy()">Hoy</button>
+      <button type="button" class="btn btn-outline" (click)="cambiarDia(1)" title="Día siguiente">
+        <lucide-icon name="chevron-right" [size]="16" />
+      </button>
+      <strong class="bar__fecha">{{ fechaLabel() }}</strong>
+    </div>
+    <input class="input bar__date" type="date"
+           [value]="fechaInputValue()"
+           (change)="setFechaDesdeInput($any($event.target).value)" />
+  </div>
+
+  @if (cargando()) {
+    <p class="hint">Cargando…</p>
+  } @else if (profesionales().length === 0) {
+    <p class="hint">Crea profesionales para ver la agenda.</p>
+  } @else {
+    <div class="cal" [style.--rows]="horasGrid().length" [style.--cols]="profesionales().length">
+      <div class="cal__header">
+        <div class="cal__corner"></div>
+        @for (p of profesionales(); track p.id_profesional) {
+          <div class="cal__pro">
+            <i [style.background]="p.color_hex || '#10b981'"></i>
+            {{ p.nombre }}
+          </div>
+        }
+      </div>
+      <div class="cal__body">
+        <div class="cal__hours">
+          @for (h of horasGrid(); track h) {
+            <div class="cal__hour">{{ h }}</div>
+          }
+        </div>
+        @for (p of profesionales(); track p.id_profesional) {
+          <div class="cal__col">
+            @for (h of horasGrid(); track h) {
+              <div class="cal__cell"></div>
+            }
+            @for (pos of citasPorPro().get(p.id_profesional) || []; track pos.cita.id_cita) {
+              <div class="cal__cita"
+                   [style.top.px]="pos.topPx"
+                   [style.height.px]="pos.heightPx"
+                   [style.background]="p.color_hex || '#1565c0'"
+                   [title]="pos.cita.cliente_nombre">
+                <strong>{{ pos.cita.cliente_nombre }}</strong>
+                <span>
+                  {{ pos.cita.fecha_hora_inicio | date:'HH:mm':'':'es-CO' }} —
+                  {{ pos.cita.fecha_hora_fin | date:'HH:mm':'':'es-CO' }}
+                </span>
+                <span class="cal__svc">
+                  @for (s of pos.cita.servicios || []; track s.id_servicio) {
+                    {{ s.nombre }}@if (!$last) {, }
+                  }
+                </span>
+                <span class="badge" [class]="estadoBadge(pos.cita)" style="position:absolute; top:4px; right:4px;">
+                  {{ pos.cita.estado }}
+                </span>
+              </div>
+            }
+          </div>
+        }
+      </div>
+    </div>
+  }
+</section>
+
+<reserva-cita-form
+  [idNegocio]="idNegocio()"
+  [open]="modalNuevaCita()"
+  (close)="modalNuevaCita.set(false)"
+  (created)="cargar()" />

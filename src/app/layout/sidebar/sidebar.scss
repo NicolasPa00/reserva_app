@@ -1,0 +1,59 @@
+.sidebar {
+  display: flex; flex-direction: column;
+  width: 240px; min-height: 100vh;
+  background: var(--color-surface);
+  border-right: 1px solid var(--color-border);
+  padding: 1.25rem 0;
+
+  &__brand {
+    display: flex; align-items: center; gap: .65rem;
+    padding: 0 1.25rem 1rem;
+    border-bottom: 1px solid var(--color-border);
+    color: var(--color-primary);
+    div { display: flex; flex-direction: column; }
+    strong { color: var(--color-text-primary); font-size: .95rem; line-height: 1.1; }
+    span   { color: var(--color-text-muted); font-size: .75rem; }
+  }
+
+  &__nav {
+    display: flex; flex-direction: column; padding: .75rem .5rem; gap: .15rem; flex: 1;
+
+    a {
+      display: flex; align-items: center; gap: .65rem;
+      padding: .55rem .75rem;
+      border-radius: var(--radius-md);
+      color: var(--color-text-secondary);
+      text-decoration: none; font-size: .9rem; font-weight: 500;
+      transition: background var(--transition-fast), color var(--transition-fast);
+
+      &:hover { background: var(--color-bg-muted); color: var(--color-text-primary); }
+      &.active { background: var(--color-primary); color: var(--color-on-primary); }
+    }
+  }
+
+  &__footer {
+    display: flex; align-items: center; gap: .5rem;
+    padding: .85rem 1rem; border-top: 1px solid var(--color-border);
+
+    .user { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+    .user strong { font-size: .85rem; color: var(--color-text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .user span   { font-size: .7rem; color: var(--color-text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .logout {
+      background: transparent; border: 1px solid var(--color-border);
+      border-radius: var(--radius-md); width: 36px; height: 36px;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--color-text-secondary); cursor: pointer;
+      &:hover { color: var(--color-error); border-color: var(--color-error); }
+    }
+  }
+}
+
+@media (max-width: 768px) {
+  .sidebar {
+    width: 64px;
+    &__brand div, &__nav a span, &__footer .user { display: none; }
+    &__brand { justify-content: center; padding: 0 0 1rem; }
+    &__nav a { justify-content: center; padding: .65rem; }
+    &__footer { justify-content: center; }
+  }
+}

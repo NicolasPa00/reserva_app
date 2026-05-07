@@ -1,0 +1,122 @@
+<reserva-modal [open]="open" title="Nueva cita" size="lg" (close)="cerrar()">
+  @if (cargandoCatalogo()) {
+    <p class="hint">Cargando catálogo…</p>
+  } @else {
+    <div class="cf">
+      <!-- Paso 1: profesional + servicios -->
+      <div class="cf__row">
+        <label class="block">
+          <span>Profesional *</span>
+          <select class="select"
+                  [value]="idProfesional() == null ? '' : idProfesional()"
+                  (change)="setProfesional($any($event.target).value)">
+            <option value="">— Selecciona —</option>
+            @for (p of profesionales(); track p.id_profesional) {
+              <option [value]="p.id_profesional">{{ p.nombre }}</option>
+            }
+          </select>
+        </label>
+        <label class="block">
+          <span>Fecha *</span>
+          <input class="input" type="date"
+                 [value]="fecha()"
+                 (change)="setFecha($any($event.target).value)" />
+        </label>
+      </div>
+
+      <div class="block">
+        <span class="lab">Servicios *</span>
+        @if (idProfesional() == null) {
+          <p class="hint">Selecciona un profesional primero.</p>
+        } @else if (serviciosOfrecidos().length === 0) {
+          <p class="hint">Este profesional no tiene servicios asignados.</p>
+        } @else {
+          <div class="chips">
+            @for (s of serviciosOfrecidos(); track s.id_servicio) {
+              <button type="button" class="chip"
+                      [class.chip--on]="idServicios().has(s.id_servicio)"
+                      (click)="toggleServicio(s.id_servicio)">
+                {{ s.nombre }}
+                <em>{{ s.duracion_min }}min · {{ s.precio | currency:'COP':'symbol':'1.0-0' }}</em>
+              </button>
+            }
+          </div>
+        }
+      </div>
+
+      @if (idServicios().size > 0) {
+        <div class="resumen">
+          <span><strong>{{ duracionTotal() }} min</strong> de duración total</span>
+          <span><strong>{{ montoTotal() | currency:'COP':'symbol':'1.0-0' }}</strong> · {{ idServicios().size }} servicio(s)</span>
+        </div>
+      }
+
+      <!-- Paso 2: slots -->
+      <div class="block">
+        <div class="bar">
+          <span class="lab">Hora *</span>
+          <button type="button" class="btn btn-outline" (click)="buscarSlots()" [disabled]="!listoParaSlots() || buscandoSlots()">
+            <lucide-icon name="search" [size]="14" />
+            @if (buscandoSlots()) { Buscando… } @else { Buscar slots disponibles }
+          </button>
+        </div>
+
+        @if (slots().length === 0 && !buscandoSlots()) {
+          <p class="hint">Selecciona profesional, servicios y fecha, luego busca los horarios.</p>
+        } @else if (slots().length === 0) {
+          <p class="hint">Sin horarios disponibles ese día.</p>
+        } @else {
+          <div class="slots">
+            @for (s of slots(); track s.hora) {
+              <button type="button" class="slot"
+                      [class.slot--on]="slotElegido() === s.hora"
+                      [class.slot--off]="!s.disponible"
+                      [disabled]="!s.disponible"
+                      (click)="elegirSlot(s)">
+                {{ s.hora }}
+              </button>
+            }
+          </div>
+        }
+      </div>
+
+      <!-- Paso 3: cliente -->
+      <div class="block">
+        <span class="lab">Datos del cliente</span>
+        <div class="cf__row">
+          <label class="block">
+            <span>Nombre *</span>
+            <input class="input" type="text"
+                   [value]="cliente().nombre"
+                   (input)="setCliente('nombre', $any($event.target).value)" />
+          </label>
+          <label class="block">
+            <span>Teléfono</span>
+            <input class="input" type="tel"
+                   [value]="cliente().telefono"
+                   (input)="setCliente('telefono', $any($event.target).value)" />
+          </label>
+        </div>
+        <label class="block">
+          <span>Email</span>
+          <input class="input" type="email"
+                 [value]="cliente().email"
+                 (input)="setCliente('email', $any($event.target).value)" />
+        </label>
+        <label class="block">
+          <span>Notas</span>
+          <textarea class="textarea" rows="2"
+                    [value]="cliente().notas"
+                    (input)="setCliente('notas', $any($event.target).value)"></textarea>
+        </label>
+      </div>
+    </div>
+  }
+
+  <div modal-footer style="display:flex; gap:.5rem;">
+    <button type="button" class="btn btn-outline" (click)="cerrar()" [disabled]="enviando()">Cancelar</button>
+    <button type="button" class="btn btn-primary" (click)="crear()" [disabled]="!listoParaCrear() || enviando()">
+      @if (enviando()) { Creando… } @else { Crear cita }
+    </button>
+  </div>
+</reserva-modal>
