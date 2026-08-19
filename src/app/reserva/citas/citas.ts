@@ -140,25 +140,39 @@ export class CitasComponent implements OnInit {
   cerrarDetalle() { this.modalDetalle.set(false); this.citaDetalle.set(null); }
 
   // ── Acciones ──
+
+  /**
+   * Mensaje de un rechazo del backend.
+   *
+   * El dominio de reserva rechaza transiciones inválidas con un 409 y una explicación
+   * concreta («una cita cancelada ya está cerrada»). Antes esto caía en un `error:` que
+   * mostraba un texto fijo y tiraba la explicación, así que el usuario veía «Error al
+   * confirmar» sin saber por qué. Si el backend se molesta en decir qué pasa, se muestra.
+   */
+  private motivoRechazo_(err: unknown, porDefecto: string): string {
+    const e = err as { error?: { message?: string } };
+    return e?.error?.message || porDefecto;
+  }
+
   confirmar(c: Cita) {
     this.api.confirmarCita(c.id_cita, this.idNegocio()).subscribe({
       next: r => { if (r?.success) { this.toast.success('Cita confirmada'); this.recargar(); }
                    else this.toast.error(r?.message || 'Error.'); },
-      error: () => this.toast.error('Error al confirmar.'),
+      error: err => { this.toast.error(this.motivoRechazo_(err, 'Error al confirmar.')); this.recargar(); },
     });
   }
   completar(c: Cita) {
     this.api.completarCita(c.id_cita, this.idNegocio()).subscribe({
       next: r => { if (r?.success) { this.toast.success('Cita completada'); this.recargar(); }
                    else this.toast.error(r?.message || 'Error.'); },
-      error: () => this.toast.error('Error al completar.'),
+      error: err => { this.toast.error(this.motivoRechazo_(err, 'Error al completar.')); this.recargar(); },
     });
   }
   noShow(c: Cita) {
     this.api.noShowCita(c.id_cita, this.idNegocio()).subscribe({
       next: r => { if (r?.success) { this.toast.warning('Marcada como no-show'); this.recargar(); }
                    else this.toast.error(r?.message || 'Error.'); },
-      error: () => this.toast.error('Error al marcar.'),
+      error: err => { this.toast.error(this.motivoRechazo_(err, 'Error al marcar.')); this.recargar(); },
     });
   }
   pedirCancelar(c: Cita) {
@@ -174,7 +188,10 @@ export class CitasComponent implements OnInit {
         else this.toast.error(r?.message || 'Error.');
         this.confirmAbierto.set(false); this.citaACancelar.set(null);
       },
-      error: () => { this.toast.error('Error al cancelar.'); this.confirmAbierto.set(false); },
+      error: err => {
+        this.toast.error(this.motivoRechazo_(err, 'Error al cancelar.'));
+        this.confirmAbierto.set(false); this.citaACancelar.set(null); this.recargar();
+      },
     });
   }
 
