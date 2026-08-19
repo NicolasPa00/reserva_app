@@ -103,11 +103,23 @@ export interface Bloqueo {
   motivo: string | null;
 }
 
+/**
+ * Un servicio dentro de una cita, tal y como lo devuelve el backend.
+ *
+ * Antes esta interfaz declaraba `{ nombre, precio, duracion_min }` — la forma del *catálogo* de
+ * servicios, no la de una cita— y las plantillas pintaban esos campos: el nombre salía vacío y la
+ * duración era un «min» suelto sin número. TypeScript no lo vio porque la respuesta HTTP se
+ * declara con un tipo, no se valida contra él.
+ *
+ * Los nombres con `_snapshot` no son un capricho del backend: son el precio y la duración **del
+ * momento en que se reservó**, congelados a propósito para que subir la tarifa mañana no reescriba
+ * lo que ya se cobró. Por eso se refleja la forma real aquí en vez de aplanarla en el servidor.
+ */
 export interface CitaServicioDetalle {
   id_servicio: number;
-  nombre: string;
-  precio: number;
-  duracion_min: number;
+  precio_snapshot: number | string;
+  duracion_snapshot_min: number;
+  servicio?: { id_servicio: number; nombre: string };
 }
 
 export interface Cita {

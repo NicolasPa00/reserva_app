@@ -64,7 +64,7 @@
                 </span>
                 <span class="cal__svc">
                   @for (s of pos.cita.servicios || []; track s.id_servicio) {
-                    {{ s.nombre }}@if (!$last) {, }
+                    {{ s.servicio?.nombre }}@if (!$last) {, }
                   }
                 </span>
                 <span class="badge" [class]="estadoBadge(pos.cita)" style="position:absolute; top:4px; right:4px;">

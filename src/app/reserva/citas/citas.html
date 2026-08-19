@@ -72,7 +72,7 @@
             <strong>{{ c.cliente_nombre }}</strong>
             <span class="row__svc">
               @for (s of c.servicios || []; track s.id_servicio) {
-                {{ s.nombre }}@if (!$last) {, }
+                {{ s.servicio?.nombre }}@if (!$last) {, }
               }
             </span>
             <span class="row__pro">
@@ -130,9 +130,9 @@
       <ul class="srv">
         @for (s of citaDetalle()!.servicios || []; track s.id_servicio) {
           <li>
-            <span>{{ s.nombre }}</span>
-            <em>{{ s.duracion_min }}min</em>
-            <strong>{{ s.precio | currency:'COP':'symbol':'1.0-0' }}</strong>
+            <span>{{ s.servicio?.nombre }}</span>
+            <em>{{ s.duracion_snapshot_min }}min</em>
+            <strong>{{ s.precio_snapshot | currency:'COP':'symbol':'1.0-0' }}</strong>
           </li>
         }
       </ul>
