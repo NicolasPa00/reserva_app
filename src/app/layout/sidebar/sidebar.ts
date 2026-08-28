@@ -3,7 +3,6 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
 
 import { AuthService } from '../../core/services/auth.service';
-import { ThemeService } from '../../core/theme/theme.service';
 
 interface NavItem {
   icon: string; label: string; route: string;
@@ -19,7 +18,6 @@ interface NavItem {
 })
 export class SidebarComponent {
   readonly auth = inject(AuthService);
-  readonly theme = inject(ThemeService);
 
   readonly items: NavItem[] = [
     { icon: 'layout-dashboard',  label: 'Dashboard',     route: '/dashboard' },
@@ -36,5 +34,4 @@ export class SidebarComponent {
   );
 
   logout(): void { this.auth.logout(); }
-  toggleTheme(): void { this.theme.toggle(); }
 }

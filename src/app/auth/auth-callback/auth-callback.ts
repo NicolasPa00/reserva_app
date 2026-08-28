@@ -32,7 +32,7 @@ import { ThemeService } from '../../core/theme/theme.service';
       max-width: 360px; width: 100%; }
     h2 { margin: 0; font-size: 1.1rem; }
     p { margin: 0; color: var(--color-text-muted); font-size: .9rem; }
-    .callback__icon--error { width: 44px; height: 44px; border-radius: 50%; background: #ef4444; color: #fff;
+    .callback__icon--error { width: 44px; height: 44px; border-radius: 50%; background: var(--color-error); color: #fff;
       font-size: 1.25rem; display: flex; align-items: center; justify-content: center; font-weight: 700; }
     .callback__spinner { width: 40px; height: 40px; border: 4px solid var(--color-border);
       border-top-color: var(--color-primary); border-radius: 50%; animation: spin .8s linear infinite; }

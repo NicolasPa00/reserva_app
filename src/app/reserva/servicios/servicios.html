@@ -30,7 +30,7 @@
     <div class="grid">
       @for (s of serviciosFiltrados(); track s.id_servicio) {
         <article class="card servicio" [class.servicio--inactivo]="s.estado === 'I'">
-          <header class="servicio__head" [style.background]="s.color_hex || '#1565c0'">
+          <header class="servicio__head" [style.background]="s.color_hex || 'var(--color-primary)'">
             <lucide-icon name="scissors" [size]="20" />
             @if (s.estado === 'I') { <span class="badge b-off">Inactivo</span> }
           </header>

@@ -28,7 +28,7 @@ import { Servicio } from '../../../core/models';
         <div class="grid">
           @for (s of servicios(); track s.id_servicio) {
             <article class="card servicio">
-              <header [style.background]="s.color_hex || '#1565c0'">
+              <header [style.background]="s.color_hex || 'var(--color-primary)'">
                 <lucide-icon name="scissors" [size]="20" />
               </header>
               <div class="servicio__body">
