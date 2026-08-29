@@ -220,14 +220,36 @@ export class AuthService {
     }
   }
 
+  /**
+   * Manda el negocio que eligió el backend, no el que quedó guardado de la vez anterior.
+   *
+   * `data.negocio` viene de canjear el código SSO: el admin dice a qué negocio se entra y el
+   * backend lo resuelve. Preferir aquí el `localStorage` invertía esa decisión — se pulsaba
+   * «Barbería Don Nico» y se aterrizaba en el negocio de la visita pasada. El valor guardado
+   * sigue sirviendo, pero solo como respaldo para cuando no hay elección explícita (recargar la
+   * app directamente, sin pasar por el admin).
+   */
   private setSession(token: string, data: SesionReserva): void {
     this.session.set(data);
+
+    const elegido = data.negocio?.id_negocio ?? null;
+    const idxElegido = elegido !== null
+      ? (data.negocios?.findIndex(n => n.id_negocio === elegido) ?? -1)
+      : -1;
+
+    if (idxElegido >= 0) this._negocioIdx.set(idxElegido);
+
     if (isPlatformBrowser(this.platformId)) {
       localStorage.setItem(TOKEN_KEY, token);
       localStorage.setItem(SESSION_KEY, JSON.stringify(data));
-      const saved = localStorage.getItem(NEGOCIO_KEY);
-      if (saved) {
-        const idx = data.negocios?.findIndex(n => n.id_negocio === Number(saved)) ?? -1;
+
+      if (idxElegido >= 0) {
+        localStorage.setItem(NEGOCIO_KEY, String(elegido));
+      } else {
+        const saved = localStorage.getItem(NEGOCIO_KEY);
+        const idx = saved
+          ? (data.negocios?.findIndex(n => n.id_negocio === Number(saved)) ?? -1)
+          : -1;
         if (idx >= 0) this._negocioIdx.set(idx);
       }
     }
