@@ -25,6 +25,22 @@ export interface PermisoVista {
   puede_eliminar: boolean;
 }
 
+/**
+ * Permiso de una **acción concreta** dentro de una vista.
+ *
+ * El `codigo` sale de la url del subnivel (`/citas/cancelar` → `citas_cancelar`) y es lo que se
+ * consulta con `auth.puedeAccion(...)`. Existe porque «ve la vista o no la ve» no alcanza: la
+ * recepcionista debe poder agendar y no cancelar, y con un solo interruptor hay que elegir entre
+ * darle Citas entera o quitársela.
+ */
+export interface PermisoSubnivel {
+  id_nivel: number;
+  codigo: string;
+  accion: string;
+  id_nivel_padre: number | null;
+  puede_ver: boolean;
+}
+
 export interface PaletaColor {
   id_paleta: number;
   nombre: string;
@@ -38,7 +54,9 @@ export interface NegocioReserva {
   paleta: PaletaColor | null;
   roles: { id_rol: number; descripcion: string }[];
   permisos_vista: PermisoVista[];
-  permisos_subnivel: unknown[];
+  permisos_subnivel: PermisoSubnivel[];
+  /** Opcional: las sesiones guardadas antes de que el backend lo enviara no lo traen. */
+  plan_activo?: boolean;
 }
 
 export interface SesionReserva {
@@ -48,6 +66,8 @@ export interface SesionReserva {
   negocio: NegocioReserva | null;
   roles: { id_rol: number; descripcion: string }[];
   permisos_vista?: PermisoVista[];
+  /** Respaldo de la raíz; la fuente buena es el `permisos_subnivel` del negocio activo. */
+  permisos_subnivel?: PermisoSubnivel[];
   roles_globales: { id_rol: number; descripcion: string }[];
   plan_activo?: boolean;
 }
@@ -141,6 +161,11 @@ export interface Cita {
   pago_rechazo_motivo?: string | null;
   cancelado_por?: 'cliente' | 'negocio' | null;
   cancelado_motivo?: string | null;
+  /** Cobro en mostrador. En multipago queda null y el detalle vive en `pagos`. */
+  id_metodo_pago?: number | null;
+  id_caja?: number | null;
+  metodoPago?: { id_metodo_pago: number; nombre: string } | null;
+  pagos?: { id_pago: number; id_metodo_pago: number; valor: number | string; metodoPago?: { nombre: string } }[];
   profesional?: Pick<Profesional, 'id_profesional' | 'nombre' | 'foto_url' | 'color_hex' | 'especialidad'>;
   servicios?: CitaServicioDetalle[];
   negocio?: { id_negocio: number; nombre: string };
@@ -154,6 +179,182 @@ export interface ConfigReserva {
   paso_slot_min: number;
   cobro_adelantado: boolean;
   instrucciones_pago: string | null;
+  /** Liga cada cobro al profesional que prestó el servicio, para liquidarle al cerrar caja. */
+  permite_cobro_profesional: boolean;
+  /** Permite saldar una cita con varias formas de pago a la vez. */
+  permite_multipago: boolean;
+  /** Impide completar una cita si no hay turno de caja abierto. */
+  exige_caja_abierta: boolean;
+}
+
+// ────────────────────── Usuarios y permisos ──────────────────────
+
+export interface RolReserva {
+  id_rol: number;
+  descripcion: string;
+  id_tipo_negocio: number | null;
+}
+
+export interface UsuarioNegocio {
+  id_usuario: number;
+  nombre_completo: string;
+  primer_nombre: string;
+  segundo_nombre: string | null;
+  primer_apellido: string;
+  segundo_apellido: string | null;
+  num_identificacion: string;
+  email: string;
+  telefono: string | null;
+  estado: 'A' | 'I';
+  fecha_creacion: string;
+  es_admin_principal: boolean;
+  debe_cambiar_password: boolean;
+  rol: { id_usuario_rol: number; id_rol: number; descripcion: string | null } | null;
+  /** Ficha de agenda, cuando el usuario es un profesional que atiende citas. */
+  profesional: { id_profesional: number; nombre: string; estado: 'A' | 'I' } | null;
+}
+
+/**
+ * Una vista dentro de la matriz de permisos de un rol.
+ *
+ * `plantilla` es lo que el rol permite a nivel de plataforma (solo informativo: cambiarlo
+ * afectaría a todos los negocios del vertical) y `puede_ver` es lo que este negocio concede,
+ * que es lo único editable desde aquí.
+ */
+export interface AccionRol {
+  id_nivel: number;
+  codigo: string;
+  accion: string;
+  url: string;
+  /** La plantilla del rol es el techo: si es `false`, la acción no se puede conceder aquí. */
+  en_plantilla: boolean;
+  puede_ver: boolean;
+}
+
+export interface PermisoModuloRol {
+  id_nivel: number;
+  modulo: string;
+  url: string | null;
+  icono: string | null;
+  plantilla: {
+    puede_ver: boolean;
+    puede_crear: boolean;
+    puede_editar: boolean;
+    puede_eliminar: boolean;
+  };
+  puede_ver: boolean;
+  /** Operaciones que se pueden conceder o quitar dentro de esta vista. */
+  acciones: AccionRol[];
+}
+
+export interface PermisosRol {
+  id_rol: number;
+  descripcion: string;
+  /** Sin ajustes propios el negocio hereda la plantilla; se avisa para que se entienda. */
+  hereda_plantilla: boolean;
+  modulos: PermisoModuloRol[];
+}
+
+export interface UsuarioPayload {
+  primer_nombre: string;
+  segundo_nombre?: string | null;
+  primer_apellido: string;
+  segundo_apellido?: string | null;
+  num_identificacion: string;
+  email: string;
+  telefono?: string | null;
+  id_rol: number;
+  password?: string | null;
+  /** Al crear un PROFESIONAL: enlazar una ficha existente en vez de crear otra. */
+  id_profesional?: number | null;
+  especialidad?: string | null;
+}
+
+// ────────────────────── Caja y formas de pago ──────────────────────
+
+export interface MetodoPago {
+  id_metodo_pago: number;
+  id_negocio: number;
+  nombre: string;
+  orden: number;
+  estado: 'A' | 'I';
+}
+
+/** Una línea del desglose multipago. En pago simple no se usa. */
+export interface PagoLinea {
+  id_metodo_pago: number;
+  valor: number;
+}
+
+export interface MovimientoCaja {
+  id_movimiento: number;
+  id_caja: number;
+  tipo: 'INGRESO' | 'EGRESO';
+  monto: number | string;
+  concepto: string | null;
+  fecha: string;
+  cita?: { id_cita: number; cliente_nombre: string } | null;
+  profesional?: { id_profesional: number; nombre: string; color_hex: string | null } | null;
+  metodoPago?: { id_metodo_pago: number; nombre: string } | null;
+  usuario?: { id_usuario: number; primer_nombre: string; primer_apellido: string } | null;
+}
+
+export interface CajaTotales {
+  apertura: number;
+  ingresos: number;
+  egresos: number;
+  esperado: number;
+  movimientos: number;
+}
+
+export interface DesgloseMetodo {
+  id_metodo_pago: number | null;
+  nombre: string;
+  total: number;
+  movimientos: number;
+}
+
+/** Lo que hay que liquidarle a cada profesional al cerrar el turno. */
+export interface DesgloseProfesional {
+  id_profesional: number;
+  nombre: string;
+  color_hex: string | null;
+  especialidad: string | null;
+  total: number;
+  citas: number;
+  efectivo: number;
+  otros: number;
+}
+
+export interface EstadoCaja {
+  abierta: boolean;
+  caja: {
+    id_caja: number;
+    monto_apertura: number;
+    fecha_apertura: string;
+    observaciones: string | null;
+    usuario: { id_usuario: number; nombre: string } | null;
+  } | null;
+  totales?: CajaTotales;
+  permite_cobro_profesional?: boolean;
+  por_metodo?: DesgloseMetodo[];
+  por_profesional?: DesgloseProfesional[];
+  movimientos?: MovimientoCaja[];
+}
+
+export interface CajaHistorial {
+  id_caja: number;
+  monto_apertura: number;
+  monto_cierre: number | null;
+  monto_reportado: number | null;
+  diferencia: number | null;
+  fecha_apertura: string;
+  fecha_cierre: string | null;
+  observaciones: string | null;
+  usuario: string | null;
+  ingresos: number;
+  egresos: number;
+  movimientos: number;
 }
 
 export interface Slot {
@@ -170,6 +371,75 @@ export interface DisponibilidadResponse {
   slots: Slot[];
 }
 
+// ────────────────────── Informes ──────────────────────
+
+/**
+ * Dos criterios distintos conviven a propósito y conviene no confundirlos al pintarlos:
+ * `ingresos` cuenta citas confirmadas **y** completadas (dinero comprometido, el mismo criterio
+ * del dashboard), mientras que todo lo «realizado» cuenta solo las completadas.
+ */
+export interface InformeTotales {
+  citas_totales: number;
+  citas_activas: number;
+  completadas: number;
+  confirmadas: number;
+  pendientes: number;
+  canceladas: number;
+  no_show: number;
+  pagos_por_validar: number;
+  ingresos: number;
+  ingresos_completados: number;
+  servicios_realizados: number;
+  minutos_realizados: number;
+  clientes_unicos: number;
+  ticket_promedio: number;
+  tasa_cancelacion: number;
+  tasa_no_show: number;
+}
+
+export interface InformeDia {
+  fecha: string;
+  citas: number;
+  completadas: number;
+  canceladas: number;
+  ingresos: number;
+}
+
+export interface InformeProfesional {
+  id_profesional: number;
+  nombre: string;
+  especialidad: string | null;
+  color_hex: string | null;
+  citas: number;
+  completadas: number;
+  canceladas: number;
+  no_show: number;
+  servicios: number;
+  ingresos: number;
+  minutos: number;
+  ticket_promedio: number;
+}
+
+export interface InformeServicio {
+  id_servicio: number;
+  nombre: string;
+  veces: number;
+  completados: number;
+  ingresos: number;
+  minutos: number;
+}
+
+export interface Informe {
+  rango: { desde: string; hasta: string; dias: number };
+  totales: InformeTotales;
+  serie_dia: InformeDia[];
+  por_profesional: InformeProfesional[];
+  por_servicio: InformeServicio[];
+  por_estado: { estado: EstadoCita; citas: number; monto: number }[];
+  por_hora: { hora: number; citas: number }[];
+  top_clientes: { nombre: string; telefono: string | null; citas: number; ingresos: number; ultima: string }[];
+}
+
 export interface InfoNegocioPublico {
   id_negocio: number;
   nombre: string;
@@ -181,7 +451,39 @@ export interface InfoNegocioPublico {
   ventana_cancelacion_horas: number;
 }
 
+/**
+ * Un día del calendario y si el negocio (o un profesional) atiende en él.
+ *
+ * Lo calcula el backend con la misma primitiva que decide qué se puede reservar
+ * (`reglasAgenda.intervalosLaborales`), así que «abierto» aquí significa exactamente lo mismo
+ * que al crear la cita. Reimplementar la regla en el cliente a partir de `Horario[]` habría
+ * sido una tercera copia de algo que ya divergió dos veces.
+ */
+export interface DiaDisponible {
+  fecha: string;                 // YYYY-MM-DD
+  abierto: boolean;
+  minutos: number;
+  rangos: { inicio: string; fin: string }[];
+}
+
+/** Cita de hoy tal y como la resume el dashboard: lo justo para reconocerla de un vistazo. */
+export interface CitaResumen {
+  id_cita: number;
+  fecha_hora_inicio: string;
+  fecha_hora_fin: string;
+  estado: EstadoCita;
+  cliente_nombre: string;
+  cliente_telefono: string | null;
+  monto_total: number;
+  pago_estado: PagoEstado;
+  requiere_pago: boolean;
+  profesional: { id_profesional: number; nombre: string; color_hex: string | null } | null;
+  servicios: string[];
+}
+
 export interface ResumenDashboard {
+  fecha: string;
+
   citas_hoy: number;
   citas_confirmadas: number;
   citas_pendientes: number;
@@ -189,4 +491,25 @@ export interface ResumenDashboard {
   total_servicios: number;
   total_profesionales: number;
   pagos_pendientes_validacion: number;
+
+  citas_completadas_hoy: number;
+  citas_canceladas_hoy: number;
+
+  /** `porcentaje` es `null` cuando no hay horario configurado: «no sé» ≠ «vacío». */
+  ocupacion_hoy: {
+    minutos_disponibles: number;
+    minutos_ocupados: number;
+    porcentaje: number | null;
+  };
+
+  semana: {
+    citas: number;
+    completadas: number;
+    canceladas: number;
+    no_show: number;
+    ingresos: number;
+  };
+
+  agenda_hoy: CitaResumen[];
+  top_servicios: { id_servicio: number; nombre: string; citas: number; ingresos: number }[];
 }

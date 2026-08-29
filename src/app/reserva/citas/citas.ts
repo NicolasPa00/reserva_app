@@ -7,34 +7,24 @@ import { ReservaApiService } from '../../core/services/reserva-api.service';
 import { ToastService } from '../../core/services/toast.service';
 import { EventBusService } from '../../core/services/event-bus.service';
 import { environment } from '../../../environments/environment';
-import { Cita, EstadoCita, PagoEstado, Profesional } from '../../core/models';
+import { Cita, EstadoCita, MetodoPago, PagoEstado, Profesional } from '../../core/models';
+import { CobroDialogComponent } from '../../shared/cobro-dialog/cobro-dialog';
 import { ModalComponent } from '../../shared/modal/modal';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dialog';
 import { CitaFormComponent } from './cita-form/cita-form';
+import {
+  CitaDetalleComponent, ESTADO_LABELS, PAGO_LABELS, badgeEstado,
+} from '../../shared/cita-detalle/cita-detalle';
 
 type Tab = 'todas' | 'pagos';
-
-const ESTADO_LABELS: Record<EstadoCita, string> = {
-  pendiente: 'Pendiente',
-  confirmada: 'Confirmada',
-  completada: 'Completada',
-  cancelada: 'Cancelada',
-  no_show: 'No se presentó',
-};
-
-const PAGO_LABELS: Record<PagoEstado, string> = {
-  no_aplica: 'No aplica',
-  pendiente_validacion: 'Por validar',
-  aprobado: 'Aprobado',
-  rechazado: 'Rechazado',
-};
 
 @Component({
   selector: 'reserva-citas',
   standalone: true,
   imports: [
     CommonModule, LucideAngularModule, CurrencyPipe, DatePipe,
-    ModalComponent, ConfirmDialogComponent, CitaFormComponent,
+    ModalComponent, ConfirmDialogComponent, CitaFormComponent, CitaDetalleComponent,
+    CobroDialogComponent,
   ],
   templateUrl: './citas.html',
   styleUrl: './citas.scss',
@@ -74,10 +64,26 @@ export class CitasComponent implements OnInit {
   readonly citaACancelar = signal<Cita | null>(null);
   readonly motivoCancel = signal('');
 
+  // cobro
+  readonly citaACobrar = signal<Cita | null>(null);
+  readonly metodosPago = signal<MetodoPago[]>([]);
+  readonly permiteMultipago = signal(false);
+  readonly exigeCaja = signal(false);
+  readonly cajaAbierta = signal(true);
+
   readonly idNegocio = computed(() => this.auth.negocio()?.id_negocio ?? 0);
 
   readonly puedeCrear  = computed(() => this.permiso()?.puede_crear ?? true);
   readonly puedeEditar = computed(() => this.permiso()?.puede_editar ?? true);
+
+  // Permisos por acción: el rol puede ver Citas y aun así no poder cancelar. Esconder el botón
+  // es cortesía; el backend lo vuelve a comprobar en las rutas que mueven dinero.
+  readonly puedeConfirmar   = computed(() => this.auth.puedeAccion('citas_confirmar'));
+  readonly puedeCompletar   = computed(() => this.auth.puedeAccion('citas_completar'));
+  readonly puedeCancelar    = computed(() => this.auth.puedeAccion('citas_cancelar'));
+  readonly puedeNoShow      = computed(() => this.auth.puedeAccion('citas_no_show'));
+  readonly puedeValidarPago = computed(() => this.auth.puedeAccion('citas_validar_pago'));
+  readonly puedeAgendar     = computed(() => this.puedeCrear() && this.auth.puedeAccion('citas_crear'));
 
   private permiso() {
     return this.auth.permisosVistaActivos().find(p => p.url === '/citas') ?? null;
@@ -92,9 +98,34 @@ export class CitasComponent implements OnInit {
     this.hasta.set(this.toISODate(fin));
 
     this.cargarProfesionales();
+    this.cargarContextoCobro();
     this.recargar();
 
     this.bus.on<Cita>('cita_creada').subscribe(() => this.recargar());
+  }
+
+  /**
+   * Formas de pago, flags y estado de la caja: lo que el diálogo de cobro necesita saber.
+   * Se pide una vez al entrar, no en cada cobro — son datos de configuración, no de la cita.
+   */
+  private cargarContextoCobro() {
+    const id = this.idNegocio();
+    if (!id) return;
+    this.api.listarMetodosPago(id).subscribe({
+      next: r => { if (r?.success && r.data) this.metodosPago.set(r.data); },
+    });
+    this.api.getConfig(id).subscribe({
+      next: r => {
+        if (r?.success && r.data) {
+          this.permiteMultipago.set(!!r.data.permite_multipago);
+          this.exigeCaja.set(!!r.data.exige_caja_abierta);
+        }
+      },
+    });
+    this.api.getCaja(id).subscribe({
+      next: r => this.cajaAbierta.set(r?.data?.abierta === true),
+      error: () => this.cajaAbierta.set(false),
+    });
   }
 
   private cargarProfesionales() {
@@ -161,12 +192,18 @@ export class CitasComponent implements OnInit {
       error: err => { this.toast.error(this.motivoRechazo_(err, 'Error al confirmar.')); this.recargar(); },
     });
   }
+  /**
+   * Completar pasa por el diálogo de cobro: ya no es un cambio de estado, es registrar dinero.
+   * El diálogo pide la forma de pago y el backend lo asienta en la caja abierta.
+   */
   completar(c: Cita) {
-    this.api.completarCita(c.id_cita, this.idNegocio()).subscribe({
-      next: r => { if (r?.success) { this.toast.success('Cita completada'); this.recargar(); }
-                   else this.toast.error(r?.message || 'Error.'); },
-      error: err => { this.toast.error(this.motivoRechazo_(err, 'Error al completar.')); this.recargar(); },
-    });
+    this.citaACobrar.set(c);
+  }
+
+  onCobrada() {
+    this.citaACobrar.set(null);
+    this.recargar();
+    this.bus.publish('cita_cobrada', null);
   }
   noShow(c: Cita) {
     this.api.noShowCita(c.id_cita, this.idNegocio()).subscribe({
@@ -231,19 +268,11 @@ export class CitasComponent implements OnInit {
     });
   }
 
+  // Etiquetas y colores de estado viven en `shared/cita-detalle`, que es quien los pinta.
+  // Tenerlos aquí también significaba que renombrar un estado había que hacerlo en dos sitios.
   estadoLabel(e: EstadoCita): string { return ESTADO_LABELS[e] ?? e; }
   pagoLabel(e: PagoEstado): string   { return PAGO_LABELS[e] ?? e; }
-
-  badgeEstado(e: EstadoCita): string {
-    switch (e) {
-      case 'confirmada':  return 'b-ok';
-      case 'pendiente':   return 'b-warn';
-      case 'completada':  return 'b-info';
-      case 'cancelada':   return 'b-off';
-      case 'no_show':     return 'b-err';
-      default:            return 'b-off';
-    }
-  }
+  badgeEstado(e: EstadoCita): string { return badgeEstado(e); }
 
   private toISODate(d: Date): string {
     const y = d.getFullYear();

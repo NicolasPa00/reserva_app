@@ -1,0 +1,346 @@
+<section class="page informes">
+  <header class="page__head">
+    <div>
+      <h1>Informes</h1>
+      <p>Cómo va el negocio en el periodo que elijas.</p>
+    </div>
+  </header>
+
+  <!-- Filtros -->
+  <div class="card filtros">
+    <div class="filtros__presets">
+      <button type="button" class="pill" [class.pill--on]="preset() === 'hoy'"
+              (click)="aplicarPreset('hoy')">Hoy</button>
+      <button type="button" class="pill" [class.pill--on]="preset() === '7'"
+              (click)="aplicarPreset('7')">7 días</button>
+      <button type="button" class="pill" [class.pill--on]="preset() === '30'"
+              (click)="aplicarPreset('30')">30 días</button>
+      <button type="button" class="pill" [class.pill--on]="preset() === 'mes'"
+              (click)="aplicarPreset('mes')">Este mes</button>
+    </div>
+
+    <div class="filtros__campos">
+      <label class="campo">
+        <span>Desde</span>
+        <input class="input" type="date" [value]="desde()"
+               (change)="setFecha('desde', $any($event.target).value)" />
+      </label>
+      <label class="campo">
+        <span>Hasta</span>
+        <input class="input" type="date" [value]="hasta()"
+               (change)="setFecha('hasta', $any($event.target).value)" />
+      </label>
+      <label class="campo">
+        <span>Profesional</span>
+        <select class="select" [value]="idProfesional() == null ? '' : idProfesional()"
+                (change)="setProfesional($any($event.target).value)">
+          <option [value]="''">Todo el equipo</option>
+          @for (p of profesionales(); track p.id_profesional) {
+            <option [value]="p.id_profesional">{{ p.nombre }}</option>
+          }
+        </select>
+      </label>
+      <button type="button" class="btn btn-outline filtros__refrescar"
+              (click)="cargar()" [disabled]="cargando()" title="Actualizar">
+        <lucide-icon name="refresh-cw" [size]="15" />
+      </button>
+    </div>
+  </div>
+
+  @if (cargando() && !informe()) {
+    <div class="cards">
+      @for (i of [1,2,3,4,5,6,7,8]; track i) { <div class="kpi kpi--skeleton"></div> }
+    </div>
+  } @else if (error()) {
+    <div class="card estado-error">
+      <lucide-icon name="triangle-alert" [size]="18" />
+      <div>
+        <strong>{{ error() }}</strong>
+        <button type="button" class="btn btn-outline" (click)="cargar()">Reintentar</button>
+      </div>
+    </div>
+  } @else if (informe(); as inf) {
+
+    <p class="contexto">
+      <lucide-icon name="calendar-days" [size]="14" />
+      <strong>{{ rangoLabel() }}</strong>
+      <span>· {{ inf.rango.dias }} día(s) · {{ nombreProfesionalFiltro() }}</span>
+    </p>
+
+    @if (!hayDatos()) {
+      <div class="card vacio">
+        <lucide-icon name="chart-column" [size]="30" />
+        <strong>Sin citas en este periodo</strong>
+        <p>Prueba con un rango más amplio o quita el filtro por profesional.</p>
+      </div>
+    } @else {
+
+      <!-- KPIs -->
+      <div class="cards">
+        @for (k of kpis(); track k.label) {
+          <article class="kpi" [class]="'kpi--' + k.tono">
+            <div class="kpi__top">
+              <span class="kpi__icon"><lucide-icon [name]="k.icon" [size]="17" /></span>
+            </div>
+            <strong class="kpi__valor">{{ k.valor }}</strong>
+            <span class="kpi__label">{{ k.label }}</span>
+            <span class="kpi__detalle">{{ k.detalle }}</span>
+          </article>
+        }
+      </div>
+
+      <!-- Ingresos por día -->
+      <section class="card panel">
+        <header class="panel__head">
+          <div>
+            <h2>Ingresos por día</h2>
+            <p>Citas confirmadas y completadas. Pasa el cursor por una barra para el detalle.</p>
+          </div>
+          @if (mejorDia(); as m) {
+            <div class="panel__dato">
+              <span>Mejor día</span>
+              <strong>{{ m.fecha | date:'d MMM':'':'es-CO' }} · {{ moneda(m.ingresos) }}</strong>
+            </div>
+          }
+        </header>
+
+        <figure class="gr">
+          <svg [attr.viewBox]="'0 0 ' + vbAncho + ' ' + vbAlto" preserveAspectRatio="none"
+               role="img" aria-label="Ingresos por día del periodo">
+            <!-- Línea base: da suelo a las barras sin competir con ellas -->
+            <line [attr.x1]="0" [attr.x2]="vbAncho" [attr.y1]="ejeY" [attr.y2]="ejeY"
+                  class="gr__eje" />
+            @for (p of serie(); track p.dia.fecha) {
+              <rect [attr.x]="p.x" [attr.y]="p.y"
+                    [attr.width]="anchoBarra()" [attr.height]="p.alturaPx"
+                    rx="3"
+                    class="gr__barra" [class.gr__barra--finde]="p.esFinDeSemana">
+                <title>{{ tituloBarraDia(p) }}</title>
+              </rect>
+            }
+          </svg>
+          <div class="gr__eje-x">
+            @for (e of etiquetasEje(); track e.x) {
+              <span [style.left.%]="(e.x / vbAncho) * 100">{{ e.texto }}</span>
+            }
+          </div>
+          <figcaption>
+            Máximo del periodo: <strong>{{ moneda(maxIngresoDia()) }}</strong> en un día.
+            Las barras más claras son fines de semana.
+          </figcaption>
+        </figure>
+      </section>
+
+      <div class="split">
+        <!-- Por profesional -->
+        <section class="card panel">
+          <header class="panel__head">
+            <div>
+              <h2>Ingresos por profesional</h2>
+              <p>Ordenado de mayor a menor</p>
+            </div>
+          </header>
+          <ul class="ranking">
+            @for (p of inf.por_profesional; track p.id_profesional) {
+              <li>
+                <div class="ranking__fila">
+                  <span class="ranking__nombre">
+                    <i [style.background]="p.color_hex || 'var(--color-primary)'"></i>
+                    {{ p.nombre }}
+                  </span>
+                  <strong class="ranking__valor">{{ moneda(p.ingresos) }}</strong>
+                </div>
+                <div class="ranking__barra">
+                  <div [style.width.%]="(p.ingresos / maxIngresoPro()) * 100"></div>
+                </div>
+                <span class="ranking__pie">
+                  {{ p.citas }} cita(s) · {{ p.servicios }} servicio(s) ·
+                  ticket {{ moneda(p.ticket_promedio) }}
+                </span>
+              </li>
+            }
+          </ul>
+        </section>
+
+        <!-- Servicios más solicitados -->
+        <section class="card panel">
+          <header class="panel__head">
+            <div>
+              <h2>Servicios más solicitados</h2>
+              <p>Por número de veces reservado</p>
+            </div>
+          </header>
+          @if (inf.por_servicio.length === 0) {
+            <p class="hint">Sin servicios registrados en el periodo.</p>
+          } @else {
+            <ul class="ranking">
+              @for (s of inf.por_servicio; track s.id_servicio) {
+                <li>
+                  <div class="ranking__fila">
+                    <span class="ranking__nombre">{{ s.nombre }}</span>
+                    <strong class="ranking__valor">{{ s.veces }}×</strong>
+                  </div>
+                  <div class="ranking__barra">
+                    <div [style.width.%]="(s.veces / maxVecesServicio()) * 100"></div>
+                  </div>
+                  <span class="ranking__pie">
+                    {{ moneda(s.ingresos) }} · {{ horas(s.minutos) }} de trabajo
+                  </span>
+                </li>
+              }
+            </ul>
+          }
+        </section>
+      </div>
+
+      <div class="split">
+        <!-- Horas con más demanda -->
+        <section class="card panel">
+          <header class="panel__head">
+            <div>
+              <h2>Horas con más demanda</h2>
+              <p>Por hora de inicio de la cita</p>
+            </div>
+            @if (horaPico(); as h) {
+              <div class="panel__dato">
+                <span>Hora pico</span>
+                <strong>{{ hora12(h.hora) }}</strong>
+              </div>
+            }
+          </header>
+          @if (horasConActividad().length === 0) {
+            <p class="hint">Sin datos suficientes.</p>
+          } @else {
+            <div class="horas">
+              @for (h of horasConActividad(); track h.hora) {
+                <div class="horas__col" [title]="hora12(h.hora) + ' · ' + h.citas + ' cita(s)'">
+                  <span class="horas__n">{{ h.citas || '' }}</span>
+                  <div class="horas__barra">
+                    <div [style.height.%]="(h.citas / maxCitasHora()) * 100"></div>
+                  </div>
+                  <span class="horas__lab">{{ h.hora }}</span>
+                </div>
+              }
+            </div>
+            <p class="hint hint--pie">Eje en horas del día (formato 24 h por espacio).</p>
+          }
+        </section>
+
+        <!-- Estado de las citas -->
+        <section class="card panel">
+          <header class="panel__head">
+            <div>
+              <h2>Estado de las citas</h2>
+              <p>{{ inf.totales.citas_totales }} cita(s) en el periodo</p>
+            </div>
+          </header>
+          <ul class="estados">
+            @for (e of inf.por_estado; track e.estado) {
+              <li [class.estados--cero]="e.citas === 0">
+                <div class="estados__fila">
+                  <span class="badge" [class]="badgeEstado(e.estado)">{{ estadoLabel(e.estado) }}</span>
+                  <strong>{{ e.citas }}</strong>
+                  <em>{{ porcentaje(e.citas, totalEstados()) }}%</em>
+                </div>
+                <div class="estados__barra">
+                  <div [style.width.%]="porcentaje(e.citas, totalEstados())"></div>
+                </div>
+              </li>
+            }
+          </ul>
+        </section>
+      </div>
+
+      <!-- Detalle por profesional -->
+      <section class="card panel">
+        <header class="panel__head">
+          <div>
+            <h2>Detalle por profesional</h2>
+            <p>Todas las cifras del equipo en el periodo</p>
+          </div>
+        </header>
+        <div class="tabla-wrap">
+          <table class="tabla">
+            <thead>
+              <tr>
+                <th>Profesional</th>
+                <th class="num">Citas</th>
+                <th class="num">Completadas</th>
+                <th class="num">Canceladas</th>
+                <th class="num">No-show</th>
+                <th class="num">Servicios</th>
+                <th class="num">Tiempo</th>
+                <th class="num">Ticket</th>
+                <th class="num">Ingresos</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (p of inf.por_profesional; track p.id_profesional) {
+                <tr>
+                  <td>
+                    <span class="celda-pro">
+                      <i [style.background]="p.color_hex || 'var(--color-primary)'"></i>
+                      <span>
+                        <strong>{{ p.nombre }}</strong>
+                        @if (p.especialidad) { <em>{{ p.especialidad }}</em> }
+                      </span>
+                    </span>
+                  </td>
+                  <td class="num">{{ p.citas | number }}</td>
+                  <td class="num">{{ p.completadas | number }}</td>
+                  <td class="num">{{ p.canceladas | number }}</td>
+                  <td class="num">{{ p.no_show | number }}</td>
+                  <td class="num">{{ p.servicios | number }}</td>
+                  <td class="num">{{ horas(p.minutos) }}</td>
+                  <td class="num">{{ moneda(p.ticket_promedio) }}</td>
+                  <td class="num destacado">{{ moneda(p.ingresos) }}</td>
+                </tr>
+              }
+            </tbody>
+            <tfoot>
+              <tr>
+                <td>Total</td>
+                <td class="num">{{ inf.totales.citas_activas | number }}</td>
+                <td class="num">{{ inf.totales.completadas | number }}</td>
+                <td class="num">{{ inf.totales.canceladas | number }}</td>
+                <td class="num">{{ inf.totales.no_show | number }}</td>
+                <td class="num">{{ inf.totales.servicios_realizados | number }}</td>
+                <td class="num">{{ horas(inf.totales.minutos_realizados) }}</td>
+                <td class="num">{{ moneda(inf.totales.ticket_promedio) }}</td>
+                <td class="num destacado">{{ moneda(inf.totales.ingresos) }}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </section>
+
+      <!-- Mejores clientes -->
+      @if (inf.top_clientes.length > 0) {
+        <section class="card panel">
+          <header class="panel__head">
+            <div>
+              <h2>Clientes que más aportan</h2>
+              <p>Por ingresos en el periodo</p>
+            </div>
+          </header>
+          <ul class="clientes">
+            @for (c of inf.top_clientes; track c.nombre) {
+              <li>
+                <span class="clientes__pos">{{ $index + 1 }}</span>
+                <div class="clientes__txt">
+                  <strong>{{ c.nombre }}</strong>
+                  <span>
+                    {{ c.citas }} visita(s)
+                    @if (c.telefono) { · {{ c.telefono }} }
+                    · última {{ c.ultima | date:'d MMM':'':'es-CO' }}
+                  </span>
+                </div>
+                <strong class="clientes__monto">{{ moneda(c.ingresos) }}</strong>
+              </li>
+            }
+          </ul>
+        </section>
+      }
+    }
+  }
+</section>

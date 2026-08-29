@@ -1,4 +1,6 @@
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy, Component, OnDestroy, OnInit, computed, inject, signal,
+} from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { LucideAngularModule } from 'lucide-angular';
 import { forkJoin } from 'rxjs';
@@ -7,28 +9,54 @@ import { AuthService } from '../../core/services/auth.service';
 import { ReservaApiService } from '../../core/services/reserva-api.service';
 import { ToastService } from '../../core/services/toast.service';
 import { EventBusService } from '../../core/services/event-bus.service';
-import { Cita, Profesional } from '../../core/models';
+import { Cita, DiaDisponible, EstadoCita, MetodoPago, Profesional } from '../../core/models';
 import { CitaFormComponent } from '../citas/cita-form/cita-form';
+import { ModalComponent } from '../../shared/modal/modal';
+import { CobroDialogComponent } from '../../shared/cobro-dialog/cobro-dialog';
+import {
+  CitaDetalleComponent, ESTADO_LABELS, badgeEstado,
+} from '../../shared/cita-detalle/cita-detalle';
+
+/**
+ * Alto de una hora en píxeles.
+ *
+ * Eran 48 px, y ése era el origen del problema visual: una cita de 30 minutos ocupaba 22 px, en
+ * los que había que meter nombre, horas, servicios y una insignia de estado. No cabía, así que
+ * se pisaban unos a otros y el nombre del cliente quedaba tapado por la etiqueta. Con 88 px la
+ * media hora son 44 px —dos líneas de texto cómodas— y el cuarto de hora sigue siendo un
+ * escalón visible de 22 px, que es la resolución con la que se agenda de verdad.
+ */
+const PIXELS_POR_HORA = 88;
+const MINUTOS_SUBDIVISION = 15;
+const HORA_INICIO_FALLBACK = 8;
+const HORA_FIN_FALLBACK = 20;
 
 interface CitaPosicionada {
   cita: Cita;
   topPx: number;
   heightPx: number;
+  /** Columna dentro del grupo de citas solapadas, y cuántas columnas tiene el grupo. */
+  col: number;
+  cols: number;
+  /** Menos de 45 px: solo cabe una línea, así que se pinta en versión reducida. */
+  compacta: boolean;
+  duracionMin: number;
 }
 
-const PIXELS_POR_HORA = 48;
-const HORA_INICIO_DEFAULT = 8;
-const HORA_FIN_DEFAULT = 20;
+interface FranjaAbierta { topPx: number; heightPx: number; }
 
 @Component({
   selector: 'reserva-agenda',
   standalone: true,
-  imports: [CommonModule, LucideAngularModule, DatePipe, CitaFormComponent],
+  imports: [
+    CommonModule, LucideAngularModule, DatePipe,
+    CitaFormComponent, ModalComponent, CitaDetalleComponent, CobroDialogComponent,
+  ],
   templateUrl: './agenda.html',
   styleUrl: './agenda.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class AgendaComponent implements OnInit {
+export class AgendaComponent implements OnInit, OnDestroy {
   private readonly auth  = inject(AuthService);
   private readonly api   = inject(ReservaApiService);
   private readonly toast = inject(ToastService);
@@ -38,55 +66,147 @@ export class AgendaComponent implements OnInit {
   readonly citas = signal<Cita[]>([]);
   readonly cargando = signal(false);
 
-  readonly fechaActiva = signal<Date>(new Date());
+  /** Jornada laboral del día por profesional; lo que tiñe de gris lo que está fuera de horario. */
+  readonly diasPorPro = signal<Map<number, DiaDisponible>>(new Map());
 
-  readonly horaInicio = HORA_INICIO_DEFAULT;
-  readonly horaFin    = HORA_FIN_DEFAULT;
-  readonly pxPorHora  = PIXELS_POR_HORA;
+  readonly fechaActiva = signal<Date>(new Date());
+  readonly ahora = signal<Date>(new Date());
+  private relojId?: ReturnType<typeof setInterval>;
+
+  readonly pxPorHora = PIXELS_POR_HORA;
 
   readonly modalNuevaCita = signal(false);
+  readonly citaDetalle = signal<Cita | null>(null);
+
+  // Cobro
+  readonly citaACobrar = signal<Cita | null>(null);
+  readonly metodosPago = signal<MetodoPago[]>([]);
+  readonly permiteMultipago = signal(false);
+  readonly exigeCaja = signal(false);
+  readonly cajaAbierta = signal(true);
 
   readonly idNegocio = computed(() => this.auth.negocio()?.id_negocio ?? 0);
 
-  readonly horasGrid = computed(() => {
-    const arr: string[] = [];
-    for (let h = this.horaInicio; h < this.horaFin; h++) {
-      arr.push(`${String(h).padStart(2, '0')}:00`);
-    }
-    return arr;
-  });
+  // Permisos por acción dentro de la agenda.
+  readonly puedeAgendar = computed(() => this.auth.puedeAccion('agenda_crear_cita'));
+  readonly puedeCobrarCita = computed(() => this.auth.puedeAccion('agenda_cobrar'));
 
-  /** Citas posicionadas por columna (id_profesional). */
-  readonly citasPorPro = computed<Map<number, CitaPosicionada[]>>(() => {
-    const map = new Map<number, CitaPosicionada[]>();
+  /**
+   * Rango horario de la rejilla.
+   *
+   * Sale del horario configurado, no de un 8–20 fijo: un salón que abre a las 7 veía su primera
+   * cita recortada y uno que cierra a las 17 arrastraba tres horas vacías. Se amplía si alguna
+   * cita del día cae fuera del horario (las hay: una cita creada antes de cambiar el horario
+   * sigue existiendo, y esconderla sería mentir sobre la agenda).
+   */
+  readonly rangoGrid = computed<{ inicio: number; fin: number }>(() => {
+    const horas: number[] = [];
+
+    for (const dia of this.diasPorPro().values()) {
+      for (const r of dia.rangos) {
+        horas.push(this.horaDecimal(r.inicio), this.horaDecimal(r.fin));
+      }
+    }
     for (const c of this.citas()) {
       if (c.estado === 'cancelada') continue;
       const ini = new Date(c.fecha_hora_inicio);
       const fin = new Date(c.fecha_hora_fin);
-      const minutosDesdeInicio = (ini.getHours() - this.horaInicio) * 60 + ini.getMinutes();
-      const duracionMin = (fin.getTime() - ini.getTime()) / 60_000;
-      const pos: CitaPosicionada = {
-        cita: c,
-        topPx: Math.max(0, (minutosDesdeInicio / 60) * this.pxPorHora),
-        heightPx: Math.max(20, (duracionMin / 60) * this.pxPorHora - 2),
-      };
-      const arr = map.get(c.id_profesional) ?? [];
-      arr.push(pos);
-      map.set(c.id_profesional, arr);
+      horas.push(ini.getHours() + ini.getMinutes() / 60, fin.getHours() + fin.getMinutes() / 60);
     }
-    return map;
+
+    if (horas.length === 0) return { inicio: HORA_INICIO_FALLBACK, fin: HORA_FIN_FALLBACK };
+
+    const inicio = Math.max(0, Math.floor(Math.min(...horas)));
+    const fin = Math.min(24, Math.ceil(Math.max(...horas)));
+    return fin - inicio < 4
+      ? { inicio, fin: Math.min(24, inicio + 4) }   // una rejilla de dos horas no se lee
+      : { inicio, fin };
   });
 
-  readonly fechaLabel = computed(() => {
-    const d = this.fechaActiva();
-    return d.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  readonly horasGrid = computed(() => {
+    const { inicio, fin } = this.rangoGrid();
+    const arr: string[] = [];
+    for (let h = inicio; h < fin; h++) arr.push(`${String(h).padStart(2, '0')}:00`);
+    return arr;
   });
+
+  readonly subdivisiones = computed(() => 60 / MINUTOS_SUBDIVISION);
+  readonly altoSubdivision = computed(() => PIXELS_POR_HORA / this.subdivisiones());
+
+  /** Franjas de atención de cada profesional, ya en píxeles sobre la rejilla. */
+  readonly franjasPorPro = computed<Map<number, FranjaAbierta[]>>(() => {
+    const out = new Map<number, FranjaAbierta[]>();
+    const { inicio } = this.rangoGrid();
+    for (const [idPro, dia] of this.diasPorPro()) {
+      out.set(idPro, dia.rangos.map(r => {
+        const desde = this.horaDecimal(r.inicio);
+        const hasta = this.horaDecimal(r.fin);
+        return {
+          topPx: (desde - inicio) * PIXELS_POR_HORA,
+          heightPx: Math.max(0, (hasta - desde) * PIXELS_POR_HORA),
+        };
+      }));
+    }
+    return out;
+  });
+
+  /** Citas posicionadas por columna, con reparto horizontal cuando se solapan. */
+  readonly citasPorPro = computed<Map<number, CitaPosicionada[]>>(() => {
+    const { inicio } = this.rangoGrid();
+    const porPro = new Map<number, Cita[]>();
+
+    for (const c of this.citas()) {
+      if (c.estado === 'cancelada') continue;
+      const arr = porPro.get(c.id_profesional) ?? [];
+      arr.push(c);
+      porPro.set(c.id_profesional, arr);
+    }
+
+    const salida = new Map<number, CitaPosicionada[]>();
+    for (const [idPro, lista] of porPro) {
+      salida.set(idPro, this.repartirSolapes(lista, inicio));
+    }
+    return salida;
+  });
+
+  readonly totalCitas = computed(() =>
+    this.citas().filter(c => c.estado !== 'cancelada').length,
+  );
+
+  readonly esHoy = computed(() => {
+    const d = this.fechaActiva();
+    const h = new Date();
+    return d.getFullYear() === h.getFullYear() && d.getMonth() === h.getMonth() && d.getDate() === h.getDate();
+  });
+
+  /** Posición de la línea de «ahora»; `null` si el día mostrado no es hoy o cae fuera del grid. */
+  readonly lineaAhoraPx = computed<number | null>(() => {
+    if (!this.esHoy()) return null;
+    const n = this.ahora();
+    const h = n.getHours() + n.getMinutes() / 60;
+    const { inicio, fin } = this.rangoGrid();
+    if (h < inicio || h > fin) return null;
+    return (h - inicio) * PIXELS_POR_HORA;
+  });
+
+  readonly fechaLabel = computed(() =>
+    this.fechaActiva().toLocaleDateString('es-CO', {
+      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+    }),
+  );
 
   ngOnInit() {
     this.cargar();
+    this.cargarContextoCobro();
     this.bus.on<Cita>('cita_creada').subscribe(() => this.cargar());
     this.bus.on<Cita>('cita_cancelada').subscribe(() => this.cargar());
     this.bus.on<Cita>('cita_pago_aprobado').subscribe(() => this.cargar());
+    // La línea de «ahora» se mueve sola; cada minuto es suficiente para un píxel y medio.
+    this.relojId = setInterval(() => this.ahora.set(new Date()), 60_000);
+  }
+
+  ngOnDestroy() {
+    if (this.relojId) clearInterval(this.relojId);
   }
 
   cargar() {
@@ -104,14 +224,52 @@ export class AgendaComponent implements OnInit {
       }),
     }).subscribe({
       next: ({ pros, citas }) => {
-        if (pros?.success && pros.data) this.profesionales.set(pros.data);
+        const profesionales = pros?.success && pros.data ? pros.data : [];
+        this.profesionales.set(profesionales);
         if (citas?.success && citas.data) this.citas.set(citas.data);
         this.cargando.set(false);
+        this.cargarJornadas(profesionales);
       },
       error: () => { this.toast.error('No se pudo cargar la agenda.'); this.cargando.set(false); },
     });
   }
 
+  /**
+   * Jornada laboral del día para cada profesional.
+   *
+   * Va en una segunda tanda a propósito: la rejilla ya se puede pintar sin ella, así que la
+   * agenda aparece de inmediato y el sombreado del horario entra un instante después, en vez de
+   * retrasar todo hasta tener el dato menos crítico.
+   */
+  private cargarJornadas(profesionales: Profesional[]) {
+    if (profesionales.length === 0) { this.diasPorPro.set(new Map()); return; }
+    const fecha = this.fechaISO();
+
+    forkJoin(
+      profesionales.map(p =>
+        this.api.diasDisponibles({
+          idNegocio: this.idNegocio(),
+          idProfesional: p.id_profesional,
+          desde: fecha, hasta: fecha,
+        }),
+      ),
+    ).subscribe({
+      next: respuestas => {
+        const map = new Map<number, DiaDisponible>();
+        respuestas.forEach((r, i) => {
+          const dia = r?.data?.[0];
+          if (dia) map.set(profesionales[i].id_profesional, dia);
+        });
+        this.diasPorPro.set(map);
+      },
+      // Sin jornadas la agenda sigue siendo usable (solo pierde el sombreado): no se molesta
+      // al usuario con un toast por algo que no le impide trabajar.
+      error: () => this.diasPorPro.set(new Map()),
+    });
+  }
+
+  // Cambiar de día recarga la agenda, no el contexto de cobro: las formas de pago y los flags
+  // del negocio no dependen de la fecha que se esté mirando.
   cambiarDia(deltaDias: number) {
     const d = new Date(this.fechaActiva());
     d.setDate(d.getDate() + deltaDias);
@@ -131,18 +289,139 @@ export class AgendaComponent implements OnInit {
     this.cargar();
   }
 
-  fechaInputValue(): string {
-    const d = this.fechaActiva();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  fechaInputValue(): string { return this.fechaISO(); }
+
+  abrirDetalle(c: Cita) { this.citaDetalle.set(c); }
+  cerrarDetalle() { this.citaDetalle.set(null); }
+
+  /** Solo una cita viva se puede cobrar; las terminales ya están cerradas. */
+  puedeCobrar(c: Cita | null): boolean {
+    if (!this.puedeCobrarCita()) return false;
+    return !!c && (c.estado === 'pendiente' || c.estado === 'confirmada');
   }
 
-  estadoBadge(c: Cita): string {
-    switch (c.estado) {
-      case 'confirmada':  return 'b-ok';
-      case 'pendiente':   return 'b-warn';
-      case 'completada':  return 'b-info';
-      case 'no_show':     return 'b-err';
-      default:            return 'b-off';
+  cobrar(c: Cita) {
+    this.citaDetalle.set(null);
+    this.citaACobrar.set(c);
+  }
+
+  onCobrada() {
+    this.citaACobrar.set(null);
+    this.cargar();
+    this.cargarContextoCobro();
+    this.bus.publish('cita_cobrada', null);
+  }
+
+  /** Contexto del cobro: formas de pago, flags y si hay caja abierta. */
+  private cargarContextoCobro() {
+    const id = this.idNegocio();
+    if (!id) return;
+    this.api.listarMetodosPago(id).subscribe({
+      next: r => { if (r?.success && r.data) this.metodosPago.set(r.data); },
+    });
+    this.api.getConfig(id).subscribe({
+      next: r => {
+        if (r?.success && r.data) {
+          this.permiteMultipago.set(!!r.data.permite_multipago);
+          this.exigeCaja.set(!!r.data.exige_caja_abierta);
+        }
+      },
+    });
+    this.api.getCaja(id).subscribe({
+      next: r => this.cajaAbierta.set(r?.data?.abierta === true),
+      error: () => this.cajaAbierta.set(false),
+    });
+  }
+
+  cerrado(idPro: number): boolean {
+    const dia = this.diasPorPro().get(idPro);
+    return !!dia && !dia.abierto;
+  }
+
+  jornadaLabel(idPro: number): string {
+    const dia = this.diasPorPro().get(idPro);
+    if (!dia) return '';
+    if (!dia.abierto) return 'Cerrado';
+    return dia.rangos.map(r => `${r.inicio}–${r.fin}`).join(' · ');
+  }
+
+  citasDe(idPro: number): number {
+    return this.citasPorPro().get(idPro)?.length ?? 0;
+  }
+
+  estadoLabel(e: EstadoCita): string { return ESTADO_LABELS[e] ?? e; }
+  estadoBadge(c: Cita): string { return badgeEstado(c.estado); }
+
+  // ── Helpers ──
+
+  /**
+   * Reparte en columnas las citas que se pisan.
+   *
+   * Sin esto, dos citas a la misma hora del mismo profesional se dibujaban una encima de otra y
+   * la de abajo desaparecía — el solape no debería ocurrir (el backend lo impide), pero ocurre
+   * con datos históricos y con el buffer a cero, y una agenda que esconde una cita es peor que
+   * una que la muestra estrecha.
+   *
+   * Se agrupan las citas en racimos de solapes encadenados y dentro de cada racimo se asigna a
+   * cada cita la primera columna que ya haya quedado libre.
+   */
+  private repartirSolapes(lista: Cita[], horaInicioGrid: number): CitaPosicionada[] {
+    const ordenadas = [...lista].sort(
+      (a, b) => new Date(a.fecha_hora_inicio).getTime() - new Date(b.fecha_hora_inicio).getTime(),
+    );
+
+    const salida: CitaPosicionada[] = [];
+    let racimo: CitaPosicionada[] = [];
+    let finRacimo = 0;
+    let columnas: number[] = [];   // instante en que se libera cada columna
+
+    const cerrarRacimo = () => {
+      const cols = columnas.length || 1;
+      for (const p of racimo) p.cols = cols;
+      salida.push(...racimo);
+      racimo = [];
+      columnas = [];
+      finRacimo = 0;
+    };
+
+    for (const c of ordenadas) {
+      const ini = new Date(c.fecha_hora_inicio).getTime();
+      const fin = new Date(c.fecha_hora_fin).getTime();
+
+      if (racimo.length > 0 && ini >= finRacimo) cerrarRacimo();
+
+      let col = columnas.findIndex(libreEn => libreEn <= ini);
+      if (col === -1) { col = columnas.length; columnas.push(fin); }
+      else columnas[col] = fin;
+
+      const iniDate = new Date(ini);
+      const minutosDesdeInicio = (iniDate.getHours() - horaInicioGrid) * 60 + iniDate.getMinutes();
+      const duracionMin = (fin - ini) / 60_000;
+      const heightPx = Math.max(20, (duracionMin / 60) * PIXELS_POR_HORA - 2);
+
+      racimo.push({
+        cita: c,
+        topPx: Math.max(0, (minutosDesdeInicio / 60) * PIXELS_POR_HORA),
+        heightPx,
+        col,
+        cols: 1,
+        compacta: heightPx < 45,
+        duracionMin: Math.round(duracionMin),
+      });
+      finRacimo = Math.max(finRacimo, fin);
     }
+    if (racimo.length > 0) cerrarRacimo();
+
+    return salida;
+  }
+
+  private horaDecimal(hhmm: string): number {
+    const [h, m] = hhmm.split(':').map(Number);
+    return h + (m || 0) / 60;
+  }
+
+  private fechaISO(): string {
+    const d = this.fechaActiva();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   }
 }

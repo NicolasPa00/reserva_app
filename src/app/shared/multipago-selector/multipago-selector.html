@@ -1,0 +1,70 @@
+<div class="mp">
+  <select class="select" [disabled]="disabled()"
+          (change)="onSelectChange($any($event.target).value)">
+    <option value="" [selected]="modo() === 'simple' && metodoSimple() == null">
+      Selecciona la forma de pago…
+    </option>
+    @for (mp of metodos(); track mp.id_metodo_pago) {
+      <option [value]="mp.id_metodo_pago"
+              [selected]="modo() === 'simple' && metodoSimple() === mp.id_metodo_pago">
+        {{ mp.nombre }}
+      </option>
+    }
+    @if (permiteMultipago() && metodos().length > 1) {
+      <option [value]="MULTI_VALUE" [selected]="modo() === 'multi'">
+        Varias formas de pago…
+      </option>
+    }
+  </select>
+
+  @if (modo() === 'multi') {
+    <div class="mp__split">
+      @for (fila of filas(); track $index) {
+        <div class="mp__row">
+          <select class="select mp__metodo" [disabled]="disabled()"
+                  (change)="setFilaMetodo($index, $any($event.target).value)">
+            <option value="" [selected]="fila.id_metodo_pago == null">Forma…</option>
+            @for (mp of metodosDisponibles($index); track mp.id_metodo_pago) {
+              <option [value]="mp.id_metodo_pago" [selected]="fila.id_metodo_pago === mp.id_metodo_pago">
+                {{ mp.nombre }}
+              </option>
+            }
+          </select>
+
+          <input class="input mp__valor" type="number" inputmode="numeric"
+                 min="0" step="any" placeholder="Valor"
+                 [value]="fila.valor ?? ''" [disabled]="disabled()"
+                 (input)="setFilaValor($index, $any($event.target).value)" />
+
+          <button type="button" class="mp__resto" title="Completar con lo que falta"
+                  [disabled]="disabled()" (click)="usarRestante($index)">Resto</button>
+
+          <button type="button" class="mp__del" title="Quitar esta forma de pago"
+                  [disabled]="disabled() || filas().length <= 2" (click)="eliminarFila($index)">
+            <lucide-icon name="trash-2" [size]="14" />
+          </button>
+        </div>
+      }
+
+      <button type="button" class="mp__add" [disabled]="disabled()" (click)="agregarFila()">
+        <lucide-icon name="plus" [size]="14" /> Agregar forma de pago
+      </button>
+
+      <div class="mp__resumen" [class.ok]="restante() === 0" [class.over]="restante() < 0">
+        <span class="mp__asignado">
+          Asignado <strong>{{ sumaMulti() | currency:'COP':'symbol':'1.0-0' }}</strong>
+        </span>
+        <span>de <strong>{{ total() | currency:'COP':'symbol':'1.0-0' }}</strong></span>
+        <span class="mp__estado">
+          @if (restante() > 0) {
+            Faltan {{ restante() | currency:'COP':'symbol':'1.0-0' }}
+          } @else if (restante() < 0) {
+            Sobran {{ -restante() | currency:'COP':'symbol':'1.0-0' }}
+          } @else {
+            <lucide-icon name="check" [size]="14" /> Cuadra
+          }
+        </span>
+      </div>
+    </div>
+  }
+</div>

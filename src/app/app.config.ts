@@ -15,6 +15,11 @@ import {
   X, Check, TriangleAlert, ChevronDown, ChevronRight, ChevronLeft, ArrowLeft,
   Eye, RotateCw, Save, Loader, CreditCard, DollarSign, Bell, Star,
   CirclePlus, RefreshCw, Upload, FileText, MapPin, Phone, Mail, User,
+  // Dashboard, agenda y horarios. El proveedor de iconos es explícito: un nombre que no esté
+  // en esta lista no falla en compilación, revienta en runtime al pintar la vista.
+  ArrowRight, ArrowUpRight, Ban, CalendarCheck2, CalendarCog, CalendarOff,
+  ChartColumn, CircleAlert, Copy, CopyPlus, Gauge, Hash, Info, Sunrise, Sunset,
+  Tag, Timer, TrendingUp, UserCog, UserRound, Wallet,
 } from 'lucide-angular';
 
 registerLocaleData(localeEsCO);
@@ -25,6 +30,11 @@ const icons = {
   X, Check, TriangleAlert, ChevronDown, ChevronRight, ChevronLeft, ArrowLeft,
   Eye, RotateCw, Save, Loader, CreditCard, DollarSign, Bell, Star,
   CirclePlus, RefreshCw, Upload, FileText, MapPin, Phone, Mail, User,
+  // Dashboard, agenda y horarios. El proveedor de iconos es explícito: un nombre que no esté
+  // en esta lista no falla en compilación, revienta en runtime al pintar la vista.
+  ArrowRight, ArrowUpRight, Ban, CalendarCheck2, CalendarCog, CalendarOff,
+  ChartColumn, CircleAlert, Copy, CopyPlus, Gauge, Hash, Info, Sunrise, Sunset,
+  Tag, Timer, TrendingUp, UserCog, UserRound, Wallet,
 };
 
 export const appConfig: ApplicationConfig = {

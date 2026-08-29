@@ -1,0 +1,241 @@
+<section class="page dash">
+
+  <!-- Cabecera -->
+  <header class="hero">
+    <div class="hero__text">
+      <span class="hero__eyebrow">{{ hoyLabel() }}</span>
+      <h1>{{ saludo() }}, {{ auth.usuario()?.primer_nombre || 'bienvenido' }}</h1>
+      <p>{{ auth.negocio()?.nombre }}</p>
+    </div>
+    <div class="hero__actions">
+      <button type="button" class="btn btn-outline" (click)="cargar()" [disabled]="cargando()" title="Actualizar">
+        <lucide-icon name="refresh-cw" [size]="15" />
+        Actualizar
+      </button>
+      <button type="button" class="btn btn-primary" (click)="modalNuevaCita.set(true)">
+        <lucide-icon name="plus" [size]="16" /> Nueva cita
+      </button>
+    </div>
+  </header>
+
+  <!-- Aviso de plan: lo primero bajo la cabecera, porque condiciona todo lo demás -->
+  @if (sinPlan()) {
+    <aside class="aviso-plan">
+      <span class="aviso-plan__icon"><lucide-icon name="credit-card" [size]="20" /></span>
+      <div class="aviso-plan__txt">
+        <strong>Este negocio no tiene un plan activo</strong>
+        <p>
+          Puedes ver este resumen, pero la agenda, las citas y el resto de módulos están
+          bloqueados hasta que actives o renueves el plan de
+          <b>{{ auth.negocio()?.nombre }}</b>.
+        </p>
+      </div>
+      <a class="btn btn-primary aviso-plan__cta" [href]="adminUrl">
+        Activar plan <lucide-icon name="arrow-up-right" [size]="15" />
+      </a>
+    </aside>
+  }
+
+  @if (cargando() && !resumen()) {
+    <div class="cards">
+      @for (i of [1,2,3,4]; track i) { <div class="kpi kpi--skeleton"></div> }
+    </div>
+  } @else if (error()) {
+    <div class="card estado-error">
+      <lucide-icon name="triangle-alert" [size]="18" />
+      <div>
+        <strong>{{ error() }}</strong>
+        <button type="button" class="btn btn-outline" (click)="cargar()">Reintentar</button>
+      </div>
+    </div>
+  } @else if (resumen(); as r) {
+
+    <!-- KPIs -->
+    <div class="cards">
+      @for (k of kpis(); track k.label) {
+        <article class="kpi" [class]="'kpi--' + k.tono" [class.kpi--link]="!!k.ruta"
+                 (click)="ir(k.ruta)">
+          <div class="kpi__top">
+            <span class="kpi__icon"><lucide-icon [name]="k.icon" [size]="18" /></span>
+            @if (k.ruta) { <lucide-icon class="kpi__go" name="arrow-up-right" [size]="15" /> }
+          </div>
+          <strong class="kpi__valor">{{ k.valor }}</strong>
+          <span class="kpi__label">{{ k.label }}</span>
+          <span class="kpi__detalle">{{ k.detalle }}</span>
+        </article>
+      }
+    </div>
+
+    <!-- Tareas que requieren acción -->
+    @if (tareasPendientes().length > 0) {
+      <div class="tareas">
+        @for (t of tareasPendientes(); track t.texto) {
+          <button type="button" class="tarea" [class.tarea--urgente]="t.urgente" (click)="ir(t.ruta)">
+            <lucide-icon [name]="t.icon" [size]="16" />
+            <span>{{ t.texto }}</span>
+            <lucide-icon name="chevron-right" [size]="16" />
+          </button>
+        }
+      </div>
+    }
+
+    <div class="split">
+      <!-- Agenda del día -->
+      <section class="card panel">
+        <header class="panel__head">
+          <div>
+            <h2>Agenda de hoy</h2>
+            <p>{{ r.citas_hoy }} cita(s) programadas</p>
+          </div>
+          <button type="button" class="btn btn-ghost" (click)="ir('/agenda')">
+            Ver agenda <lucide-icon name="arrow-right" [size]="14" />
+          </button>
+        </header>
+
+        @if (agenda().length === 0) {
+          <div class="vacio">
+            <lucide-icon name="calendar-off" [size]="28" />
+            <strong>No hay citas para hoy</strong>
+            <p>Cuando entren reservas aparecerán aquí en orden de hora.</p>
+            <button type="button" class="btn btn-outline" (click)="modalNuevaCita.set(true)">
+              <lucide-icon name="plus" [size]="15" /> Agendar una cita
+            </button>
+          </div>
+        } @else {
+          <ul class="timeline">
+            @for (c of agenda(); track c.id_cita) {
+              <li class="tl" [class.tl--pasada]="esPasada(c)"
+                  [class.tl--proxima]="proximaCita()?.id_cita === c.id_cita">
+                <div class="tl__hora">
+                  <strong>{{ c.fecha_hora_inicio | date:'HH:mm':'':'es-CO' }}</strong>
+                  <span>{{ c.fecha_hora_fin | date:'HH:mm':'':'es-CO' }}</span>
+                </div>
+                <span class="tl__barra" [style.background]="c.profesional?.color_hex || 'var(--color-primary)'"></span>
+                <div class="tl__info">
+                  <strong>{{ c.cliente_nombre }}</strong>
+                  <span class="tl__svc">
+                    {{ c.servicios.join(' · ') || 'Sin servicios' }}
+                  </span>
+                  <span class="tl__pro">
+                    <i [style.background]="c.profesional?.color_hex || 'var(--color-primary)'"></i>
+                    {{ c.profesional?.nombre || 'Sin profesional' }}
+                    @if (c.cliente_telefono) { · {{ c.cliente_telefono }} }
+                  </span>
+                </div>
+                <div class="tl__meta">
+                  <span class="badge" [class]="badgeEstado(c.estado)">{{ estadoLabel(c.estado) }}</span>
+                  <span class="tl__monto">{{ c.monto_total | currency:'COP':'symbol':'1.0-0' }}</span>
+                  @if (proximaCita()?.id_cita === c.id_cita) {
+                    <span class="tl__siguiente">Siguiente</span>
+                  }
+                </div>
+              </li>
+            }
+          </ul>
+        }
+      </section>
+
+      <!-- Columna lateral -->
+      <div class="lateral">
+
+        <!-- Ocupación -->
+        <section class="card panel">
+          <header class="panel__head">
+            <div><h2>Ocupación del día</h2></div>
+          </header>
+          @if (r.ocupacion_hoy.porcentaje == null) {
+            <p class="hint">
+              Sin horario de atención definido no se puede calcular la ocupación.
+              <button type="button" class="link" (click)="ir('/horarios')">Configurar horarios</button>
+            </p>
+          } @else {
+            <div class="ocup">
+              <div class="ocup__num">
+                <strong>{{ r.ocupacion_hoy.porcentaje }}<em>%</em></strong>
+                <span>de la jornada vendida</span>
+              </div>
+              <div class="ocup__barra">
+                <div class="ocup__fill" [style.width.%]="ocupacionPct()"></div>
+              </div>
+              <div class="ocup__pies">
+                <span>{{ r.ocupacion_hoy.minutos_ocupados | number }} min ocupados</span>
+                <span>{{ r.ocupacion_hoy.minutos_disponibles | number }} min disponibles</span>
+              </div>
+            </div>
+          }
+        </section>
+
+        <!-- Últimos 7 días -->
+        <section class="card panel">
+          <header class="panel__head">
+            <div>
+              <h2>Últimos 7 días</h2>
+              <p>Incluye hoy</p>
+            </div>
+          </header>
+          <div class="mini">
+            <div><strong>{{ r.semana.citas | number }}</strong><span>Citas</span></div>
+            <div><strong>{{ r.semana.completadas | number }}</strong><span>Completadas</span></div>
+            <div><strong>{{ r.semana.canceladas | number }}</strong><span>Canceladas</span></div>
+            <div><strong>{{ r.semana.no_show | number }}</strong><span>No-show</span></div>
+          </div>
+          <p class="mini__total">
+            <span>Ingresos del periodo</span>
+            <strong>{{ r.semana.ingresos | currency:'COP':'symbol':'1.0-0' }}</strong>
+          </p>
+        </section>
+
+        <!-- Top servicios -->
+        <section class="card panel">
+          <header class="panel__head">
+            <div>
+              <h2>Servicios más pedidos</h2>
+              <p>Últimos 30 días</p>
+            </div>
+          </header>
+          @if (r.top_servicios.length === 0) {
+            <p class="hint">Todavía no hay suficientes citas para calcularlo.</p>
+          } @else {
+            <ul class="ranking">
+              @for (s of r.top_servicios; track s.id_servicio) {
+                <li>
+                  <div class="ranking__fila">
+                    <span class="ranking__nombre">{{ s.nombre }}</span>
+                    <span class="ranking__n">{{ s.citas }}</span>
+                  </div>
+                  <div class="ranking__barra">
+                    <div [style.width.%]="(s.citas / maxCitasServicio()) * 100"></div>
+                  </div>
+                  <span class="ranking__monto">{{ s.ingresos | currency:'COP':'symbol':'1.0-0' }}</span>
+                </li>
+              }
+            </ul>
+          }
+        </section>
+
+        <!-- Catálogo -->
+        <section class="card panel">
+          <header class="panel__head"><div><h2>Tu catálogo</h2></div></header>
+          <div class="catalogo">
+            <button type="button" (click)="ir('/servicios')">
+              <lucide-icon name="scissors" [size]="17" />
+              <strong>{{ r.total_servicios }}</strong>
+              <span>Servicios</span>
+            </button>
+            <button type="button" (click)="ir('/profesionales')">
+              <lucide-icon name="users" [size]="17" />
+              <strong>{{ r.total_profesionales }}</strong>
+              <span>Profesionales</span>
+            </button>
+          </div>
+        </section>
+      </div>
+    </div>
+  }
+</section>
+
+<reserva-cita-form
+  [idNegocio]="idNegocio()"
+  [open]="modalNuevaCita()"
+  (close)="modalNuevaCita.set(false)"
+  (created)="cargar()" />

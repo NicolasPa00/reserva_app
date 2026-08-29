@@ -2,7 +2,7 @@
   <header class="page__head">
     <div>
       <h1>Configuración</h1>
-      <p>Reglas de negocio para reservas.</p>
+      <p>Reglas de negocio para reservas, cobros y caja.</p>
     </div>
   </header>
 
@@ -10,6 +10,8 @@
     <p class="hint">Cargando…</p>
   } @else {
     <form [formGroup]="form" (ngSubmit)="guardar()" class="cfg">
+
+      <!-- Reservas -->
       <div class="card">
         <h3>Reservas</h3>
         <p class="hint">Tiempos y ventanas que se aplican a todas las citas.</p>
@@ -38,11 +40,113 @@
         </div>
       </div>
 
+      <!-- Cobros y caja -->
+      <div class="card">
+        <h3>Cobros y caja</h3>
+        <p class="hint">Cómo se registra el dinero cuando se completa una cita.</p>
+
+        <label class="toggle">
+          <input type="checkbox" formControlName="permite_cobro_profesional" />
+          <span class="toggle__txt">
+            <strong>Los profesionales pueden cobrar</strong>
+            <em>
+              Cada servicio queda ligado al profesional que lo prestó. En Caja aparecerá,
+              al cerrar el día, cuánto hay que entregarle a cada uno.
+            </em>
+          </span>
+        </label>
+
+        <label class="toggle" [class.toggle--off]="!puedeMultipago()">
+          <!-- El control se habilita/deshabilita desde el componente (efecto sobre las formas
+               activas). Atar `[disabled]` a un formControlName provoca el aviso de Angular y
+               'changed after checked'. -->
+          <input type="checkbox" formControlName="permite_multipago" />
+          <span class="toggle__txt">
+            <strong>Permitir varias formas de pago en una cita</strong>
+            <em>
+              @if (puedeMultipago()) {
+                El cliente puede pagar una parte en efectivo y el resto con otra forma.
+              } @else {
+                Necesitas al menos dos formas de pago activas para poder repartir un cobro.
+              }
+            </em>
+          </span>
+        </label>
+
+        <label class="toggle">
+          <input type="checkbox" formControlName="exige_caja_abierta" />
+          <span class="toggle__txt">
+            <strong>Exigir caja abierta para cobrar</strong>
+            <em>
+              Sin turno abierto no se podrá completar una cita. Evita que se cobre dinero que
+              luego no aparece en ninguna caja.
+            </em>
+          </span>
+        </label>
+      </div>
+
+      <!-- Formas de pago -->
+      <div class="card">
+        <div class="metodos__head">
+          <div>
+            <h3>Formas de pago</h3>
+            <p class="hint">Con qué puede pagar el cliente. Aparecen al completar una cita.</p>
+          </div>
+          <button type="button" class="btn btn-outline" (click)="abrirNuevoMetodo()">
+            <lucide-icon name="plus" [size]="14" /> Nueva forma
+          </button>
+        </div>
+
+        @if (metodosActivos().length === 0) {
+          <p class="aviso">
+            <lucide-icon name="triangle-alert" [size]="15" />
+            Sin formas de pago activas no se puede cobrar ninguna cita.
+          </p>
+        } @else {
+          <ul class="metodos">
+            @for (m of metodosActivos(); track m.id_metodo_pago) {
+              <li>
+                <span class="metodos__icon"><lucide-icon name="credit-card" [size]="15" /></span>
+                <strong>{{ m.nombre }}</strong>
+                <button type="button" class="mini" (click)="abrirEditarMetodo(m)" title="Renombrar">
+                  <lucide-icon name="pencil" [size]="13" />
+                </button>
+                <button type="button" class="mini mini--danger" (click)="pedirInactivar(m)" title="Desactivar">
+                  <lucide-icon name="ban" [size]="13" />
+                </button>
+              </li>
+            }
+          </ul>
+        }
+
+        @if (metodosInactivos().length > 0) {
+          <div class="metodos__inactivos">
+            <span class="metodos__lab">Desactivadas</span>
+            <ul class="metodos metodos--off">
+              @for (m of metodosInactivos(); track m.id_metodo_pago) {
+                <li>
+                  <span class="metodos__icon"><lucide-icon name="ban" [size]="15" /></span>
+                  <strong>{{ m.nombre }}</strong>
+                  <button type="button" class="mini" (click)="reactivar(m)" title="Reactivar">
+                    <lucide-icon name="rotate-cw" [size]="13" /> Reactivar
+                  </button>
+                </li>
+              }
+            </ul>
+          </div>
+        }
+      </div>
+
+      <!-- Pago adelantado -->
       <div class="card">
         <h3>Pago adelantado</h3>
+        <p class="hint">Para reservas del enlace público, antes de que el cliente llegue.</p>
         <label class="toggle">
           <input type="checkbox" formControlName="cobro_adelantado" />
-          <span>Requerir pago anticipado para reservar</span>
+          <span class="toggle__txt">
+            <strong>Requerir pago anticipado para reservar</strong>
+            <em>El cliente deberá adjuntar comprobante al reservar por internet.</em>
+          </span>
         </label>
         @if (form.value.cobro_adelantado) {
           <label class="block">
@@ -63,3 +167,32 @@
     </form>
   }
 </section>
+
+<!-- Modal: crear / renombrar forma de pago -->
+<reserva-modal [open]="modalMetodo()"
+               [title]="metodoEditando() ? 'Renombrar forma de pago' : 'Nueva forma de pago'"
+               (close)="modalMetodo.set(false)">
+  <label class="campo">
+    <span>Nombre *</span>
+    <input class="input" type="text" maxlength="80" placeholder="Efectivo, Nequi, Datáfono…"
+           [value]="nombreMetodo()"
+           (input)="nombreMetodo.set($any($event.target).value)" />
+    <small>Así aparecerá al cobrar y en el desglose de la caja.</small>
+  </label>
+  <div modal-footer>
+    <button type="button" class="btn btn-outline" (click)="modalMetodo.set(false)" [disabled]="guardando()">Cancelar</button>
+    <button type="button" class="btn btn-primary" (click)="guardarMetodo()"
+            [disabled]="guardando() || !nombreMetodo().trim()">
+      @if (guardando()) { Guardando… } @else { Guardar }
+    </button>
+  </div>
+</reserva-modal>
+
+<reserva-confirm
+  [open]="confirmInactivar()"
+  title="Desactivar forma de pago"
+  message="Dejará de aparecer al cobrar. Los cobros que ya se hicieron con ella se conservan intactos, y puedes reactivarla cuando quieras."
+  confirmText="Desactivar"
+  kind="danger"
+  (cancel)="cerrarConfirm()"
+  (confirm)="inactivarConfirmado()" />

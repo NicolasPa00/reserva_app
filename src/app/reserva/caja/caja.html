@@ -1,0 +1,396 @@
+<section class="page caja">
+  <header class="page__head">
+    <div>
+      <h1>Caja</h1>
+      <p>Apertura, cobros del día, gastos y cierre del turno.</p>
+    </div>
+    @if (abierta()) {
+      <div class="page__acciones">
+        @if (permiteMovimiento()) {
+          <button type="button" class="btn btn-outline" (click)="abrirModalMovimiento('INGRESO')">
+            <lucide-icon name="plus" [size]="15" /> Ingreso
+          </button>
+          <button type="button" class="btn btn-outline" (click)="abrirModalMovimiento('EGRESO')">
+            <lucide-icon name="minus" [size]="15" /> Egreso
+          </button>
+        }
+        @if (permiteCerrar()) {
+          <button type="button" class="btn btn-primary" (click)="abrirModalCierre()">
+            <lucide-icon name="wallet" [size]="15" /> Cerrar caja
+          </button>
+        }
+      </div>
+    }
+  </header>
+
+  <div class="tabs">
+    <button class="tab" [class.tab--on]="tab() === 'turno'" (click)="cambiarTab('turno')">
+      Turno actual
+    </button>
+    <button class="tab" [class.tab--on]="tab() === 'historial'" (click)="cambiarTab('historial')">
+      Historial
+    </button>
+  </div>
+
+  @if (cargando() && !estado()) {
+    <p class="hint">Cargando…</p>
+  }
+
+  @else if (tab() === 'historial') {
+    @if (historial().length === 0) {
+      <div class="card vacio">
+        <lucide-icon name="wallet" [size]="28" />
+        <strong>Todavía no hay turnos cerrados</strong>
+        <p>Cuando cierres una caja aparecerá aquí con su cuadre.</p>
+      </div>
+    } @else {
+      <div class="card tabla-wrap">
+        <table class="tabla">
+          <thead>
+            <tr>
+              <th>Turno</th><th>Responsable</th>
+              <th class="num">Apertura</th><th class="num">Ingresos</th><th class="num">Egresos</th>
+              <th class="num">Esperado</th><th class="num">Contado</th><th class="num">Diferencia</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (h of historial(); track h.id_caja) {
+              <tr>
+                <td>
+                  <span class="celda-turno">
+                    <strong>{{ h.fecha_apertura | date:'d MMM yyyy':'':'es-CO' }}</strong>
+                    <em>
+                      {{ h.fecha_apertura | date:'HH:mm':'':'es-CO' }} –
+                      {{ h.fecha_cierre ? (h.fecha_cierre | date:'HH:mm':'':'es-CO') : '—' }}
+                    </em>
+                  </span>
+                </td>
+                <td>{{ h.usuario || '—' }}</td>
+                <td class="num">{{ h.monto_apertura | currency:'COP':'symbol':'1.0-0' }}</td>
+                <td class="num pos">{{ h.ingresos | currency:'COP':'symbol':'1.0-0' }}</td>
+                <td class="num neg">{{ h.egresos | currency:'COP':'symbol':'1.0-0' }}</td>
+                <td class="num destacado">{{ h.monto_cierre | currency:'COP':'symbol':'1.0-0' }}</td>
+                <td class="num">
+                  {{ h.monto_reportado != null ? (h.monto_reportado | currency:'COP':'symbol':'1.0-0') : '—' }}
+                </td>
+                <td class="num">
+                  @if (h.diferencia == null) { <span class="dif dif--na">Sin contar</span> }
+                  @else if (h.diferencia === 0) { <span class="dif dif--ok">Cuadra</span> }
+                  @else {
+                    <span class="dif" [class.dif--sobra]="h.diferencia > 0" [class.dif--falta]="h.diferencia < 0">
+                      {{ h.diferencia > 0 ? '+' : '' }}{{ h.diferencia | currency:'COP':'symbol':'1.0-0' }}
+                    </span>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  }
+
+  <!-- ───────── Turno actual ───────── -->
+  @else if (!abierta()) {
+    <div class="card cerrada">
+      <span class="cerrada__icon"><lucide-icon name="wallet" [size]="30" /></span>
+      <strong>La caja está cerrada</strong>
+      <p>
+        Abre el turno indicando cuánto dinero hay en el cajón para empezar a registrar
+        los cobros del día.
+      </p>
+      @if (permiteAbrir()) {
+        <button type="button" class="btn btn-primary" (click)="abrirModalApertura()">
+          <lucide-icon name="plus" [size]="16" /> Abrir caja
+        </button>
+      } @else {
+        <p class="cerrada__aviso">
+          <lucide-icon name="ban" [size]="15" />
+          Tu rol no puede abrir la caja. Pídeselo al administrador del negocio.
+        </p>
+      }
+
+      @if (sinCaja().length > 0) {
+        <p class="cerrada__aviso">
+          <lucide-icon name="circle-alert" [size]="15" />
+          Hay {{ sinCaja().length }} cita(s) cobradas hoy sin caja abierta, por
+          {{ totalSinCaja() | currency:'COP':'symbol':'1.0-0' }}. Ese dinero no está en ningún turno.
+        </p>
+      }
+    </div>
+  }
+
+  @else {
+    <!-- Resumen del turno -->
+    <div class="resumen">
+      <article class="rk rk--neutro">
+        <span class="rk__lab">Base de apertura</span>
+        <strong class="rk__val">{{ totales()?.apertura | currency:'COP':'symbol':'1.0-0' }}</strong>
+        <span class="rk__pie">
+          Abrió {{ caja()?.usuario?.nombre || '—' }} ·
+          {{ caja()?.fecha_apertura | date:'HH:mm':'':'es-CO' }}
+        </span>
+      </article>
+      <article class="rk rk--exito">
+        <span class="rk__lab">Ingresos</span>
+        <strong class="rk__val">{{ totales()?.ingresos | currency:'COP':'symbol':'1.0-0' }}</strong>
+        <span class="rk__pie">{{ totales()?.movimientos }} movimiento(s)</span>
+      </article>
+      <article class="rk rk--alerta">
+        <span class="rk__lab">Egresos</span>
+        <strong class="rk__val">{{ totales()?.egresos | currency:'COP':'symbol':'1.0-0' }}</strong>
+        <span class="rk__pie">Gastos y salidas del turno</span>
+      </article>
+      <article class="rk rk--primario">
+        <span class="rk__lab">Debería haber en caja</span>
+        <strong class="rk__val">{{ totales()?.esperado | currency:'COP':'symbol':'1.0-0' }}</strong>
+        <span class="rk__pie">Apertura + ingresos − egresos</span>
+      </article>
+    </div>
+
+    @if (sinCaja().length > 0) {
+      <p class="aviso">
+        <lucide-icon name="circle-alert" [size]="15" />
+        <span>
+          {{ sinCaja().length }} cita(s) se cobraron hoy con la caja cerrada
+          ({{ totalSinCaja() | currency:'COP':'symbol':'1.0-0' }}). No entraron en este turno.
+        </span>
+      </p>
+    }
+
+    <div class="split">
+      <!-- Por forma de pago: siempre -->
+      <section class="card panel">
+        <header class="panel__head">
+          <div>
+            <h2>Por forma de pago</h2>
+            <p>Con esto se cuadra el cajón y el datáfono</p>
+          </div>
+        </header>
+        @if (porMetodo().length === 0) {
+          <p class="hint">Aún no hay ingresos en este turno.</p>
+        } @else {
+          <ul class="ranking">
+            @for (m of porMetodo(); track m.nombre) {
+              <li>
+                <div class="ranking__fila">
+                  <span class="ranking__nombre">{{ m.nombre }}</span>
+                  <strong class="ranking__valor">{{ m.total | currency:'COP':'symbol':'1.0-0' }}</strong>
+                </div>
+                <div class="ranking__barra">
+                  <div [style.width.%]="(m.total / maxPorMetodo()) * 100"></div>
+                </div>
+                <span class="ranking__pie">{{ m.movimientos }} movimiento(s)</span>
+              </li>
+            }
+          </ul>
+        }
+      </section>
+
+      <!-- Por profesional: solo si el negocio liquida por persona -->
+      @if (liquidaPorProfesional()) {
+        <section class="card panel">
+          <header class="panel__head">
+            <div>
+              <h2>A entregar por profesional</h2>
+              <p>Solo quienes atendieron en este turno</p>
+            </div>
+            @if (porProfesional().length > 0) {
+              <div class="panel__dato">
+                <span>Total</span>
+                <strong>{{ totalAEntregar() | currency:'COP':'symbol':'1.0-0' }}</strong>
+              </div>
+            }
+          </header>
+          @if (porProfesional().length === 0) {
+            <p class="hint">Ningún profesional ha cobrado todavía en este turno.</p>
+          } @else {
+            <ul class="pros">
+              @for (p of porProfesional(); track p.id_profesional) {
+                <li>
+                  <span class="pros__dot" [style.background]="p.color_hex || 'var(--color-primary)'"></span>
+                  <div class="pros__txt">
+                    <strong>{{ p.nombre }}</strong>
+                    <span>
+                      {{ p.citas }} cita(s)
+                      · efectivo {{ p.efectivo | currency:'COP':'symbol':'1.0-0' }}
+                      @if (p.otros > 0) { · otros {{ p.otros | currency:'COP':'symbol':'1.0-0' }} }
+                    </span>
+                  </div>
+                  <strong class="pros__total">{{ p.total | currency:'COP':'symbol':'1.0-0' }}</strong>
+                </li>
+              }
+            </ul>
+          }
+        </section>
+      }
+    </div>
+
+    <!-- Movimientos -->
+    <section class="card panel">
+      <header class="panel__head">
+        <div>
+          <h2>Movimientos del turno</h2>
+          <p>Del más reciente al más antiguo</p>
+        </div>
+      </header>
+      @if (movimientos().length === 0) {
+        <p class="hint">Todavía no hay movimientos.</p>
+      } @else {
+        <ul class="movs">
+          @for (m of movimientos(); track m.id_movimiento) {
+            <li>
+              <span class="movs__tipo" [class.movs__tipo--in]="m.tipo === 'INGRESO'"
+                    [class.movs__tipo--out]="m.tipo === 'EGRESO'">
+                <lucide-icon [name]="m.tipo === 'INGRESO' ? 'plus' : 'minus'" [size]="13" />
+              </span>
+              <div class="movs__txt">
+                <strong>{{ m.concepto || (m.tipo === 'INGRESO' ? 'Ingreso' : 'Egreso') }}</strong>
+                <span>
+                  {{ m.fecha | date:'HH:mm':'':'es-CO' }}
+                  @if (m.metodoPago) { · {{ m.metodoPago.nombre }} }
+                  @if (m.profesional) { · {{ m.profesional.nombre }} }
+                </span>
+              </div>
+              <strong class="movs__monto" [class.pos]="m.tipo === 'INGRESO'" [class.neg]="m.tipo === 'EGRESO'">
+                {{ m.tipo === 'EGRESO' ? '−' : '+' }}{{ m.monto | currency:'COP':'symbol':'1.0-0' }}
+              </strong>
+            </li>
+          }
+        </ul>
+      }
+    </section>
+  }
+</section>
+
+<!-- Modal: abrir caja -->
+<reserva-modal [open]="modalAbrir()" title="Abrir caja"
+               subtitle="Indica cuánto dinero hay en el cajón para empezar."
+               (close)="modalAbrir.set(false)">
+  <div class="form">
+    <label class="campo">
+      <span>Base de apertura *</span>
+      <input class="input" type="number" min="0" step="any" placeholder="0"
+             [value]="montoApertura() ?? ''"
+             (input)="montoApertura.set(numeroODefault($any($event.target).value))" />
+    </label>
+    <label class="campo">
+      <span>Observaciones</span>
+      <input class="input" type="text" placeholder="Opcional"
+             [value]="obsApertura()"
+             (input)="obsApertura.set($any($event.target).value)" />
+    </label>
+  </div>
+  <div modal-footer>
+    <button type="button" class="btn btn-outline" (click)="modalAbrir.set(false)" [disabled]="guardando()">Cancelar</button>
+    <button type="button" class="btn btn-primary" (click)="abrirCaja()" [disabled]="!puedeAbrir()">
+      @if (guardando()) { Abriendo… } @else { Abrir caja }
+    </button>
+  </div>
+</reserva-modal>
+
+<!-- Modal: cerrar caja -->
+<reserva-modal [open]="modalCerrar()" title="Cerrar caja"
+               subtitle="Cuenta el dinero del cajón y anota cuánto hay."
+               (close)="modalCerrar.set(false)">
+  <div class="form">
+    <div class="cuadre">
+      <div><span>Base de apertura</span><strong>{{ totales()?.apertura | currency:'COP':'symbol':'1.0-0' }}</strong></div>
+      <div><span>+ Ingresos</span><strong class="pos">{{ totales()?.ingresos | currency:'COP':'symbol':'1.0-0' }}</strong></div>
+      <div><span>− Egresos</span><strong class="neg">{{ totales()?.egresos | currency:'COP':'symbol':'1.0-0' }}</strong></div>
+      <div class="cuadre__total">
+        <span>Debería haber</span>
+        <strong>{{ totales()?.esperado | currency:'COP':'symbol':'1.0-0' }}</strong>
+      </div>
+    </div>
+
+    <label class="campo">
+      <span>¿Cuánto contaste?</span>
+      <input class="input" type="number" min="0" step="any" placeholder="Dejar vacío si no cuentas"
+             [value]="montoReportado() ?? ''"
+             (input)="montoReportado.set(numeroODefault($any($event.target).value))" />
+    </label>
+
+    @if (diferenciaPrevia(); as dif) {
+      <p class="dif-aviso" [class.ok]="dif === 0" [class.sobra]="dif > 0" [class.falta]="dif < 0">
+        @if (dif === 0) {
+          <lucide-icon name="check" [size]="15" /> La caja cuadra exactamente.
+        } @else if (dif > 0) {
+          <lucide-icon name="circle-alert" [size]="15" />
+          Sobran {{ dif | currency:'COP':'symbol':'1.0-0' }} respecto a lo esperado.
+        } @else {
+          <lucide-icon name="circle-alert" [size]="15" />
+          Faltan {{ -dif | currency:'COP':'symbol':'1.0-0' }} respecto a lo esperado.
+        }
+      </p>
+    }
+
+    <label class="campo">
+      <span>Observaciones del cierre</span>
+      <input class="input" type="text" placeholder="Opcional"
+             [value]="obsCierre()"
+             (input)="obsCierre.set($any($event.target).value)" />
+    </label>
+
+    <p class="hint">
+      Una diferencia no impide cerrar: queda registrada para que se pueda revisar después.
+    </p>
+  </div>
+  <div modal-footer>
+    <button type="button" class="btn btn-outline" (click)="modalCerrar.set(false)" [disabled]="guardando()">Cancelar</button>
+    <button type="button" class="btn btn-primary" (click)="pedirConfirmarCierre()" [disabled]="guardando()">
+      Continuar
+    </button>
+  </div>
+</reserva-modal>
+
+<!-- Modal: movimiento manual -->
+<reserva-modal [open]="modalMovimiento()"
+               [title]="movTipo() === 'INGRESO' ? 'Registrar ingreso' : 'Registrar egreso'"
+               [subtitle]="movTipo() === 'INGRESO' ? 'Dinero que entra y no viene de una cita.' : 'Un gasto pagado con el dinero de la caja.'"
+               (close)="modalMovimiento.set(false)">
+  <div class="form">
+    <label class="campo">
+      <span>Monto *</span>
+      <input class="input" type="number" min="0" step="any" placeholder="0"
+             [value]="movMonto() ?? ''"
+             (input)="movMonto.set(numeroODefault($any($event.target).value))" />
+    </label>
+    <label class="campo">
+      <span>Concepto</span>
+      <input class="input" type="text"
+             [placeholder]="movTipo() === 'INGRESO' ? 'Venta de producto, abono…' : 'Domicilio, insumos, adelanto…'"
+             [value]="movConcepto()"
+             (input)="movConcepto.set($any($event.target).value)" />
+    </label>
+    @if (movTipo() === 'INGRESO' && metodos().length > 0) {
+      <label class="campo">
+        <span>Forma de pago</span>
+        <select class="select" [value]="movMetodo() ?? ''"
+                (change)="setMovMetodo($any($event.target).value)">
+          <option [value]="''">Sin especificar</option>
+          @for (m of metodos(); track m.id_metodo_pago) {
+            <option [value]="m.id_metodo_pago" [selected]="movMetodo() === m.id_metodo_pago">
+              {{ m.nombre }}
+            </option>
+          }
+        </select>
+      </label>
+    }
+  </div>
+  <div modal-footer>
+    <button type="button" class="btn btn-outline" (click)="modalMovimiento.set(false)" [disabled]="guardando()">Cancelar</button>
+    <button type="button" class="btn btn-primary" (click)="guardarMovimiento()" [disabled]="!puedeGuardarMovimiento()">
+      @if (guardando()) { Guardando… } @else { Registrar }
+    </button>
+  </div>
+</reserva-modal>
+
+<reserva-confirm
+  [open]="confirmCierre()"
+  title="Cerrar el turno"
+  message="Al cerrar la caja no se podrán registrar más cobros hasta abrir un turno nuevo. ¿Continuar?"
+  confirmText="Cerrar caja"
+  kind="primary"
+  (cancel)="confirmCierre.set(false)"
+  (confirm)="cerrarCaja()" />

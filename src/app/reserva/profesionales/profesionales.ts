@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Router } from '@angular/router';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
 import { forkJoin } from 'rxjs';
@@ -8,6 +9,7 @@ import { AuthService } from '../../core/services/auth.service';
 import { ReservaApiService } from '../../core/services/reserva-api.service';
 import { ToastService } from '../../core/services/toast.service';
 import { Profesional, Servicio } from '../../core/models';
+import { MayusculasDirective } from '../../shared/mayusculas.directive';
 import { ModalComponent } from '../../shared/modal/modal';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dialog';
 
@@ -16,7 +18,7 @@ import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dial
   standalone: true,
   imports: [
     CommonModule, ReactiveFormsModule, LucideAngularModule,
-    ModalComponent, ConfirmDialogComponent,
+    MayusculasDirective, ModalComponent, ConfirmDialogComponent,
   ],
   templateUrl: './profesionales.html',
   styleUrl: './profesionales.scss',
@@ -24,6 +26,7 @@ import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dial
 })
 export class ProfesionalesComponent implements OnInit {
   private readonly auth  = inject(AuthService);
+  private readonly router = inject(Router);
   private readonly api   = inject(ReservaApiService);
   private readonly toast = inject(ToastService);
   private readonly fb    = inject(FormBuilder);
@@ -95,12 +98,16 @@ export class ProfesionalesComponent implements OnInit {
     this.recargar();
   }
 
-  abrirCrear() {
-    this.editando.set(null);
-    this.form.reset({
-      nombre: '', especialidad: '', telefono: '', email: '', foto_url: '', color_hex: '#10b981',
-    });
-    this.modalAbierto.set(true);
+  /**
+   * El alta vive en **Usuarios**, no aquí.
+   *
+   * Un profesional creado solo en esta pantalla queda sin acceso al sistema: existe en la
+   * agenda, recibe citas y no puede entrar a verlas. Al crearlo desde Usuarios se hacen las dos
+   * cosas a la vez —la cuenta y su ficha— y no quedan mitades. Esta pantalla sigue siendo la de
+   * editar al equipo, asignarle servicios y darlo de baja.
+   */
+  irACrearUsuario() {
+    this.router.navigate(['/usuarios']);
   }
 
   abrirEditar(p: Profesional) {

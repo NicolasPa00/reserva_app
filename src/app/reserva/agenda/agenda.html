@@ -1,24 +1,30 @@
-<section class="page">
+<section class="page agenda">
   <header class="page__head">
     <div>
       <h1>Agenda</h1>
-      <p>Vista del día. Bloques por profesional.</p>
+      <p>Vista del día por profesional. Las zonas en gris están fuera del horario de atención.</p>
     </div>
-    <button type="button" class="btn btn-primary" (click)="modalNuevaCita.set(true)">
-      <lucide-icon name="plus" [size]="16" /> Nueva cita
-    </button>
+    @if (puedeAgendar()) {
+      <button type="button" class="btn btn-primary" (click)="modalNuevaCita.set(true)">
+        <lucide-icon name="plus" [size]="16" /> Nueva cita
+      </button>
+    }
   </header>
 
-  <div class="bar">
+  <div class="bar card">
     <div class="bar__nav">
-      <button type="button" class="btn btn-outline" (click)="cambiarDia(-1)" title="Día anterior">
+      <button type="button" class="bar__flecha" (click)="cambiarDia(-1)" title="Día anterior">
         <lucide-icon name="chevron-left" [size]="16" />
       </button>
-      <button type="button" class="btn btn-outline" (click)="irAHoy()">Hoy</button>
-      <button type="button" class="btn btn-outline" (click)="cambiarDia(1)" title="Día siguiente">
+      <button type="button" class="btn btn-outline bar__hoy" (click)="irAHoy()"
+              [class.bar__hoy--on]="esHoy()">Hoy</button>
+      <button type="button" class="bar__flecha" (click)="cambiarDia(1)" title="Día siguiente">
         <lucide-icon name="chevron-right" [size]="16" />
       </button>
-      <strong class="bar__fecha">{{ fechaLabel() }}</strong>
+      <div class="bar__fecha">
+        <strong>{{ fechaLabel() }}</strong>
+        <span>{{ totalCitas() }} cita(s) · {{ profesionales().length }} profesional(es)</span>
+      </div>
     </div>
     <input class="input bar__date" type="date"
            [value]="fechaInputValue()"
@@ -28,56 +34,138 @@
   @if (cargando()) {
     <p class="hint">Cargando…</p>
   } @else if (profesionales().length === 0) {
-    <p class="hint">Crea profesionales para ver la agenda.</p>
+    <div class="card vacio">
+      <lucide-icon name="users" [size]="28" />
+      <strong>Aún no hay profesionales</strong>
+      <p>La agenda muestra una columna por profesional. Crea el primero para empezar a agendar.</p>
+    </div>
   } @else {
-    <div class="cal" [style.--rows]="horasGrid().length" [style.--cols]="profesionales().length">
-      <div class="cal__header">
-        <div class="cal__corner"></div>
-        @for (p of profesionales(); track p.id_profesional) {
-          <div class="cal__pro">
-            <i [style.background]="p.color_hex || '#10b981'"></i>
-            {{ p.nombre }}
-          </div>
-        }
-      </div>
-      <div class="cal__body">
-        <div class="cal__hours">
-          @for (h of horasGrid(); track h) {
-            <div class="cal__hour">{{ h }}</div>
+    <div class="cal card" [style.--cols]="profesionales().length">
+      <div class="cal__scroll">
+        <!-- Cabecera de profesionales -->
+        <div class="cal__header">
+          <div class="cal__corner"></div>
+          @for (p of profesionales(); track p.id_profesional) {
+            <div class="cal__pro" [class.cal__pro--cerrado]="cerrado(p.id_profesional)">
+              <span class="cal__punto" [style.background]="p.color_hex || 'var(--color-primary)'"></span>
+              <div class="cal__pro-txt">
+                <strong>{{ p.nombre }}</strong>
+                <span>{{ jornadaLabel(p.id_profesional) || (citasDe(p.id_profesional) + ' cita(s)') }}</span>
+              </div>
+              @if (citasDe(p.id_profesional) > 0) {
+                <span class="cal__conteo">{{ citasDe(p.id_profesional) }}</span>
+              }
+            </div>
           }
         </div>
-        @for (p of profesionales(); track p.id_profesional) {
-          <div class="cal__col">
+
+        <!-- Cuerpo -->
+        <div class="cal__body">
+          <div class="cal__hours">
             @for (h of horasGrid(); track h) {
-              <div class="cal__cell"></div>
-            }
-            @for (pos of citasPorPro().get(p.id_profesional) || []; track pos.cita.id_cita) {
-              <div class="cal__cita"
-                   [style.top.px]="pos.topPx"
-                   [style.height.px]="pos.heightPx"
-                   [style.background]="p.color_hex || 'var(--color-primary)'"
-                   [title]="pos.cita.cliente_nombre">
-                <strong>{{ pos.cita.cliente_nombre }}</strong>
-                <span>
-                  {{ pos.cita.fecha_hora_inicio | date:'HH:mm':'':'es-CO' }} —
-                  {{ pos.cita.fecha_hora_fin | date:'HH:mm':'':'es-CO' }}
-                </span>
-                <span class="cal__svc">
-                  @for (s of pos.cita.servicios || []; track s.id_servicio) {
-                    {{ s.servicio?.nombre }}@if (!$last) {, }
-                  }
-                </span>
-                <span class="badge" [class]="estadoBadge(pos.cita)" style="position:absolute; top:4px; right:4px;">
-                  {{ pos.cita.estado }}
-                </span>
-              </div>
+              <div class="cal__hour" [style.height.px]="pxPorHora"><span>{{ h }}</span></div>
             }
           </div>
-        }
+
+          @for (p of profesionales(); track p.id_profesional) {
+            <div class="cal__col" [class.cal__col--cerrado]="cerrado(p.id_profesional)">
+
+              <!-- Franjas de atención: lo que queda fuera se ve gris -->
+              @for (f of franjasPorPro().get(p.id_profesional) || []; track f.topPx) {
+                <div class="cal__abierto" [style.top.px]="f.topPx" [style.height.px]="f.heightPx"></div>
+              }
+
+              <!-- Rejilla de cuartos de hora -->
+              @for (h of horasGrid(); track h) {
+                <div class="cal__cell" [style.height.px]="pxPorHora">
+                  @for (s of [1,2,3]; track s) {
+                    <span class="cal__sub" [style.top.px]="altoSubdivision() * s"></span>
+                  }
+                </div>
+              }
+
+              <!-- Citas -->
+              @for (pos of citasPorPro().get(p.id_profesional) || []; track pos.cita.id_cita) {
+                <button type="button" class="cita"
+                        [class.cita--compacta]="pos.compacta"
+                        [class.cita--pendiente]="pos.cita.estado === 'pendiente'"
+                        [class.cita--completada]="pos.cita.estado === 'completada'"
+                        [class.cita--noshow]="pos.cita.estado === 'no_show'"
+                        [style.top.px]="pos.topPx"
+                        [style.height.px]="pos.heightPx"
+                        [style.left]="'calc(' + (100 / pos.cols) * pos.col + '% + 3px)'"
+                        [style.width]="'calc(' + (100 / pos.cols) + '% - 6px)'"
+                        [style.--cita-color]="p.color_hex || 'var(--color-primary)'"
+                        [title]="pos.cita.cliente_nombre + ' · ' + pos.duracionMin + ' min'"
+                        (click)="abrirDetalle(pos.cita)">
+                  <span class="cita__barra"></span>
+                  <span class="cita__cuerpo">
+                    <span class="cita__linea1">
+                      <strong>{{ pos.cita.cliente_nombre }}</strong>
+                      <em>{{ pos.cita.fecha_hora_inicio | date:'HH:mm':'':'es-CO' }}</em>
+                    </span>
+                    @if (!pos.compacta) {
+                      <span class="cita__svc">
+                        @for (s of pos.cita.servicios || []; track s.id_servicio) {
+                          {{ s.servicio?.nombre }}@if (!$last) {, }
+                        }
+                        @if ((pos.cita.servicios || []).length === 0) { {{ pos.duracionMin }} min }
+                      </span>
+                      <span class="cita__pie">
+                        <span class="cita__estado">{{ estadoLabel(pos.cita.estado) }}</span>
+                        @if (pos.cita.requiere_pago && pos.cita.pago_estado === 'pendiente_validacion') {
+                          <lucide-icon name="credit-card" [size]="11" />
+                        }
+                      </span>
+                    }
+                  </span>
+                </button>
+              }
+
+              <!-- Línea de la hora actual -->
+              @if (lineaAhoraPx() !== null) {
+                <div class="cal__ahora" [style.top.px]="lineaAhoraPx()"></div>
+              }
+            </div>
+          }
+        </div>
       </div>
     </div>
+
+    <p class="leyenda">
+      <span><i class="lg lg--abierto"></i> Horario de atención</span>
+      <span><i class="lg lg--cerrado"></i> Fuera de horario</span>
+      <span><i class="lg lg--ahora"></i> Hora actual</span>
+      <em>Haz clic en una cita para ver su detalle.</em>
+    </p>
   }
 </section>
+
+<!-- Detalle de la cita -->
+<reserva-modal [open]="!!citaDetalle()"
+               [title]="'Detalle de la cita'"
+               [subtitle]="citaDetalle()?.profesional?.nombre || ''"
+               size="lg" (close)="cerrarDetalle()">
+  <reserva-cita-detalle [cita]="citaDetalle()" />
+  <div modal-footer>
+    @if (puedeCobrar(citaDetalle())) {
+      <button type="button" class="btn btn-primary" (click)="cobrar(citaDetalle()!)">
+        <lucide-icon name="wallet" [size]="14" /> Completar y cobrar
+      </button>
+    }
+    <button type="button" class="btn btn-outline" (click)="cerrarDetalle()">Cerrar</button>
+  </div>
+</reserva-modal>
+
+<reserva-cobro-dialog
+  [idNegocio]="idNegocio()"
+  [cita]="citaACobrar()"
+  [metodos]="metodosPago()"
+  [permiteMultipago]="permiteMultipago()"
+  [cajaAbierta]="cajaAbierta()"
+  [exigeCaja]="exigeCaja()"
+  (close)="citaACobrar.set(null)"
+  (cobrada)="onCobrada()" />
 
 <reserva-cita-form
   [idNegocio]="idNegocio()"

@@ -4,7 +4,7 @@
       <h1>Citas</h1>
       <p>Gestión de reservas, validación de pagos y acciones por cita.</p>
     </div>
-    @if (puedeCrear()) {
+    @if (puedeAgendar()) {
       <button type="button" class="btn btn-primary" (click)="modalNuevaCita.set(true)">
         <lucide-icon name="plus" [size]="16" /> Nueva cita
       </button>
@@ -94,7 +94,7 @@
           </div>
           @if (tab() === 'pagos') {
             <div class="row__actions" (click)="$event.stopPropagation()">
-              <button type="button" class="btn btn-outline" (click)="abrirValidarPago(c)">
+              <button type="button" class="btn btn-outline" (click)="abrirValidarPago(c)" [disabled]="!puedeValidarPago()">
                 <lucide-icon name="eye" [size]="14" /> Validar
               </button>
             </div>
@@ -107,77 +107,28 @@
 
 <!-- Detalle de cita + acciones -->
 <reserva-modal [open]="modalDetalle()" [title]="'Cita #' + (citaDetalle()?.id_cita || '')" size="lg" (close)="cerrarDetalle()">
-  @if (citaDetalle()) {
-    <div class="detalle">
-      <div class="detalle__head">
-        <strong>{{ citaDetalle()!.cliente_nombre }}</strong>
-        <span class="badge" [class]="badgeEstado(citaDetalle()!.estado)">{{ estadoLabel(citaDetalle()!.estado) }}</span>
-      </div>
-      <p>
-        <lucide-icon name="calendar-clock" [size]="14" />
-        {{ citaDetalle()!.fecha_hora_inicio | date:'EEEE dd MMM yyyy, HH:mm':'':'es-CO' }} —
-        {{ citaDetalle()!.fecha_hora_fin | date:'HH:mm':'':'es-CO' }}
-      </p>
-      <p><lucide-icon name="user" [size]="14" /> {{ citaDetalle()!.profesional?.nombre }}</p>
-      @if (citaDetalle()!.cliente_telefono) {
-        <p><lucide-icon name="phone" [size]="14" /> {{ citaDetalle()!.cliente_telefono }}</p>
-      }
-      @if (citaDetalle()!.cliente_email) {
-        <p><lucide-icon name="mail" [size]="14" /> {{ citaDetalle()!.cliente_email }}</p>
-      }
-
-      <h4>Servicios</h4>
-      <ul class="srv">
-        @for (s of citaDetalle()!.servicios || []; track s.id_servicio) {
-          <li>
-            <span>{{ s.servicio?.nombre }}</span>
-            <em>{{ s.duracion_snapshot_min }}min</em>
-            <strong>{{ s.precio_snapshot | currency:'COP':'symbol':'1.0-0' }}</strong>
-          </li>
-        }
-      </ul>
-      <p class="total">
-        <span>Total</span>
-        <strong>{{ citaDetalle()!.monto_total | currency:'COP':'symbol':'1.0-0' }}</strong>
-      </p>
-
-      @if (citaDetalle()!.notas) {
-        <h4>Notas</h4>
-        <p class="hint">{{ citaDetalle()!.notas }}</p>
-      }
-
-      @if (citaDetalle()!.requiere_pago) {
-        <h4>Pago adelantado</h4>
-        <p>Estado: <span class="badge"
-              [class.b-warn]="citaDetalle()!.pago_estado === 'pendiente_validacion'"
-              [class.b-ok]="citaDetalle()!.pago_estado === 'aprobado'"
-              [class.b-err]="citaDetalle()!.pago_estado === 'rechazado'">
-            {{ pagoLabel(citaDetalle()!.pago_estado) }}
-        </span></p>
-        @if (citaDetalle()!.pago_rechazo_motivo) {
-          <p class="hint">Motivo: {{ citaDetalle()!.pago_rechazo_motivo }}</p>
-        }
-      }
-
-      @if (citaDetalle()!.cancelado_motivo) {
-        <h4>Cancelación</h4>
-        <p class="hint">{{ citaDetalle()!.cancelado_motivo }} ({{ citaDetalle()!.cancelado_por }})</p>
-      }
-    </div>
-  }
+  <reserva-cita-detalle [cita]="citaDetalle()" />
   <div modal-footer style="display:flex; gap:.5rem; flex-wrap: wrap;">
     @if (puedeEditar() && citaDetalle() && (citaDetalle()!.estado === 'pendiente' || citaDetalle()!.estado === 'confirmada')) {
-      @if (citaDetalle()!.estado === 'pendiente' && citaDetalle()!.pago_estado !== 'pendiente_validacion') {
+      @if (puedeConfirmar() && citaDetalle()!.estado === 'pendiente' && citaDetalle()!.pago_estado !== 'pendiente_validacion') {
         <button type="button" class="btn btn-primary" (click)="confirmar(citaDetalle()!); cerrarDetalle()">Confirmar</button>
       }
-      @if (citaDetalle()!.pago_estado === 'pendiente_validacion') {
+      @if (puedeValidarPago() && citaDetalle()!.pago_estado === 'pendiente_validacion') {
         <button type="button" class="btn btn-primary" (click)="abrirValidarPago(citaDetalle()!); cerrarDetalle()">
           <lucide-icon name="credit-card" [size]="14" /> Validar pago
         </button>
       }
-      <button type="button" class="btn btn-outline" (click)="completar(citaDetalle()!); cerrarDetalle()">Completar</button>
-      <button type="button" class="btn btn-outline" (click)="noShow(citaDetalle()!); cerrarDetalle()">No-show</button>
-      <button type="button" class="btn btn-danger" (click)="pedirCancelar(citaDetalle()!); cerrarDetalle()">Cancelar</button>
+      @if (puedeCompletar()) {
+        <button type="button" class="btn btn-outline" (click)="completar(citaDetalle()!); cerrarDetalle()">
+          <lucide-icon name="wallet" [size]="14" /> Completar y cobrar
+        </button>
+      }
+      @if (puedeNoShow()) {
+        <button type="button" class="btn btn-outline" (click)="noShow(citaDetalle()!); cerrarDetalle()">No-show</button>
+      }
+      @if (puedeCancelar()) {
+        <button type="button" class="btn btn-danger" (click)="pedirCancelar(citaDetalle()!); cerrarDetalle()">Cancelar</button>
+      }
     }
     <button type="button" class="btn btn-ghost" (click)="cerrarDetalle()" style="margin-left: auto;">Cerrar</button>
   </div>
@@ -231,3 +182,13 @@
   [open]="modalNuevaCita()"
   (close)="modalNuevaCita.set(false)"
   (created)="recargar()" />
+
+<reserva-cobro-dialog
+  [idNegocio]="idNegocio()"
+  [cita]="citaACobrar()"
+  [metodos]="metodosPago()"
+  [permiteMultipago]="permiteMultipago()"
+  [cajaAbierta]="cajaAbierta()"
+  [exigeCaja]="exigeCaja()"
+  (close)="citaACobrar.set(null)"
+  (cobrada)="onCobrada()" />

@@ -1,60 +1,216 @@
-.bar { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; justify-content: space-between; }
-.bar__nav { display: inline-flex; align-items: center; gap: .35rem; }
-.bar__fecha { margin-left: .5rem; color: var(--color-text-primary); text-transform: capitalize; }
-.bar__date { width: auto; min-width: 160px; }
+.agenda { max-width: 1400px; }
 
 .hint { color: var(--color-text-muted); }
 
+// ── Barra de navegación del día ──
+.bar {
+  display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; justify-content: space-between;
+  padding: .75rem 1rem;
+
+  &__nav { display: flex; align-items: center; gap: .4rem; }
+
+  &__flecha {
+    display: flex; align-items: center; justify-content: center;
+    width: 32px; height: 32px; padding: 0; cursor: pointer;
+    border: 1px solid var(--color-border); border-radius: var(--radius-md);
+    background: var(--color-surface); color: var(--color-text-secondary);
+    transition: border-color var(--transition-fast), color var(--transition-fast);
+    &:hover { border-color: var(--color-primary); color: var(--color-primary); }
+  }
+
+  &__hoy { padding: .35rem .8rem; font-size: .85rem; }
+  &__hoy--on { border-color: var(--color-primary); color: var(--color-primary); }
+
+  &__fecha {
+    display: flex; flex-direction: column; margin-left: .6rem;
+    strong { font-size: .95rem; color: var(--color-text-primary); text-transform: capitalize; }
+    span { font-size: .75rem; color: var(--color-text-muted); }
+  }
+
+  &__date { width: auto; min-width: 150px; }
+}
+
+.vacio {
+  display: flex; flex-direction: column; align-items: center; gap: .4rem;
+  padding: 2.5rem 1rem; text-align: center; color: var(--color-text-muted);
+  strong { color: var(--color-text-primary); font-size: 1rem; }
+  p { margin: 0; font-size: .87rem; max-width: 42ch; }
+}
+
+// ── Calendario ──
 .cal {
-  --pro-col-min: 160px;
-  --hours-col: 64px;
-  display: grid;
-  grid-template-rows: 56px 1fr;
-  background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); overflow: hidden;
-  box-shadow: var(--shadow-elevated);
+  --hours-col: 62px;
+  --pro-col-min: 190px;
+  padding: 0; overflow: hidden;
+
+  // El scroll horizontal vive aquí dentro, no en la página: con muchos profesionales se
+  // desplaza la rejilla y la cabecera va con ella, en vez de romper el ancho del layout.
+  &__scroll { overflow-x: auto; overflow-y: visible; }
+
+  &__header,
+  &__body {
+    display: grid;
+    grid-template-columns: var(--hours-col) repeat(var(--cols), minmax(var(--pro-col-min), 1fr));
+    min-width: min-content;
+  }
+
+  &__header {
+    position: sticky; top: 0; z-index: 3;
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-bg-muted);
+  }
+  &__corner {
+    border-right: 1px solid var(--color-border);
+    position: sticky; left: 0; z-index: 1; background: var(--color-bg-muted);
+  }
+
+  &__pro {
+    display: flex; align-items: center; gap: .5rem; padding: .6rem .8rem; min-width: 0;
+    border-right: 1px solid var(--color-border);
+    &:last-child { border-right: 0; }
+    &--cerrado { opacity: .6; }
+  }
+  &__punto { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+  &__pro-txt {
+    display: flex; flex-direction: column; min-width: 0; flex: 1;
+    strong {
+      font-size: .87rem; font-weight: 600; color: var(--color-text-primary);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    span {
+      font-size: .7rem; color: var(--color-text-muted); font-variant-numeric: tabular-nums;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+  }
+  &__conteo {
+    flex-shrink: 0; min-width: 20px; padding: 1px 6px; border-radius: var(--radius-full);
+    background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+    color: var(--color-primary); font-size: .7rem; font-weight: 700; text-align: center;
+  }
+
+  &__body { position: relative; }
+
+  &__hours {
+    display: flex; flex-direction: column;
+    position: sticky; left: 0; z-index: 2;
+    background: var(--color-surface); border-right: 1px solid var(--color-border);
+  }
+  &__hour {
+    position: relative; border-top: 1px solid var(--color-border);
+    &:first-child { border-top: 0; }
+    span {
+      position: absolute; top: -7px; right: 8px;
+      font-size: .7rem; color: var(--color-text-muted); background: var(--color-surface);
+      padding: 0 2px; font-variant-numeric: tabular-nums;
+    }
+    &:first-child span { top: 2px; }
+  }
+
+  &__col {
+    position: relative; border-right: 1px solid var(--color-border);
+    background: var(--color-bg-muted);      // por defecto, fuera de horario
+    &:last-child { border-right: 0; }
+    &--cerrado { background: repeating-linear-gradient(
+        45deg, var(--color-bg-muted), var(--color-bg-muted) 6px,
+        var(--color-surface) 6px, var(--color-surface) 12px); }
+  }
+
+  // Franja dentro del horario de atención: se pinta encima del gris de la columna.
+  &__abierto {
+    position: absolute; left: 0; right: 0; z-index: 0;
+    background: var(--color-surface);
+  }
+
+  &__cell {
+    position: relative; border-top: 1px solid var(--color-border); z-index: 1;
+    &:first-child { border-top: 0; }
+  }
+  &__sub {
+    position: absolute; left: 0; right: 0; height: 0;
+    border-top: 1px dashed color-mix(in srgb, var(--color-border) 65%, transparent);
+  }
+
+  &__ahora {
+    position: absolute; left: 0; right: 0; height: 0; z-index: 4;
+    border-top: 2px solid var(--color-error);
+    &::before {
+      content: ''; position: absolute; left: -4px; top: -5px;
+      width: 8px; height: 8px; border-radius: 50%; background: var(--color-error);
+    }
+  }
 }
 
-.cal__header {
-  display: grid;
-  grid-template-columns: var(--hours-col) repeat(var(--cols), minmax(var(--pro-col-min), 1fr));
-  border-bottom: 1px solid var(--color-border);
-  background: var(--color-bg-muted);
-}
-.cal__corner { border-right: 1px solid var(--color-border); }
-.cal__pro {
-  display: flex; align-items: center; gap: .5rem; padding: 0 .85rem;
-  font-weight: 600; color: var(--color-text-primary); border-right: 1px solid var(--color-border);
-  i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; }
-  &:last-child { border-right: 0; }
+// ── Cita ──
+.cita {
+  position: absolute; z-index: 2;
+  padding: 0; border: 0; cursor: pointer; text-align: left; font-family: inherit;
+  display: flex; align-items: stretch; overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--cita-color) 14%, #fff);
+  box-shadow: 0 1px 3px rgba(15, 10, 42, .12);
+  transition: box-shadow var(--transition-fast), transform var(--transition-fast);
+
+  // El hueco entre citas contiguas se aplica en el `left`/`width` inline de la plantilla
+  // (`calc(% ± 3px)`): un margen aquí desplazaría el bloque y descuadraría el reparto.
+
+  &:hover { box-shadow: var(--shadow-md); z-index: 5; transform: translateY(-1px); }
+  &:focus-visible { outline: none; box-shadow: var(--focus-ring); z-index: 5; }
+
+  &__barra { width: 4px; flex-shrink: 0; background: var(--cita-color); }
+
+  &__cuerpo {
+    display: flex; flex-direction: column; gap: 1px; justify-content: flex-start;
+    padding: .3rem .4rem; min-width: 0; flex: 1; overflow: hidden;
+  }
+
+  &__linea1 {
+    display: flex; align-items: baseline; justify-content: space-between; gap: .35rem; min-width: 0;
+    strong {
+      font-size: .78rem; font-weight: 700; color: var(--color-text-primary); min-width: 0;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    em {
+      font-style: normal; font-size: .68rem; color: var(--color-text-secondary);
+      font-variant-numeric: tabular-nums; flex-shrink: 0;
+    }
+  }
+
+  &__svc {
+    font-size: .69rem; color: var(--color-text-secondary);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  &__pie {
+    display: flex; align-items: center; gap: .25rem; margin-top: auto;
+    color: var(--color-text-muted);
+  }
+  &__estado {
+    font-size: .62rem; font-weight: 700; text-transform: uppercase; letter-spacing: .03em;
+    color: var(--cita-color);
+  }
+
+  // Bloques cortos: solo nombre y hora, sin apilar nada más.
+  &--compacta {
+    .cita__cuerpo { justify-content: center; padding: .15rem .35rem; }
+    .cita__linea1 strong { font-size: .72rem; }
+  }
+
+  // El estado se comunica con la textura del borde, no con otro color: el color ya lo usa el
+  // profesional, y dos escalas de color en la misma pieza no se leen.
+  &--pendiente  { border: 1px dashed color-mix(in srgb, var(--cita-color) 55%, transparent); }
+  &--completada { opacity: .72; }
+  &--noshow     { background: var(--color-error-bg); .cita__barra { background: var(--color-error); } }
 }
 
-.cal__body {
-  display: grid;
-  grid-template-columns: var(--hours-col) repeat(var(--cols), minmax(var(--pro-col-min), 1fr));
-  position: relative;
-}
-.cal__hours { display: flex; flex-direction: column; }
-.cal__hour {
-  height: 48px; padding: .25rem .35rem 0; font-size: .7rem; color: var(--color-text-muted);
-  border-top: 1px solid var(--color-border); border-right: 1px solid var(--color-border); text-align: right;
-  &:first-child { border-top: 0; }
-}
-.cal__col {
-  position: relative; border-right: 1px solid var(--color-border);
-  &:last-child { border-right: 0; }
-}
-.cal__cell { height: 48px; border-top: 1px solid var(--color-border);
-  &:first-child { border-top: 0; }
-}
+// ── Leyenda ──
+.leyenda {
+  display: flex; align-items: center; gap: 1.1rem; flex-wrap: wrap; margin: 0;
+  font-size: .76rem; color: var(--color-text-muted);
+  span { display: inline-flex; align-items: center; gap: .35rem; }
+  em { font-style: normal; margin-left: auto; }
 
-.cal__cita {
-  position: absolute; left: 4px; right: 4px;
-  border-radius: var(--radius-sm); color: #fff; padding: .35rem .5rem;
-  font-size: .75rem; line-height: 1.2; overflow: hidden; cursor: pointer;
-  display: flex; flex-direction: column; gap: 1px;
-  box-shadow: 0 1px 4px rgba(0,0,0,.15);
-  strong { font-size: .8rem; }
-  span { opacity: .9; }
-  .cal__svc { font-size: .7rem; opacity: .85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .badge { font-size: .6rem; background: rgba(0,0,0,.25); color: #fff; }
+  .lg { width: 14px; height: 10px; border-radius: 2px; display: inline-block; }
+  .lg--abierto { background: var(--color-surface); border: 1px solid var(--color-border); }
+  .lg--cerrado { background: var(--color-bg-muted); border: 1px solid var(--color-border); }
+  .lg--ahora   { height: 0; border-top: 2px solid var(--color-error); border-radius: 0; }
 }

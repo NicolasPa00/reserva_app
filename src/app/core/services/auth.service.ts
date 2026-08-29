@@ -4,16 +4,33 @@ import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
-import { ApiResponse, NegocioReserva, SesionReserva } from '../models';
+import { ApiResponse, NegocioReserva, PermisoSubnivel, SesionReserva } from '../models';
 
 const TOKEN_KEY   = 'reserva_token';
 const SESSION_KEY = 'reserva_session';
 const NEGOCIO_KEY = 'reserva_negocio_activo';
 
+// Orden en que se busca una ruta de respaldo cuando la pedida no está permitida. Debe contener
+// **todas** las rutas de módulo: una que falte aquí nunca podrá ser el destino de un usuario
+// cuyo rol solo tenga acceso a ella.
 const APP_ROUTE_PRIORITY = [
   '/dashboard', '/agenda', '/citas',
-  '/servicios', '/profesionales', '/horarios', '/configuracion',
+  '/servicios', '/profesionales', '/horarios', '/caja', '/informes', '/usuarios', '/configuracion',
 ];
+
+/**
+ * `/citas/no-show` → `citas_no_show`. Mismo criterio que el backend.
+ *
+ * El guion se normaliza igual que la barra: si no, `citas_no-show` nunca casaría con el
+ * `citas_no_show` que consultan las vistas y la acción se vería siempre denegada.
+ */
+function normalizeCodigoAccion(raw: string): string {
+  return String(raw ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/^\/+/, '')
+    .replace(/[/-]/g, '_');
+}
 
 function normalizeRoute(rawPath: string): string {
   if (!rawPath) return '/';
@@ -32,7 +49,18 @@ export class AuthService {
   private readonly _negocioIdx = signal<number>(0);
 
   readonly isAuthenticated = computed(() => this.session() !== null);
-  readonly planActivo      = computed(() => this.session()?.plan_activo ?? false);
+
+  /**
+   * ¿El negocio **activo** tiene plan vigente?
+   *
+   * Se lee del negocio seleccionado, no de la bandera suelta de la raíz de la sesión: con un
+   * usuario multi-negocio esa bandera se quedaba con el plan del primero y no cambiaba al
+   * alternar de inquilino. La raíz queda como respaldo para sesiones viejas guardadas en
+   * `localStorage` antes de que el backend enviara el dato por negocio.
+   */
+  readonly planActivo = computed(() =>
+    this.negocio()?.plan_activo ?? this.session()?.plan_activo ?? false,
+  );
   readonly usuario   = computed(() => this.session()?.usuario ?? null);
   readonly negocios  = computed(() => this.session()?.negocios ?? []);
   readonly negocio   = computed<NegocioReserva | null>(() => {
@@ -48,6 +76,34 @@ export class AuthService {
     return 'Usuario';
   });
   readonly permisosVistaActivos = computed(() => this.negocio()?.permisos_vista ?? []);
+
+  readonly permisosSubnivelActivos = computed<PermisoSubnivel[]>(() => {
+    const delNegocio = this.negocio()?.permisos_subnivel;
+    if (delNegocio?.length) return delNegocio;
+    return this.session()?.permisos_subnivel ?? [];
+  });
+
+  /**
+   * ¿Tiene el usuario concedida una acción concreta? (`'citas_cancelar'`, `'caja_cerrar'`…)
+   *
+   * Las vistas la usan para esconder o deshabilitar el control. **No es la seguridad**: el
+   * backend vuelve a comprobarlo en las rutas que mueven dinero o cierran algo, porque ocultar
+   * un botón no impide llamar a la API. Aquí solo se evita ofrecer lo que se va a rechazar.
+   *
+   * Con `permisos_cargados !== true` devuelve `true`: una sesión antigua guardada en
+   * `localStorage`, de antes de que existieran estos permisos, no debe dejar la app sin botones
+   * hasta que el usuario vuelva a entrar.
+   */
+  puedeAccion(codigo: string): boolean {
+    const session = this.session();
+    if (!session) return false;
+    if (session.permisos_cargados !== true) return true;
+
+    const buscado = normalizeCodigoAccion(codigo);
+    if (!buscado) return false;
+    return this.permisosSubnivelActivos()
+      .some(p => p.puede_ver && normalizeCodigoAccion(p.codigo) === buscado);
+  }
 
   constructor() {
     if (isPlatformBrowser(this.platformId)) this.restoreSession();
@@ -94,7 +150,18 @@ export class AuthService {
       );
       if (res?.success && res.data?.token) {
         const { token, ...sessionData } = res.data;
-        this.setSession(token, sessionData as SesionReserva);
+        const sesion = sessionData as SesionReserva;
+        this.setSession(token, sesion);
+
+        // El código de un solo uso lleva dentro el negocio que el usuario pulsó en la consola
+        // de administración, y el backend lo devuelve resuelto en `negocio`. Sin esta línea se
+        // ignoraba: la sesión se quedaba con `negocios[0]`, así que entrar a «Barbería Don
+        // Nico» abría el primero de la lista —«Salón Demo EscalApp»— y con él su plan, sus
+        // permisos y sus datos. Elegir un negocio y trabajar sobre otro es de las peores cosas
+        // que puede hacer una app multi-inquilino.
+        const elegido = sesion.negocio?.id_negocio;
+        if (elegido != null) this.setNegocioActivo(elegido);
+
         return true;
       }
       return false;

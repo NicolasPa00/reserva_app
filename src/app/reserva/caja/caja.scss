@@ -1,0 +1,240 @@
+.caja { max-width: 1280px; }
+
+.hint { color: var(--color-text-muted); font-size: .86rem; margin: 0; }
+.pos { color: var(--color-success); }
+.neg { color: var(--color-error); }
+
+.page__acciones { display: flex; gap: .5rem; flex-wrap: wrap; }
+
+// ── Pestañas ──
+.tabs { display: flex; gap: .35rem; border-bottom: 1px solid var(--color-border); }
+.tab {
+  padding: .55rem .9rem; cursor: pointer; font-family: inherit;
+  border: 0; background: transparent; color: var(--color-text-muted);
+  font-size: .88rem; font-weight: 600;
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+  transition: color var(--transition-fast), border-color var(--transition-fast);
+
+  &:hover { color: var(--color-text-primary); }
+  &--on { color: var(--color-primary); border-bottom-color: var(--color-primary); }
+}
+
+// ── Caja cerrada ──
+.cerrada {
+  display: flex; flex-direction: column; align-items: center; gap: .5rem;
+  padding: 2.75rem 1.25rem; text-align: center;
+
+  &__icon {
+    display: flex; align-items: center; justify-content: center;
+    width: 64px; height: 64px; border-radius: var(--radius-full);
+    background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+    color: var(--color-primary); margin-bottom: .3rem;
+  }
+  strong { font-size: 1.05rem; color: var(--color-text-primary); }
+  p { margin: 0; max-width: 46ch; font-size: .88rem; color: var(--color-text-muted); }
+  .btn { margin-top: .6rem; }
+
+  &__aviso {
+    display: flex; align-items: center; gap: .4rem; margin-top: 1rem;
+    padding: .6rem .85rem; border-radius: var(--radius-md);
+    background: var(--color-warning-bg); color: var(--color-warning);
+    font-size: .82rem; max-width: 60ch;
+  }
+}
+
+.vacio {
+  display: flex; flex-direction: column; align-items: center; gap: .4rem;
+  padding: 2.5rem 1rem; text-align: center; color: var(--color-text-muted);
+  strong { color: var(--color-text-primary); font-size: 1rem; }
+  p { margin: 0; font-size: .86rem; }
+}
+
+// ── Resumen del turno ──
+.resumen { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: .85rem; }
+
+.rk {
+  display: flex; flex-direction: column; gap: .15rem;
+  padding: 1rem 1.1rem; position: relative; overflow: hidden;
+  background: var(--color-surface); border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);
+
+  &::before {
+    content: ''; position: absolute; inset: 0 0 auto 0; height: 3px;
+    background: var(--rk-tono, var(--color-border));
+  }
+
+  &__lab { font-size: .78rem; font-weight: 600; color: var(--color-text-secondary); }
+  &__val {
+    font-size: 1.5rem; font-weight: 800; line-height: 1.15; letter-spacing: -.02em;
+    color: var(--color-text-primary); font-variant-numeric: tabular-nums;
+  }
+  &__pie { font-size: .73rem; color: var(--color-text-muted); }
+
+  &--neutro   { --rk-tono: var(--color-accent-blue); }
+  &--exito    { --rk-tono: var(--color-success); }
+  &--alerta   { --rk-tono: var(--color-warning); }
+  &--primario { --rk-tono: var(--color-primary); .rk__val { color: var(--color-primary); } }
+}
+
+.aviso {
+  display: flex; align-items: center; gap: .5rem; margin: 0;
+  padding: .7rem .9rem; border-radius: var(--radius-md);
+  background: var(--color-warning-bg); color: var(--color-warning); font-size: .84rem;
+}
+
+// ── Paneles ──
+.split { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 1rem; align-items: start; }
+
+.panel {
+  padding: 1.05rem 1.2rem; min-width: 0;
+  display: flex; flex-direction: column; gap: .9rem;
+  box-shadow: var(--shadow-sm);
+
+  &__head {
+    display: flex; align-items: flex-start; justify-content: space-between; gap: .75rem; flex-wrap: wrap;
+    h2 { margin: 0; font-size: .98rem; font-weight: 700; color: var(--color-text-primary); }
+    p { margin: .1rem 0 0; font-size: .77rem; color: var(--color-text-muted); }
+  }
+  &__dato {
+    display: flex; flex-direction: column; align-items: flex-end;
+    span { font-size: .68rem; text-transform: uppercase; letter-spacing: .04em; color: var(--color-text-muted); }
+    strong { font-size: 1rem; color: var(--color-primary); font-variant-numeric: tabular-nums; }
+  }
+}
+
+// ── Desglose por forma de pago ──
+.ranking {
+  list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: .8rem;
+  li { display: flex; flex-direction: column; gap: .22rem; min-width: 0; }
+
+  &__fila { display: flex; align-items: baseline; justify-content: space-between; gap: .6rem; }
+  &__nombre {
+    font-size: .88rem; color: var(--color-text-primary); font-weight: 500; min-width: 0;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  &__valor {
+    font-size: .88rem; font-weight: 700; color: var(--color-text-primary);
+    font-variant-numeric: tabular-nums; flex-shrink: 0;
+  }
+  &__barra {
+    height: 7px; border-radius: var(--radius-full); background: var(--color-bg-muted); overflow: hidden;
+    div {
+      height: 100%; min-width: 2px; border-radius: var(--radius-full);
+      background: var(--color-primary); transition: width var(--transition-normal);
+    }
+  }
+  &__pie { font-size: .72rem; color: var(--color-text-muted); }
+}
+
+// ── A entregar por profesional ──
+.pros {
+  list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column;
+  li {
+    display: flex; align-items: center; gap: .7rem;
+    padding: .65rem 0; border-top: 1px solid var(--color-border);
+    &:first-child { border-top: 0; }
+  }
+  &__dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  &__txt {
+    display: flex; flex-direction: column; min-width: 0; flex: 1;
+    strong { font-size: .9rem; color: var(--color-text-primary); }
+    span { font-size: .74rem; color: var(--color-text-muted); }
+  }
+  &__total {
+    font-size: 1rem; font-weight: 800; color: var(--color-text-primary);
+    font-variant-numeric: tabular-nums; flex-shrink: 0;
+  }
+}
+
+// ── Movimientos ──
+.movs {
+  list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column;
+  li {
+    display: flex; align-items: center; gap: .7rem;
+    padding: .6rem 0; border-top: 1px solid var(--color-border);
+    &:first-child { border-top: 0; }
+  }
+  &__tipo {
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    width: 26px; height: 26px; border-radius: var(--radius-full);
+    &--in  { background: var(--color-success-bg); color: var(--color-success); }
+    &--out { background: var(--color-error-bg);   color: var(--color-error); }
+  }
+  &__txt {
+    display: flex; flex-direction: column; min-width: 0; flex: 1;
+    strong {
+      font-size: .87rem; color: var(--color-text-primary);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    span { font-size: .73rem; color: var(--color-text-muted); }
+  }
+  &__monto {
+    font-size: .9rem; font-weight: 700; font-variant-numeric: tabular-nums; flex-shrink: 0;
+  }
+}
+
+// ── Tabla del historial ──
+.tabla-wrap { overflow-x: auto; padding: 0; }
+.tabla {
+  width: 100%; border-collapse: collapse; font-size: .84rem; min-width: 820px;
+
+  th, td { padding: .6rem .7rem; text-align: left; border-bottom: 1px solid var(--color-border); }
+  th {
+    font-size: .7rem; text-transform: uppercase; letter-spacing: .04em;
+    color: var(--color-text-muted); font-weight: 700; white-space: nowrap;
+  }
+  td { color: var(--color-text-secondary); }
+  .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .destacado { color: var(--color-text-primary); font-weight: 700; }
+  tbody tr:hover { background: var(--color-surface-hover); }
+  tbody tr:last-child td { border-bottom: 0; }
+}
+
+// Un <td> con display:flex rompe los bordes de celda; el layout va en un span interno.
+.celda-turno {
+  display: flex; flex-direction: column;
+  strong { color: var(--color-text-primary); font-weight: 600; }
+  em { font-style: normal; font-size: .73rem; color: var(--color-text-muted); }
+}
+
+.dif {
+  font-weight: 700;
+  &--ok    { color: var(--color-success); }
+  &--sobra { color: var(--color-warning); }
+  &--falta { color: var(--color-error); }
+  &--na    { color: var(--color-text-muted); font-weight: 500; }
+}
+
+// ── Formularios de los modales ──
+.form { display: flex; flex-direction: column; gap: 1rem; min-width: 0; }
+.campo {
+  display: flex; flex-direction: column; gap: .3rem; min-width: 0;
+  > span { font-size: .78rem; font-weight: 600; color: var(--color-text-secondary); }
+}
+
+.cuadre {
+  display: flex; flex-direction: column; gap: .35rem;
+  padding: .85rem 1rem; border-radius: var(--radius-md); background: var(--color-bg-muted);
+
+  > div {
+    display: flex; align-items: baseline; justify-content: space-between; gap: .75rem;
+    font-size: .85rem;
+    span { color: var(--color-text-muted); }
+    strong { color: var(--color-text-primary); font-variant-numeric: tabular-nums; }
+  }
+
+  &__total {
+    padding-top: .5rem; margin-top: .2rem; border-top: 1px dashed var(--color-border);
+    span { color: var(--color-text-secondary) !important; font-weight: 600; }
+    strong { font-size: 1.2rem; font-weight: 800; color: var(--color-primary) !important; }
+  }
+}
+
+.dif-aviso {
+  display: flex; align-items: center; gap: .45rem; margin: 0;
+  padding: .65rem .85rem; border-radius: var(--radius-md); font-size: .84rem; font-weight: 600;
+
+  &.ok    { background: var(--color-success-bg); color: var(--color-success); }
+  &.sobra { background: var(--color-warning-bg); color: var(--color-warning); }
+  &.falta { background: var(--color-error-bg);   color: var(--color-error); }
+}

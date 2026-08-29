@@ -1,0 +1,403 @@
+<section class="page usuarios">
+  <header class="page__head">
+    <div>
+      <h1>Usuarios</h1>
+      <p>Quién entra al sistema y qué puede ver cada rol dentro de este negocio.</p>
+    </div>
+    @if (tab() === 'usuarios') {
+      <button type="button" class="btn btn-primary" (click)="abrirNuevo()">
+        <lucide-icon name="plus" [size]="16" /> Nuevo usuario
+      </button>
+    }
+  </header>
+
+  <div class="tabs">
+    <button class="tab" [class.tab--on]="tab() === 'usuarios'" (click)="cambiarTab('usuarios')">
+      Usuarios
+    </button>
+    <button class="tab" [class.tab--on]="tab() === 'roles'" (click)="cambiarTab('roles')">
+      Roles y permisos
+    </button>
+  </div>
+
+  <!-- ───────── Usuarios ───────── -->
+  @if (tab() === 'usuarios') {
+    <div class="filtros">
+      <label class="buscador">
+        <lucide-icon name="search" [size]="15" />
+        <input class="input" type="search" placeholder="Buscar por nombre, email o cédula…"
+               [value]="busqueda()" (input)="busqueda.set($any($event.target).value)" />
+      </label>
+      <label class="check">
+        <input type="checkbox" [checked]="incluirInactivos()" (change)="alternarInactivos()" />
+        <span>Incluir desactivados</span>
+      </label>
+    </div>
+
+    @if (cargando()) {
+      <p class="hint">Cargando…</p>
+    } @else if (usuariosFiltrados().length === 0) {
+      <div class="card vacio">
+        <lucide-icon name="user-cog" [size]="28" />
+        <strong>
+          @if (busqueda()) { Ningún usuario coincide con la búsqueda }
+          @else { Todavía no hay usuarios }
+        </strong>
+        <p>Crea el primero para que pueda entrar al sistema con su propio acceso.</p>
+        @if (!busqueda()) {
+          <button type="button" class="btn btn-outline" (click)="abrirNuevo()">
+            <lucide-icon name="plus" [size]="15" /> Nuevo usuario
+          </button>
+        }
+      </div>
+    } @else {
+      <div class="card lista">
+        @for (u of usuariosFiltrados(); track u.id_usuario) {
+          <article class="us" [class.us--off]="u.estado === 'I'">
+            <span class="us__avatar">{{ iniciales(u) }}</span>
+
+            <div class="us__ident">
+              <strong>
+                {{ u.nombre_completo }}
+                @if (esUsuarioActual(u)) { <em class="us__yo">tú</em> }
+              </strong>
+              <span>{{ u.email }}</span>
+              <span class="us__ced">CC {{ u.num_identificacion }}</span>
+            </div>
+
+            <div class="us__meta">
+              @if (u.rol) {
+                <span class="badge b-info">{{ u.rol.descripcion }}</span>
+              } @else {
+                <span class="badge b-off">Sin rol</span>
+              }
+              @if (u.profesional) {
+                <span class="us__pro">
+                  <lucide-icon name="scissors" [size]="11" /> Atiende citas
+                </span>
+              }
+              @if (u.debe_cambiar_password) {
+                <span class="us__aviso">Debe cambiar contraseña</span>
+              }
+              @if (u.estado === 'I') { <span class="badge b-err">Desactivado</span> }
+            </div>
+
+            <div class="us__acciones">
+              <button type="button" class="mini" (click)="abrirEditar(u)" title="Editar">
+                <lucide-icon name="pencil" [size]="13" /> Editar
+              </button>
+              <button type="button" class="mini" (click)="pedirReset(u)" title="Restablecer contraseña">
+                <lucide-icon name="rotate-cw" [size]="13" />
+              </button>
+              @if (!esUsuarioActual(u)) {
+                <button type="button" class="mini" [class.mini--danger]="u.estado === 'A'"
+                        (click)="pedirCambiarEstado(u)"
+                        [title]="u.estado === 'A' ? 'Desactivar acceso' : 'Reactivar acceso'">
+                  <lucide-icon [name]="u.estado === 'A' ? 'ban' : 'check'" [size]="13" />
+                </button>
+              }
+            </div>
+          </article>
+        }
+      </div>
+    }
+  }
+
+  <!-- ───────── Roles y permisos ───────── -->
+  @else {
+    <div class="permisos">
+      <aside class="card roles">
+        <h3>Roles</h3>
+        <p class="hint">Elige uno para ver y ajustar sus permisos.</p>
+        <ul>
+          @for (r of roles(); track r.id_rol) {
+            <li>
+              <button type="button" class="rol" [class.rol--on]="rolSeleccionado() === r.id_rol"
+                      (click)="elegirRol(r.id_rol)">
+                <lucide-icon name="user-cog" [size]="15" />
+                <span>{{ r.descripcion }}</span>
+                <lucide-icon name="chevron-right" [size]="15" />
+              </button>
+            </li>
+          }
+        </ul>
+      </aside>
+
+      <section class="card matriz">
+        @if (cargandoPermisos()) {
+          <p class="hint">Cargando permisos…</p>
+        } @else if (!permisos()) {
+          <p class="hint">Selecciona un rol.</p>
+        } @else if (permisos(); as p) {
+          <header class="matriz__head">
+            <div>
+              <h3>{{ p.descripcion }}</h3>
+              <p class="hint">
+                {{ vistasConcedidas() }} de {{ p.modulos.length }} vista(s)
+                @if (accionesConcedidas().posibles > 0) {
+                  · {{ accionesConcedidas().dadas }} de {{ accionesConcedidas().posibles }} acción(es)
+                }
+              </p>
+            </div>
+            <button type="button" class="btn btn-primary" (click)="guardarPermisos()"
+                    [disabled]="!puedeGuardarPermisos()">
+              <lucide-icon name="save" [size]="15" />
+              @if (guardando()) { Guardando… } @else { Guardar permisos }
+            </button>
+          </header>
+
+          @if (p.hereda_plantilla) {
+            <p class="nota">
+              <lucide-icon name="info" [size]="15" />
+              Este negocio aún no tiene ajustes propios para el rol, así que hereda los permisos
+              por defecto. En cuanto guardes, mandará lo que marques aquí.
+            </p>
+          }
+
+          <ul class="modulos">
+            @for (m of p.modulos; track m.id_nivel) {
+              <li [class.modulos--sin-plantilla]="!m.plantilla.puede_ver">
+                <div class="modulos__cabecera">
+                  <label class="modulos__fila">
+                    <input type="checkbox" [checked]="m.puede_ver"
+                           (change)="alternarPermiso(m.id_nivel)" />
+                    <span class="modulos__txt">
+                      <strong>{{ m.modulo }}</strong>
+                      <em>{{ m.url }}</em>
+                    </span>
+                  </label>
+                  <span class="modulos__crud">
+                    @if (m.plantilla.puede_ver) {
+                      <span class="acc" [class.acc--on]="m.plantilla.puede_crear">Crear</span>
+                      <span class="acc" [class.acc--on]="m.plantilla.puede_editar">Editar</span>
+                      <span class="acc" [class.acc--on]="m.plantilla.puede_eliminar">Eliminar</span>
+                    } @else {
+                      <span class="acc acc--nota">El rol no tiene acciones aquí</span>
+                    }
+                  </span>
+                </div>
+
+                <!-- Operaciones dentro de la vista -->
+                @if (m.acciones.length > 0) {
+                  <ul class="acciones" [class.acciones--off]="!m.puede_ver">
+                    @for (a of m.acciones; track a.id_nivel) {
+                      <li>
+                        <label class="acciones__fila"
+                               [class.acciones__fila--bloqueada]="!m.puede_ver">
+                          <input type="checkbox" [checked]="a.puede_ver"
+                                 [disabled]="!m.puede_ver"
+                                 (change)="alternarAccion(m.id_nivel, a.id_nivel)" />
+                          <span class="acciones__txt">
+                            <strong>{{ a.accion }}</strong>
+                            <em>{{ a.codigo }}</em>
+                          </span>
+                        </label>
+                        @if (!a.en_plantilla) {
+                          <span class="acciones__nota" title="Puedes concederla igualmente para este negocio">
+                            No viene por defecto
+                          </span>
+                        }
+                      </li>
+                    }
+                  </ul>
+                  @if (!m.puede_ver) {
+                    <p class="acciones__aviso">
+                      Concede la vista para poder repartir sus acciones.
+                    </p>
+                  }
+                }
+              </li>
+            }
+          </ul>
+
+          <p class="hint hint--pie">
+            La casilla de la vista decide si el rol <strong>entra</strong>; las de dentro, qué
+            puede <strong>hacer</strong> una vez ahí. «Crear / Editar / Eliminar» vienen de la
+            plantilla del rol y son iguales en todos los negocios: una acción que el rol no tiene
+            aparece bloqueada y no se puede conceder desde aquí.
+          </p>
+
+          @if (vistasConcedidas() === 0) {
+            <p class="nota nota--error">
+              <lucide-icon name="triangle-alert" [size]="15" />
+              Un rol sin ninguna vista deja a sus usuarios sin poder entrar a nada. Marca al menos una.
+            </p>
+          }
+        }
+      </section>
+    </div>
+  }
+</section>
+
+<!-- Modal: crear / editar usuario -->
+<reserva-modal [open]="modalUsuario()"
+               [title]="credenciales() ? 'Datos de acceso' : (usuarioEditando() ? 'Editar usuario' : 'Nuevo usuario')"
+               [subtitle]="credenciales() ? 'Anótalos: la contraseña no se vuelve a mostrar.' : ''"
+               size="lg" (close)="cerrarModalUsuario()">
+
+  @if (credenciales(); as cred) {
+    <div class="cred">
+      <p class="cred__intro">
+        <lucide-icon name="check" [size]="16" />
+        Comparte estos datos con la persona. Se le pedirá cambiar la contraseña al entrar.
+      </p>
+      <div class="cred__campo">
+        <span>Usuario (email)</span>
+        <div>
+          <strong>{{ cred.email }}</strong>
+          <button type="button" class="mini" (click)="copiar(cred.email)">
+            <lucide-icon name="copy" [size]="13" /> Copiar
+          </button>
+        </div>
+      </div>
+      <div class="cred__campo">
+        <span>Contraseña temporal</span>
+        <div>
+          <strong class="cred__pass">{{ cred.password }}</strong>
+          <button type="button" class="mini" (click)="copiar(cred.password)">
+            <lucide-icon name="copy" [size]="13" /> Copiar
+          </button>
+        </div>
+      </div>
+    </div>
+  } @else {
+    <div class="form">
+      <div class="form__grid">
+        <label class="campo">
+          <span>Primer nombre *</span>
+          <input class="input" type="text" reservaMayusculas [value]="form().primer_nombre"
+                 (input)="setCampo('primer_nombre', $any($event.target).value)" />
+        </label>
+        <label class="campo">
+          <span>Segundo nombre</span>
+          <input class="input" type="text" reservaMayusculas [value]="form().segundo_nombre"
+                 (input)="setCampo('segundo_nombre', $any($event.target).value)" />
+        </label>
+        <label class="campo">
+          <span>Primer apellido *</span>
+          <input class="input" type="text" reservaMayusculas [value]="form().primer_apellido"
+                 (input)="setCampo('primer_apellido', $any($event.target).value)" />
+        </label>
+        <label class="campo">
+          <span>Segundo apellido</span>
+          <input class="input" type="text" reservaMayusculas [value]="form().segundo_apellido"
+                 (input)="setCampo('segundo_apellido', $any($event.target).value)" />
+        </label>
+      </div>
+
+      <div class="form__grid">
+        <label class="campo">
+          <span>Identificación *</span>
+          <input class="input" type="text" reservaMayusculas [value]="form().num_identificacion"
+                 [disabled]="!!usuarioEditando()"
+                 (input)="setCampo('num_identificacion', $any($event.target).value)" />
+          @if (!usuarioEditando()) {
+            <small>Será su contraseña inicial si no defines otra.</small>
+          } @else {
+            <small>La identificación no se puede cambiar.</small>
+          }
+        </label>
+        <label class="campo">
+          <span>Teléfono</span>
+          <input class="input" type="tel" [value]="form().telefono"
+                 (input)="setCampo('telefono', $any($event.target).value)" />
+        </label>
+      </div>
+
+      <label class="campo">
+        <span>Email *</span>
+        <input class="input" type="email" placeholder="persona@correo.com" [value]="form().email"
+               (input)="setCampo('email', $any($event.target).value)" />
+        <small>Con este email inicia sesión.</small>
+      </label>
+
+      <label class="campo">
+        <span>Rol *</span>
+        <select class="select" [value]="form().id_rol ?? ''"
+                (change)="setRol($any($event.target).value)">
+          <option [value]="''">— Selecciona —</option>
+          @for (r of roles(); track r.id_rol) {
+            <option [value]="r.id_rol" [selected]="form().id_rol === r.id_rol">{{ r.descripcion }}</option>
+          }
+        </select>
+        <small>Define qué vistas verá. Se ajustan en la pestaña «Roles y permisos».</small>
+      </label>
+
+      @if (esProfesional() && !usuarioEditando()) {
+        <div class="bloque-pro">
+          <p class="bloque-pro__nota">
+            <lucide-icon name="info" [size]="15" />
+            Como es un profesional, también se creará su ficha en la agenda para que pueda
+            recibir citas.
+          </p>
+          @if (profesionalesLibres().length > 0) {
+            <label class="campo">
+              <span>¿Ya existe su ficha?</span>
+              <select class="select" [value]="form().id_profesional ?? ''"
+                      (change)="setProfesionalExistente($any($event.target).value)">
+                <option [value]="''">No, crear una nueva</option>
+                @for (p of profesionalesLibres(); track p.id_profesional) {
+                  <option [value]="p.id_profesional" [selected]="form().id_profesional === p.id_profesional">
+                    {{ p.nombre }}@if (p.especialidad) { — {{ p.especialidad }} }
+                  </option>
+                }
+              </select>
+              <small>Enlaza el acceso con un profesional que ya está en la agenda sin usuario.</small>
+            </label>
+          }
+          @if (!form().id_profesional) {
+            <label class="campo">
+              <span>Especialidad</span>
+              <input class="input" type="text" reservaMayusculas placeholder="BARBERÍA, COLORIMETRÍA…"
+                     [value]="form().especialidad"
+                     (input)="setCampo('especialidad', $any($event.target).value)" />
+            </label>
+          }
+        </div>
+      }
+
+      <label class="campo">
+        <span>Contraseña</span>
+        <input class="input" type="password" autocomplete="new-password"
+               [placeholder]="usuarioEditando() ? 'Dejar vacío para no cambiarla' : 'Vacío = su identificación'"
+               [value]="form().password"
+               (input)="setCampo('password', $any($event.target).value)" />
+        <small>Mínimo 8 caracteres. Se le pedirá cambiarla al entrar.</small>
+      </label>
+    </div>
+  }
+
+  <div modal-footer>
+    @if (credenciales()) {
+      <button type="button" class="btn btn-primary" (click)="cerrarModalUsuario()">Entendido</button>
+    } @else {
+      <button type="button" class="btn btn-outline" (click)="cerrarModalUsuario()" [disabled]="guardando()">
+        Cancelar
+      </button>
+      <button type="button" class="btn btn-primary" (click)="guardar()"
+              [disabled]="!formValido() || guardando()">
+        @if (guardando()) { Guardando… } @else { {{ usuarioEditando() ? 'Guardar cambios' : 'Crear usuario' }} }
+      </button>
+    }
+  </div>
+</reserva-modal>
+
+<reserva-confirm
+  [open]="confirmEstado()"
+  [title]="usuarioObjetivo()?.estado === 'A' ? 'Desactivar acceso' : 'Reactivar acceso'"
+  [message]="usuarioObjetivo()?.estado === 'A'
+    ? 'Esta persona dejará de poder entrar y, si atiende citas, dejará de ofrecerse en la agenda. Su historial se conserva.'
+    : 'Volverá a poder entrar con sus credenciales y, si atiende citas, reaparecerá en la agenda.'"
+  [confirmText]="usuarioObjetivo()?.estado === 'A' ? 'Desactivar' : 'Reactivar'"
+  [kind]="usuarioObjetivo()?.estado === 'A' ? 'danger' : 'primary'"
+  (cancel)="cerrarConfirmEstado()"
+  (confirm)="cambiarEstadoConfirmado()" />
+
+<reserva-confirm
+  [open]="confirmReset()"
+  title="Restablecer contraseña"
+  message="Su contraseña volverá a ser su número de identificación y se le pedirá cambiarla al entrar. Te mostraremos los datos para que se los pases."
+  confirmText="Restablecer"
+  kind="primary"
+  (cancel)="confirmReset.set(false); usuarioObjetivo.set(null)"
+  (confirm)="resetConfirmado()" />

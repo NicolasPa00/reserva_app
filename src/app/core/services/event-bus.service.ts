@@ -11,6 +11,9 @@ export type ReservaEventName =
   | 'cita_creada'
   | 'cita_actualizada'
   | 'cita_cancelada'
+  // Una cita completada mueve dinero: la vista de Caja escucha esto para refrescar el turno
+  // cuando el cobro se hizo desde Citas o desde la Agenda.
+  | 'cita_cobrada'
   | 'cita_pago_aprobado'
   | 'cita_pago_rechazado'
   | 'servicio_actualizado'

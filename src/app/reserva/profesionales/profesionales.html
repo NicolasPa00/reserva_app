@@ -5,7 +5,8 @@
       <p>Equipo del salón. Cada profesional puede tener servicios y horario propio.</p>
     </div>
     @if (puedeCrear()) {
-      <button type="button" class="btn btn-primary" (click)="abrirCrear()">
+      <button type="button" class="btn btn-primary" (click)="irACrearUsuario()"
+              title="El alta se hace en Usuarios, junto con su acceso al sistema">
         <lucide-icon name="plus" [size]="16" /> Nuevo profesional
       </button>
     }
@@ -47,7 +48,7 @@
           <footer class="pro__foot">
             @if (puedeEditar() && p.estado === 'A') {
               <button type="button" class="btn btn-outline" (click)="abrirServicios(p)" title="Asignar servicios">
-                <lucide-icon name="scissors" [size]="14" />
+                <lucide-icon name="scissors" [size]="14" /> Servicios
               </button>
               <button type="button" class="btn btn-outline" (click)="abrirEditar(p)">
                 <lucide-icon name="pencil" [size]="14" /> Editar
@@ -65,20 +66,22 @@
   }
 </section>
 
+<!-- Solo edición: el alta se hace en Usuarios, para que la cuenta y la ficha nazcan juntas. -->
 <reserva-modal [open]="modalAbierto()"
-               [title]="editando() ? 'Editar profesional' : 'Nuevo profesional'"
+               title="Editar profesional"
+               [subtitle]="editando()?.nombre || ''"
                (close)="cerrarModal()">
   <form [formGroup]="form" (ngSubmit)="guardar()" class="form">
     <div class="form__row">
       <label>
         <span>Nombre *</span>
-        <input class="input" type="text" formControlName="nombre" maxlength="150" />
+        <input class="input" type="text" reservaMayusculas formControlName="nombre" maxlength="150" />
       </label>
     </div>
     <div class="form__grid-2">
       <label>
         <span>Especialidad</span>
-        <input class="input" type="text" formControlName="especialidad" />
+        <input class="input" type="text" reservaMayusculas formControlName="especialidad" />
       </label>
       <label>
         <span>Color</span>

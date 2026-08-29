@@ -26,6 +26,9 @@ export class SidebarComponent {
     { icon: 'scissors',          label: 'Servicios',     route: '/servicios' },
     { icon: 'users',             label: 'Profesionales', route: '/profesionales' },
     { icon: 'clock',             label: 'Horarios',      route: '/horarios' },
+    { icon: 'wallet',            label: 'Caja',          route: '/caja' },
+    { icon: 'user-cog',          label: 'Usuarios',      route: '/usuarios' },
+    { icon: 'chart-column',      label: 'Informes',      route: '/informes' },
     { icon: 'settings',          label: 'Configuración', route: '/configuracion' },
   ];
 

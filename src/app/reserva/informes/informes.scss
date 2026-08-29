@@ -1,0 +1,278 @@
+// Informes. Todas las gráficas usan un único tono derivado de --color-primary con color-mix,
+// para que sigan la paleta del inquilino que inyecta PaletteService en runtime (esas paletas no
+// traen el token -rgb, así que rgba(var(--color-primary-rgb)) daría negro).
+
+.informes { max-width: 1320px; gap: 1.1rem; }
+
+.hint {
+  color: var(--color-text-muted); font-size: .85rem; margin: 0;
+  &--pie { margin-top: .5rem; font-size: .75rem; }
+}
+
+// ── Filtros ──
+.filtros {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 1rem; flex-wrap: wrap; padding: .9rem 1.1rem;
+
+  &__presets { display: flex; gap: .35rem; flex-wrap: wrap; }
+  &__campos { display: flex; align-items: flex-end; gap: .6rem; flex-wrap: wrap; }
+  &__refrescar { padding: .5rem .6rem; }
+}
+
+.pill {
+  padding: .4rem .8rem; border-radius: var(--radius-full); cursor: pointer;
+  border: 1px solid var(--color-border); background: var(--color-surface);
+  color: var(--color-text-secondary); font-family: inherit; font-size: .82rem; font-weight: 600;
+  transition: border-color var(--transition-fast), background var(--transition-fast), color var(--transition-fast);
+
+  &:hover { border-color: var(--color-primary); color: var(--color-primary); }
+  &--on {
+    background: var(--color-primary); border-color: var(--color-primary);
+    color: var(--color-on-primary);
+  }
+}
+
+.campo {
+  display: flex; flex-direction: column; gap: .25rem; min-width: 0;
+  span { font-size: .75rem; font-weight: 600; color: var(--color-text-secondary); }
+  .input, .select { min-width: 140px; padding: .45rem .6rem; font-size: .85rem; }
+}
+
+.contexto {
+  display: flex; align-items: center; gap: .4rem; margin: 0;
+  font-size: .85rem; color: var(--color-text-secondary);
+  strong { color: var(--color-text-primary); }
+  span { color: var(--color-text-muted); }
+}
+
+// ── KPIs ──
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: .85rem; }
+
+.kpi {
+  display: flex; flex-direction: column; gap: .15rem;
+  padding: 1rem 1.05rem; position: relative; overflow: hidden;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+
+  &::before {
+    content: ''; position: absolute; inset: 0 0 auto 0; height: 3px;
+    background: var(--kpi-tono, var(--color-border));
+  }
+
+  &__top { margin-bottom: .5rem; }
+  &__icon {
+    display: flex; align-items: center; justify-content: center;
+    width: 34px; height: 34px; border-radius: var(--radius-md);
+    background: color-mix(in srgb, var(--kpi-tono, var(--color-primary)) 12%, transparent);
+    color: var(--kpi-tono, var(--color-primary));
+  }
+  &__valor {
+    font-size: 1.55rem; font-weight: 800; line-height: 1.15; letter-spacing: -.02em;
+    color: var(--color-text-primary); font-variant-numeric: tabular-nums;
+  }
+  &__label { font-size: .85rem; font-weight: 600; color: var(--color-text-primary); }
+  &__detalle { font-size: .74rem; color: var(--color-text-muted); }
+
+  &--primario { --kpi-tono: var(--color-primary); }
+  &--exito    { --kpi-tono: var(--color-success); }
+  &--alerta   { --kpi-tono: var(--color-warning); }
+  &--neutro   { --kpi-tono: var(--color-accent-blue); }
+
+  &--skeleton {
+    min-height: 120px;
+    background: linear-gradient(90deg, var(--color-bg-muted) 25%, var(--color-surface) 50%, var(--color-bg-muted) 75%);
+    background-size: 200% 100%; animation: shimmer-inf 1.2s infinite linear;
+    &::before { display: none; }
+  }
+}
+@keyframes shimmer-inf { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+
+.estado-error {
+  display: flex; align-items: center; gap: .85rem; color: var(--color-error);
+  div { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+}
+
+.vacio {
+  display: flex; flex-direction: column; align-items: center; gap: .4rem;
+  padding: 2.5rem 1rem; text-align: center; color: var(--color-text-muted);
+  strong { color: var(--color-text-primary); font-size: 1rem; }
+  p { margin: 0; font-size: .86rem; }
+}
+
+// ── Paneles ──
+.panel {
+  padding: 1.05rem 1.2rem; min-width: 0;
+  display: flex; flex-direction: column; gap: .9rem;
+  box-shadow: var(--shadow-sm);
+
+  &__head {
+    display: flex; align-items: flex-start; justify-content: space-between; gap: .75rem; flex-wrap: wrap;
+    h2 { margin: 0; font-size: .98rem; font-weight: 700; color: var(--color-text-primary); }
+    p  { margin: .1rem 0 0; font-size: .77rem; color: var(--color-text-muted); }
+  }
+  &__dato {
+    display: flex; flex-direction: column; align-items: flex-end;
+    span { font-size: .68rem; text-transform: uppercase; letter-spacing: .04em; color: var(--color-text-muted); }
+    strong { font-size: .88rem; color: var(--color-primary); font-variant-numeric: tabular-nums; }
+  }
+}
+
+.split { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)); gap: 1.1rem; align-items: start; }
+
+// ── Gráfica de barras diaria ──
+.gr {
+  margin: 0; display: flex; flex-direction: column; gap: .1rem;
+
+  svg { width: 100%; height: 200px; display: block; overflow: visible; }
+
+  &__eje { stroke: var(--color-border); stroke-width: 1; }
+
+  // Un solo tono: la identidad de cada barra la da su posición en el eje, no su color.
+  &__barra {
+    fill: var(--color-primary);
+    transition: fill var(--transition-fast);
+    &:hover { fill: var(--color-primary-hover); }
+    // Fin de semana en el mismo tono, más claro: es una variación de intensidad dentro de la
+    // misma escala, no una categoría nueva.
+    &--finde { fill: color-mix(in srgb, var(--color-primary) 45%, var(--color-surface)); }
+  }
+
+  &__eje-x {
+    position: relative; height: 16px; margin-top: 2px;
+    span {
+      position: absolute; transform: translateX(-50%); white-space: nowrap;
+      font-size: .66rem; color: var(--color-text-muted);
+    }
+  }
+
+  figcaption { font-size: .74rem; color: var(--color-text-muted); margin-top: .35rem; }
+}
+
+// ── Rankings horizontales ──
+.ranking {
+  list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: .8rem;
+  li { display: flex; flex-direction: column; gap: .22rem; min-width: 0; }
+
+  &__fila { display: flex; align-items: baseline; justify-content: space-between; gap: .6rem; }
+  &__nombre {
+    display: flex; align-items: center; gap: .4rem; min-width: 0;
+    font-size: .87rem; color: var(--color-text-primary); font-weight: 500;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    i { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  }
+  &__valor {
+    font-size: .85rem; font-weight: 700; color: var(--color-text-primary);
+    font-variant-numeric: tabular-nums; flex-shrink: 0;
+  }
+  &__barra {
+    height: 7px; border-radius: var(--radius-full); background: var(--color-bg-muted); overflow: hidden;
+    div {
+      height: 100%; border-radius: var(--radius-full);
+      background: var(--color-primary);
+      transition: width var(--transition-normal);
+      min-width: 2px;
+    }
+  }
+  &__pie { font-size: .72rem; color: var(--color-text-muted); }
+}
+
+// ── Horas con más demanda ──
+.horas {
+  display: flex; align-items: flex-end; gap: 3px; height: 150px; overflow-x: auto;
+  padding-bottom: .2rem;
+
+  &__col {
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    flex: 1 1 0; min-width: 26px; height: 100%;
+  }
+  &__n {
+    font-size: .66rem; color: var(--color-text-secondary); font-weight: 600; height: 12px;
+    font-variant-numeric: tabular-nums;
+  }
+  &__barra {
+    flex: 1; width: 100%; display: flex; align-items: flex-end;
+    background: var(--color-bg-muted); border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+    div {
+      width: 100%; background: var(--color-primary); min-height: 2px;
+      border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+      transition: height var(--transition-normal);
+    }
+  }
+  &__lab { font-size: .64rem; color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
+}
+
+// ── Estados ──
+// La insignia con el nombre va SIEMPRE: el color por sí solo no distingue los estados para
+// quien tiene daltonismo (verde y naranja quedan casi iguales en protanopia).
+.estados {
+  list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: .7rem;
+  li { display: flex; flex-direction: column; gap: .25rem; }
+  &--cero { opacity: .45; }
+
+  &__fila {
+    display: flex; align-items: center; gap: .5rem;
+    strong { margin-left: auto; font-size: .9rem; color: var(--color-text-primary); font-variant-numeric: tabular-nums; }
+    em { font-style: normal; font-size: .74rem; color: var(--color-text-muted); min-width: 34px; text-align: right; }
+  }
+  &__barra {
+    height: 6px; border-radius: var(--radius-full); background: var(--color-bg-muted); overflow: hidden;
+    div { height: 100%; border-radius: var(--radius-full); background: var(--color-primary); transition: width var(--transition-normal); }
+  }
+}
+
+// ── Tabla ──
+.tabla-wrap { overflow-x: auto; }
+.tabla {
+  width: 100%; border-collapse: collapse; font-size: .84rem; min-width: 760px;
+
+  th, td { padding: .55rem .6rem; text-align: left; border-bottom: 1px solid var(--color-border); }
+  th {
+    font-size: .7rem; text-transform: uppercase; letter-spacing: .04em;
+    color: var(--color-text-muted); font-weight: 700; white-space: nowrap;
+  }
+  td { color: var(--color-text-secondary); }
+  .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .destacado { color: var(--color-text-primary); font-weight: 700; }
+
+  tbody tr:hover { background: var(--color-surface-hover); }
+
+  tfoot td {
+    border-top: 2px solid var(--color-border); border-bottom: 0;
+    font-weight: 700; color: var(--color-text-primary);
+  }
+}
+
+// Un <td> con display:flex rompe los bordes de celda; el layout va en un span interno.
+.celda-pro {
+  display: flex; align-items: center; gap: .5rem;
+  i { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+  strong { display: block; color: var(--color-text-primary); font-weight: 600; }
+  em { display: block; font-style: normal; font-size: .72rem; color: var(--color-text-muted); }
+}
+
+// ── Clientes ──
+.clientes {
+  list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column;
+  li {
+    display: flex; align-items: center; gap: .75rem;
+    padding: .6rem 0; border-top: 1px solid var(--color-border);
+    &:first-child { border-top: 0; }
+  }
+  &__pos {
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    width: 24px; height: 24px; border-radius: var(--radius-full);
+    background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+    color: var(--color-primary); font-size: .74rem; font-weight: 700;
+  }
+  &__txt {
+    display: flex; flex-direction: column; min-width: 0; flex: 1;
+    strong { font-size: .88rem; color: var(--color-text-primary); }
+    span { font-size: .74rem; color: var(--color-text-muted); }
+  }
+  &__monto {
+    font-size: .88rem; color: var(--color-text-primary); font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+  }
+}

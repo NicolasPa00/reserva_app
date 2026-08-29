@@ -76,6 +76,27 @@ export const routes: Routes = [
           import('./reserva/horarios/horarios').then(m => m.HorariosComponent),
       },
       {
+        path: 'usuarios',
+        title: 'Usuarios',
+        canActivate: [planGuard],
+        loadComponent: () =>
+          import('./reserva/usuarios/usuarios').then(m => m.UsuariosComponent),
+      },
+      {
+        path: 'caja',
+        title: 'Caja',
+        canActivate: [planGuard],
+        loadComponent: () =>
+          import('./reserva/caja/caja').then(m => m.CajaComponent),
+      },
+      {
+        path: 'informes',
+        title: 'Informes',
+        canActivate: [planGuard],
+        loadComponent: () =>
+          import('./reserva/informes/informes').then(m => m.InformesComponent),
+      },
+      {
         path: 'configuracion',
         title: 'Configuración',
         canActivate: [planGuard],

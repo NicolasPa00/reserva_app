@@ -1,0 +1,70 @@
+<reserva-modal [open]="!!citaSig()" title="Completar y cobrar"
+               [subtitle]="citaSig()?.cliente_nombre || ''"
+               size="md" (close)="cerrar()">
+  @if (citaSig(); as c) {
+    <div class="cb">
+
+      <!-- Qué se cobra -->
+      <div class="cb__resumen">
+        <div class="cb__linea">
+          <span>Servicios</span>
+          <strong>{{ resumenServicios() || 'Sin servicios' }}</strong>
+        </div>
+        <div class="cb__linea">
+          <span>Profesional</span>
+          <strong>{{ c.profesional?.nombre || '—' }}</strong>
+        </div>
+        <div class="cb__total">
+          <span>Total a cobrar</span>
+          <strong>{{ total() | currency:'COP':'symbol':'1.0-0' }}</strong>
+        </div>
+      </div>
+
+      @if (bloqueadoPorCaja()) {
+        <p class="cb__aviso cb__aviso--error">
+          <lucide-icon name="wallet" [size]="15" />
+          Este negocio exige tener la caja abierta para cobrar. Abre el turno en
+          <strong>Caja</strong> y vuelve a intentarlo.
+        </p>
+      } @else if (!cajaAbierta && requierePago()) {
+        <p class="cb__aviso">
+          <lucide-icon name="circle-alert" [size]="15" />
+          No hay una caja abierta: la cita se completará, pero este cobro no entrará en ningún
+          turno. Aparecerá como pendiente en <strong>Caja</strong>.
+        </p>
+      }
+
+      @if (!requierePago()) {
+        <p class="cb__aviso">
+          <lucide-icon name="info" [size]="15" />
+          Esta cita no tiene importe, así que se completa sin registrar cobro.
+        </p>
+      } @else if (metodos.length === 0) {
+        <p class="cb__aviso cb__aviso--error">
+          <lucide-icon name="triangle-alert" [size]="15" />
+          No hay formas de pago configuradas. Créalas en <strong>Configuración</strong> para
+          poder cobrar.
+        </p>
+      } @else {
+        <label class="cb__campo">
+          <span>¿Cómo pagó el cliente?</span>
+          <reserva-multipago-selector
+            [metodos]="metodos"
+            [total]="total()"
+            [permiteMultipago]="permiteMultipago"
+            [disabled]="enviando()"
+            (seleccionChange)="onSeleccion($event)" />
+        </label>
+      }
+    </div>
+  }
+
+  <div modal-footer>
+    <button type="button" class="btn btn-outline" (click)="cerrar()" [disabled]="enviando()">
+      Cancelar
+    </button>
+    <button type="button" class="btn btn-primary" (click)="cobrar()" [disabled]="!puedeCobrar()">
+      @if (enviando()) { Cobrando… } @else { Completar y cobrar }
+    </button>
+  </div>
+</reserva-modal>

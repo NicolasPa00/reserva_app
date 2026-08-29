@@ -1,33 +1,29 @@
-<reserva-modal [open]="open" title="Nueva cita" size="lg" (close)="cerrar()">
+<reserva-modal [open]="abierto()" title="Nueva cita"
+               subtitle="Los días y horas salen del horario de atención configurado."
+               size="lg" (close)="cerrar()">
   @if (cargandoCatalogo()) {
     <p class="hint">Cargando catálogo…</p>
   } @else {
     <div class="cf">
-      <!-- Paso 1: profesional + servicios -->
-      <div class="cf__row">
-        <label class="block">
-          <span>Profesional *</span>
-          <select class="select"
-                  [value]="idProfesional() == null ? '' : idProfesional()"
-                  (change)="setProfesional($any($event.target).value)">
-            <option value="">— Selecciona —</option>
-            @for (p of profesionales(); track p.id_profesional) {
-              <option [value]="p.id_profesional">{{ p.nombre }}</option>
-            }
-          </select>
-        </label>
-        <label class="block">
-          <span>Fecha *</span>
-          <input class="input" type="date"
-                 [value]="fecha()"
-                 (change)="setFecha($any($event.target).value)" />
-        </label>
-      </div>
 
-      <div class="block">
-        <span class="lab">Servicios *</span>
+      <!-- Paso 1: profesional -->
+      <section class="paso">
+        <h4><span class="paso__n">1</span> Profesional</h4>
+        <select class="select"
+                [value]="idProfesional() == null ? '' : idProfesional()"
+                (change)="setProfesional($any($event.target).value)">
+          <option value="">— Selecciona un profesional —</option>
+          @for (p of profesionales(); track p.id_profesional) {
+            <option [value]="p.id_profesional">{{ p.nombre }}</option>
+          }
+        </select>
+      </section>
+
+      <!-- Paso 2: servicios -->
+      <section class="paso">
+        <h4><span class="paso__n">2</span> Servicios</h4>
         @if (idProfesional() == null) {
-          <p class="hint">Selecciona un profesional primero.</p>
+          <p class="hint">Selecciona un profesional para ver qué servicios ofrece.</p>
         } @else if (serviciosOfrecidos().length === 0) {
           <p class="hint">Este profesional no tiene servicios asignados.</p>
         } @else {
@@ -36,84 +32,178 @@
               <button type="button" class="chip"
                       [class.chip--on]="idServicios().has(s.id_servicio)"
                       (click)="toggleServicio(s.id_servicio)">
-                {{ s.nombre }}
-                <em>{{ s.duracion_min }}min · {{ s.precio | currency:'COP':'symbol':'1.0-0' }}</em>
+                <span class="chip__check">
+                  @if (idServicios().has(s.id_servicio)) { <lucide-icon name="check" [size]="12" /> }
+                </span>
+                <span class="chip__txt">
+                  <strong>{{ s.nombre }}</strong>
+                  <em>{{ s.duracion_min }} min · {{ s.precio | currency:'COP':'symbol':'1.0-0' }}</em>
+                </span>
               </button>
             }
           </div>
+
+          @if (idServicios().size > 0) {
+            <div class="resumen">
+              <span><lucide-icon name="timer" [size]="14" /> <strong>{{ duracionTotal() }} min</strong> en total</span>
+              <span><lucide-icon name="tag" [size]="14" /> <strong>{{ montoTotal() | currency:'COP':'symbol':'1.0-0' }}</strong></span>
+              <span class="resumen__n">{{ idServicios().size }} servicio(s)</span>
+            </div>
+          }
         }
-      </div>
+      </section>
 
-      @if (idServicios().size > 0) {
-        <div class="resumen">
-          <span><strong>{{ duracionTotal() }} min</strong> de duración total</span>
-          <span><strong>{{ montoTotal() | currency:'COP':'symbol':'1.0-0' }}</strong> · {{ idServicios().size }} servicio(s)</span>
-        </div>
-      }
-
-      <!-- Paso 2: slots -->
-      <div class="block">
-        <div class="bar">
-          <span class="lab">Hora *</span>
-          <button type="button" class="btn btn-outline" (click)="buscarSlots()" [disabled]="!listoParaSlots() || buscandoSlots()">
-            <lucide-icon name="search" [size]="14" />
-            @if (buscandoSlots()) { Buscando… } @else { Buscar slots disponibles }
-          </button>
-        </div>
-
-        @if (slots().length === 0 && !buscandoSlots()) {
-          <p class="hint">Selecciona profesional, servicios y fecha, luego busca los horarios.</p>
-        } @else if (slots().length === 0) {
-          <p class="hint">Sin horarios disponibles ese día.</p>
+      <!-- Paso 3: día -->
+      <section class="paso">
+        <h4><span class="paso__n">3</span> Día</h4>
+        @if (idProfesional() == null) {
+          <p class="hint">Los días de atención dependen del profesional.</p>
         } @else {
-          <div class="slots">
-            @for (s of slots(); track s.hora) {
-              <button type="button" class="slot"
-                      [class.slot--on]="slotElegido() === s.hora"
-                      [class.slot--off]="!s.disponible"
-                      [disabled]="!s.disponible"
-                      (click)="elegirSlot(s)">
-                {{ s.hora }}
-              </button>
-            }
-          </div>
-        }
-      </div>
+          <div class="dias">
+            <button type="button" class="dias__nav" (click)="moverVentana(-1)"
+                    [disabled]="!puedeRetroceder() || cargandoDias()" title="Días anteriores">
+              <lucide-icon name="chevron-left" [size]="16" />
+            </button>
 
-      <!-- Paso 3: cliente -->
-      <div class="block">
-        <span class="lab">Datos del cliente</span>
-        <div class="cf__row">
-          <label class="block">
+            <div class="dias__tira">
+              @if (cargandoDias()) {
+                <span class="hint">Cargando días…</span>
+              } @else {
+                @for (d of diasChips(); track d.fecha) {
+                  <button type="button" class="dia"
+                          [class.dia--on]="fecha() === d.fecha"
+                          [class.dia--cerrado]="!d.abierto"
+                          [class.dia--hoy]="d.esHoy"
+                          [disabled]="!d.abierto"
+                          [title]="tituloDia(d)"
+                          (click)="elegirDia(d)">
+                    <span class="dia__sem">{{ d.diaSemana }}</span>
+                    <span class="dia__num">{{ d.diaMes }}</span>
+                    <span class="dia__mes">{{ d.mes }}</span>
+                  </button>
+                }
+              }
+            </div>
+
+            <button type="button" class="dias__nav" (click)="moverVentana(1)"
+                    [disabled]="cargandoDias()" title="Días siguientes">
+              <lucide-icon name="chevron-right" [size]="16" />
+            </button>
+          </div>
+
+          @if (diaSeleccionado(); as d) {
+            <p class="horario">
+              <lucide-icon name="clock" [size]="13" />
+              Atiende <strong>{{ jornadaLabel() }}</strong>
+            </p>
+          } @else if (!cargandoDias() && diasChips().length > 0) {
+            <p class="hint hint--warn">
+              <lucide-icon name="calendar-off" [size]="14" />
+              No hay días de atención en estas dos semanas. Revisa el horario en
+              <strong>Horarios</strong> o avanza a las siguientes.
+            </p>
+          }
+        }
+      </section>
+
+      <!-- Paso 4: hora -->
+      <section class="paso">
+        <h4>
+          <span class="paso__n">4</span> Hora
+          @if (buscandoSlots()) { <em class="paso__cargando">buscando disponibilidad…</em> }
+        </h4>
+
+        @if (!listoParaSlots()) {
+          <p class="hint">Elige profesional, servicios y día: las horas libres aparecerán aquí solas.</p>
+        } @else if (buscandoSlots()) {
+          <div class="slots">
+            @for (i of [1,2,3,4,5,6,7,8]; track i) { <span class="slot slot--skeleton"></span> }
+          </div>
+        } @else if (slots().length === 0) {
+          <p class="hint hint--warn">
+            <lucide-icon name="calendar-off" [size]="14" />
+            No queda ningún hueco de {{ duracionTotal() }} min ese día. Prueba otro día o quita algún servicio.
+          </p>
+        } @else {
+          @if (!haySlotsLibres()) {
+            <p class="hint hint--warn">
+              <lucide-icon name="info" [size]="14" />
+              Todas las horas de ese día están por debajo de la anticipación mínima configurada.
+            </p>
+          }
+          @if (slotsManana().length > 0) {
+            <div class="franja">
+              <span class="franja__lab"><lucide-icon name="sunrise" [size]="13" /> Mañana</span>
+              <div class="slots">
+                @for (s of slotsManana(); track s.hora) {
+                  <button type="button" class="slot"
+                          [class.slot--on]="slotElegido() === s.hora"
+                          [class.slot--off]="!s.disponible"
+                          [disabled]="!s.disponible"
+                          [title]="s.disponible ? 'Disponible' : 'No cumple la anticipación mínima'"
+                          (click)="elegirSlot(s)">{{ hora12(s.hora) }}</button>
+                }
+              </div>
+            </div>
+          }
+          @if (slotsTarde().length > 0) {
+            <div class="franja">
+              <span class="franja__lab"><lucide-icon name="sunset" [size]="13" /> Tarde</span>
+              <div class="slots">
+                @for (s of slotsTarde(); track s.hora) {
+                  <button type="button" class="slot"
+                          [class.slot--on]="slotElegido() === s.hora"
+                          [class.slot--off]="!s.disponible"
+                          [disabled]="!s.disponible"
+                          [title]="s.disponible ? 'Disponible' : 'No cumple la anticipación mínima'"
+                          (click)="elegirSlot(s)">{{ hora12(s.hora) }}</button>
+                }
+              </div>
+            </div>
+          }
+        }
+      </section>
+
+      <!-- Paso 5: cliente -->
+      <section class="paso">
+        <h4><span class="paso__n">5</span> Datos del cliente</h4>
+        <div class="grid-2">
+          <label class="campo">
             <span>Nombre *</span>
-            <input class="input" type="text"
+            <input class="input" type="text" placeholder="Nombre y apellido"
                    [value]="cliente().nombre"
                    (input)="setCliente('nombre', $any($event.target).value)" />
           </label>
-          <label class="block">
+          <label class="campo">
             <span>Teléfono</span>
-            <input class="input" type="tel"
+            <input class="input" type="tel" placeholder="300 000 0000"
                    [value]="cliente().telefono"
                    (input)="setCliente('telefono', $any($event.target).value)" />
           </label>
         </div>
-        <label class="block">
+        <label class="campo">
           <span>Email</span>
-          <input class="input" type="email"
+          <input class="input" type="email" placeholder="cliente@correo.com"
                  [value]="cliente().email"
                  (input)="setCliente('email', $any($event.target).value)" />
         </label>
-        <label class="block">
+        <label class="campo">
           <span>Notas</span>
-          <textarea class="textarea" rows="2"
+          <textarea class="textarea" rows="2" placeholder="Preferencias, alergias, observaciones…"
                     [value]="cliente().notas"
                     (input)="setCliente('notas', $any($event.target).value)"></textarea>
         </label>
-      </div>
+      </section>
     </div>
   }
 
-  <div modal-footer style="display:flex; gap:.5rem;">
+  <div modal-footer>
+    @if (slotElegido()) {
+      <span class="pie-resumen">
+        <lucide-icon name="calendar-check" [size]="14" />
+        {{ fecha() }} a las <strong>{{ hora12(slotElegido()!) }}</strong> · {{ duracionTotal() }} min
+      </span>
+    }
     <button type="button" class="btn btn-outline" (click)="cerrar()" [disabled]="enviando()">Cancelar</button>
     <button type="button" class="btn btn-primary" (click)="crear()" [disabled]="!listoParaCrear() || enviando()">
       @if (enviando()) { Creando… } @else { Crear cita }

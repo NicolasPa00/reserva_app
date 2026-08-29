@@ -35,6 +35,17 @@ export const authGuard: CanActivateFn = async () => {
   return false;
 };
 
+/**
+ * Rutas del sistema: existen en la app pero **nunca** en `permisos_vista`.
+ *
+ * `migrate_reserva.js` solo crea niveles para los siete módulos (`/dashboard`, `/agenda`,
+ * `/citas`, `/servicios`, `/profesionales`, `/horarios`, `/configuracion`). Pasar estas dos por
+ * el filtro de permisos las declaraba prohibidas siempre, y eso encadenaba dos redirecciones:
+ * `planGuard` mandaba a `/sin-plan` y este guard la rebotaba de vuelta a `/dashboard`. El
+ * resultado visible era una app donde el menú no hacía nada y nadie decía por qué.
+ */
+const RUTAS_SISTEMA = new Set(['/sin-plan', '/sin-acceso']);
+
 export const permissionGuard: CanActivateChildFn = (childRoute, state) => {
   const auth = inject(AuthService);
   const router = inject(Router);
@@ -46,6 +57,8 @@ export const permissionGuard: CanActivateChildFn = (childRoute, state) => {
   const requested = path && path !== '**'
     ? `/${path.replace(/^\//, '')}`
     : `/${state.url.split('/').filter(Boolean)[0] || 'dashboard'}`;
+
+  if (RUTAS_SISTEMA.has(requested)) return true;
 
   if (auth.canAccessRoute(requested)) return true;
   const fallback = auth.getFirstAccessibleRoute();
