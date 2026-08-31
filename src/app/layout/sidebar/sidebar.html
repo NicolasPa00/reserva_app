@@ -1,6 +1,10 @@
 <aside class="sidebar">
   <header class="sidebar__brand">
-    <lucide-icon name="calendar-clock" [size]="22" />
+    @if (logoUrl(); as logo) {
+      <img class="sidebar__logo" [src]="logo" [alt]="auth.negocio()?.nombre || 'Logo'" />
+    } @else {
+      <lucide-icon name="calendar-clock" [size]="22" />
+    }
     <div>
       <strong>{{ auth.negocio()?.nombre || 'Reservas' }}</strong>
       <span>{{ auth.rolPrincipal() }}</span>

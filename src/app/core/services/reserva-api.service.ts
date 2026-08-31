@@ -7,7 +7,7 @@ import {
   ApiResponse, Servicio, Profesional, Horario, Bloqueo, Cita,
   ConfigReserva, DisponibilidadResponse, DiaDisponible, Informe, InfoNegocioPublico,
   ResumenDashboard, MetodoPago, PagoLinea, EstadoCaja, CajaHistorial, MovimientoCaja,
-  UsuarioNegocio, RolReserva, PermisosRol, UsuarioPayload,
+  UsuarioNegocio, RolReserva, PermisosRol, UsuarioPayload, MarcaNegocio, ColoresNegocio,
 } from '../models';
 
 /**
@@ -18,6 +18,15 @@ import {
 export class ReservaApiService {
   private readonly http = inject(HttpClient);
   private readonly base = environment.apiUrl;
+
+  /**
+   * Origen del que cuelgan los archivos estáticos servidos en `/uploads`.
+   *
+   * El backend devuelve rutas relativas a su propia raíz, pero la app vive en otro origen, así
+   * que hay que anteponerlo. Se deriva de `apiUrl` quitándole el sufijo del vertical, en vez de
+   * añadir otra variable de entorno que habría que acordarse de cambiar en cada despliegue.
+   */
+  readonly origenArchivos = environment.apiUrl.replace(/\/reserva\/?$/, '');
 
   // ── Dashboard ──
   getResumen(idNegocio: number): Observable<ApiResponse<ResumenDashboard>> {
@@ -227,6 +236,61 @@ export class ReservaApiService {
   /** URL absoluta del comprobante (incluye token vía interceptor cuando se descarga por XHR). */
   urlComprobante(idCita: number, idNegocio: number): string {
     return `${this.base}/citas/${idCita}/comprobante?id_negocio=${idNegocio}`;
+  }
+
+  // ── Identidad visual (logo y colores) ──
+
+  getMarca(idNegocio: number) {
+    return this.http.get<ApiResponse<MarcaNegocio>>(`${this.base}/marca?id_negocio=${idNegocio}`);
+  }
+
+  guardarColores(idNegocio: number, primario: string, acento: string) {
+    return this.http.put<ApiResponse<{ colores: ColoresNegocio }>>(
+      `${this.base}/marca/colores`, { id_negocio: idNegocio, primario, acento },
+    );
+  }
+
+  aplicarPaletaNegocio(idNegocio: number, idPaleta: number) {
+    return this.http.put<ApiResponse<{ colores: ColoresNegocio; id_paleta: number; nombre: string }>>(
+      `${this.base}/marca/paleta`, { id_negocio: idNegocio, id_paleta: idPaleta },
+    );
+  }
+
+  restablecerColores(idNegocio: number) {
+    return this.http.delete<ApiResponse<{ colores: null }>>(
+      `${this.base}/marca/colores?id_negocio=${idNegocio}`,
+    );
+  }
+
+  /** El blob viene ya recortado y comprimido por `image-cropper`. */
+  subirLogo(idNegocio: number, blob: Blob) {
+    const fd = new FormData();
+    fd.append('id_negocio', String(idNegocio));
+    fd.append('imagen', blob, `logo.${blob.type === 'image/webp' ? 'webp' : 'jpg'}`);
+    return this.http.post<ApiResponse<{ logo_url: string; bytes: number }>>(
+      `${this.base}/marca/logo`, fd,
+    );
+  }
+
+  eliminarLogo(idNegocio: number) {
+    return this.http.delete<ApiResponse<{ logo_url: null }>>(
+      `${this.base}/marca/logo?id_negocio=${idNegocio}`,
+    );
+  }
+
+  subirImagenServicio(idServicio: number, idNegocio: number, blob: Blob) {
+    const fd = new FormData();
+    fd.append('id_negocio', String(idNegocio));
+    fd.append('imagen', blob, `servicio.${blob.type === 'image/webp' ? 'webp' : 'jpg'}`);
+    return this.http.post<ApiResponse<{ imagen_url: string; bytes: number }>>(
+      `${this.base}/servicios/${idServicio}/imagen`, fd,
+    );
+  }
+
+  eliminarImagenServicio(idServicio: number, idNegocio: number) {
+    return this.http.delete<ApiResponse<{ imagen_url: null }>>(
+      `${this.base}/servicios/${idServicio}/imagen?id_negocio=${idNegocio}`,
+    );
   }
 
   // ── Usuarios y permisos del negocio ──

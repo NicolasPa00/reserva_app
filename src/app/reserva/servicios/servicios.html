@@ -30,13 +30,21 @@
     <div class="grid">
       @for (s of serviciosFiltrados(); track s.id_servicio) {
         <article class="card servicio" [class.servicio--inactivo]="s.estado === 'I'">
-          <header class="servicio__head" [style.background]="s.color_hex || 'var(--color-primary)'">
-            <lucide-icon name="scissors" [size]="20" />
-            @if (s.estado === 'I') { <span class="badge b-off">Inactivo</span> }
+          <!-- La foto manda en la tarjeta: es lo que el cliente verá en el catálogo público. -->
+          <header class="servicio__foto">
+            @if (s.imagen_url) {
+              <img [src]="urlImagen(s.imagen_url)" [alt]="s.nombre" loading="lazy" />
+            } @else {
+              <span class="servicio__sinfoto" [style.--tono]="s.color_hex || 'var(--color-primary)'">
+                <lucide-icon name="image-off" [size]="26" />
+                <em>Sin imagen</em>
+              </span>
+            }
+            @if (s.estado === 'I') { <span class="badge b-off servicio__estado">Inactivo</span> }
+            <span class="servicio__duracion">{{ s.duracion_min }} min</span>
           </header>
           <div class="servicio__body">
             <strong>{{ s.nombre }}</strong>
-            <span class="servicio__meta">{{ s.duracion_min }} min</span>
             <span class="servicio__precio">{{ s.precio | currency:'COP':'symbol':'1.0-0' }}</span>
             @if (s.descripcion) { <p>{{ s.descripcion }}</p> }
           </div>
@@ -65,7 +73,7 @@
     <div class="form__row">
       <label>
         <span>Nombre *</span>
-        <input class="input" type="text" formControlName="nombre" maxlength="150" autocomplete="off" />
+        <input class="input" type="text" reservaMayusculas formControlName="nombre" maxlength="150" autocomplete="off" />
       </label>
     </div>
     <div class="form__grid">
@@ -89,10 +97,34 @@
       </label>
     </div>
     <div class="form__row">
-      <label>
-        <span>URL de imagen (opcional)</span>
-        <input class="input" type="url" formControlName="imagen_url" placeholder="https://…" />
-      </label>
+      <span class="lab">Imagen del servicio</span>
+      <div class="foto">
+        <div class="foto__caja">
+          @if (imagenActual()) {
+            <img [src]="imagenActual()" alt="Imagen del servicio" />
+          } @else {
+            <span class="foto__vacio">
+              <lucide-icon name="image-off" [size]="24" />
+              <em>Sin imagen</em>
+            </span>
+          }
+        </div>
+        <div class="foto__acciones">
+          <label class="mini">
+            <lucide-icon name="upload" [size]="13" />
+            {{ imagenActual() ? 'Cambiar' : 'Subir imagen' }}
+            <input type="file" accept="image/*" hidden (change)="elegirImagen($event)" />
+          </label>
+          @if (imagenActual()) {
+            <button type="button" class="mini mini--danger" (click)="quitarImagen()">
+              <lucide-icon name="trash-2" [size]="13" /> Quitar
+            </button>
+          }
+          <small>
+            Se recorta en 4:3 y se guarda a 640 px. Se sube al pulsar «Guardar».
+          </small>
+        </div>
+      </div>
     </div>
   </form>
 
@@ -103,6 +135,17 @@
     </button>
   </div>
 </reserva-modal>
+
+<!-- 4:3 es la proporción de la tarjeta y la del catálogo público que vendrá después -->
+@if (cropperAbierto() && archivoImagen(); as archivo) {
+  <reserva-image-cropper
+    [file]="archivo"
+    [aspect]="4 / 3"
+    [outputWidth]="640"
+    titulo="Ajustar la imagen del servicio"
+    (recortada)="onImagenRecortada($event)"
+    (cancelada)="cerrarCropper()" />
+}
 
 <reserva-confirm
   [open]="confirmAbierto()"

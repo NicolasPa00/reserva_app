@@ -21,6 +21,13 @@
     span   { color: var(--color-text-muted); font-size: .75rem; line-height: 1.2; }
   }
 
+  // El logo es cuadrado por construcción (el recorte lo fuerza), así que `cover` no deforma.
+  &__logo {
+    width: 32px; height: 32px; flex-shrink: 0;
+    border-radius: var(--radius-sm); object-fit: cover;
+    border: 1px solid var(--color-border);
+  }
+
   &__nav {
     display: flex; flex-direction: column; padding: .5rem; gap: .15rem;
     flex: 1; min-height: 0; overflow-y: auto;

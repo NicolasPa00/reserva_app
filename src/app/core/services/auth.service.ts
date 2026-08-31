@@ -119,6 +119,36 @@ export class AuthService {
     }
   }
 
+  /**
+   * Parchea el negocio activo dentro de la sesión y lo persiste.
+   *
+   * Lo usa Configuración al cambiar el logo o los colores: sin esto el cambio se vería solo
+   * hasta recargar, porque `authGuard` vuelve a aplicar el tema desde la sesión guardada en
+   * `localStorage`, que seguiría teniendo los valores anteriores.
+   */
+  actualizarNegocioActivo(parche: Partial<NegocioReserva>): void {
+    const actual = this.negocio();
+    if (!actual) return;
+
+    this.session.update(s => {
+      if (!s) return s;
+      const negocios = s.negocios.map(n =>
+        n.id_negocio === actual.id_negocio ? { ...n, ...parche } : n,
+      );
+      const siguiente: SesionReserva = {
+        ...s,
+        negocios,
+        negocio: s.negocio?.id_negocio === actual.id_negocio
+          ? { ...s.negocio, ...parche }
+          : s.negocio,
+      };
+      if (isPlatformBrowser(this.platformId)) {
+        localStorage.setItem(SESSION_KEY, JSON.stringify(siguiente));
+      }
+      return siguiente;
+    });
+  }
+
   getAccessToken(): string | null {
     if (!isPlatformBrowser(this.platformId)) return null;
     return localStorage.getItem(TOKEN_KEY);

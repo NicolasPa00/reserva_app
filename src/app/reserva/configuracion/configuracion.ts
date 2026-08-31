@@ -7,7 +7,9 @@ import { forkJoin } from 'rxjs';
 import { AuthService } from '../../core/services/auth.service';
 import { ReservaApiService } from '../../core/services/reserva-api.service';
 import { ToastService } from '../../core/services/toast.service';
-import { MetodoPago } from '../../core/models';
+import { ColoresNegocio, MarcaNegocio, MetodoPago } from '../../core/models';
+import { ThemeService } from '../../core/theme/theme.service';
+import { ImageCropperComponent } from '../../shared/image-cropper/image-cropper';
 import { ModalComponent } from '../../shared/modal/modal';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dialog';
 
@@ -24,7 +26,7 @@ import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dial
   standalone: true,
   imports: [
     CommonModule, ReactiveFormsModule, LucideAngularModule,
-    ModalComponent, ConfirmDialogComponent,
+    ModalComponent, ConfirmDialogComponent, ImageCropperComponent,
   ],
   templateUrl: './configuracion.html',
   styleUrl: './configuracion.scss',
@@ -35,9 +37,37 @@ export class ConfiguracionComponent implements OnInit {
   private readonly api   = inject(ReservaApiService);
   private readonly toast = inject(ToastService);
   private readonly fb    = inject(FormBuilder);
+  private readonly theme = inject(ThemeService);
 
   readonly cargando = signal(false);
   readonly guardando = signal(false);
+
+  /**
+   * Pestañas.
+   *
+   * Se agrupan por la pregunta que responde cada una, no por la tabla de la que salen los
+   * datos: «cómo se ve mi negocio», «cuándo se puede reservar» y «cómo se cobra». Las formas de
+   * pago van con los cobros a propósito —y no en una pestaña propia— porque el interruptor de
+   * multipago depende de cuántas haya activas, y separarlos escondería esa dependencia.
+   */
+  readonly tabs = [
+    { id: 'identidad' as const, label: 'Identidad',     icono: 'image' },
+    { id: 'reservas'  as const, label: 'Reservas',      icono: 'calendar-clock' },
+    { id: 'cobros'    as const, label: 'Cobros y pagos', icono: 'wallet' },
+  ];
+  readonly tab = signal<'identidad' | 'reservas' | 'cobros'>('identidad');
+
+  // ── Identidad visual ──
+  readonly marca = signal<MarcaNegocio | null>(null);
+  readonly subiendoLogo = signal(false);
+  readonly cropperAbierto = signal(false);
+  readonly archivoLogo = signal<File | null>(null);
+  readonly confirmQuitarLogo = signal(false);
+
+  /** Colores en edición. Se previsualizan en vivo antes de guardar. */
+  readonly primario = signal('#312E81');
+  readonly acento = signal('#6366F1');
+  readonly coloresSucios = signal(false);
 
   // ── Formas de pago ──
   readonly metodos = signal<MetodoPago[]>([]);
@@ -89,8 +119,15 @@ export class ConfiguracionComponent implements OnInit {
     forkJoin({
       cfg: this.api.getConfig(idNegocio),
       metodos: this.api.listarMetodosPago(idNegocio, { incluirInactivos: true }),
+      marca: this.api.getMarca(idNegocio),
     }).subscribe({
-      next: ({ cfg, metodos }) => {
+      next: ({ cfg, metodos, marca }) => {
+        if (marca?.success && marca.data) {
+          this.marca.set(marca.data);
+          this.primario.set(marca.data.colores?.primario ?? '#312E81');
+          this.acento.set(marca.data.colores?.acento ?? '#6366F1');
+          this.coloresSucios.set(false);
+        }
         if (cfg?.success && cfg.data) {
           this.form.patchValue({
             anticipacion_min_horas:    cfg.data.anticipacion_min_horas,
@@ -142,6 +179,171 @@ export class ConfiguracionComponent implements OnInit {
         this.toast.error(e?.error?.message || 'Error al guardar.');
       },
     });
+  }
+
+  // ── Identidad visual ──
+
+  /** Vista previa en vivo: se ve el color aplicado a toda la app antes de guardarlo. */
+  setColor(cual: 'primario' | 'acento', valor: string) {
+    (cual === 'primario' ? this.primario : this.acento).set(valor);
+    this.coloresSucios.set(true);
+    this.theme.aplicar({ primario: this.primario(), acento: this.acento() });
+  }
+
+  guardarColores() {
+    const id = this.auth.negocio()?.id_negocio;
+    if (!id) return;
+    this.guardando.set(true);
+    this.api.guardarColores(id, this.primario(), this.acento()).subscribe({
+      next: r => {
+        this.guardando.set(false);
+        if (!r?.success) { this.toast.error(r?.message || 'No se pudieron guardar.'); return; }
+        this.toast.success('Colores guardados');
+        this.coloresSucios.set(false);
+        this.actualizarSesion(r.data!.colores, null);
+      },
+      error: e => {
+        this.guardando.set(false);
+        this.toast.error(e?.error?.message || 'Error al guardar los colores.');
+      },
+    });
+  }
+
+  aplicarPaleta(idPaleta: number) {
+    const id = this.auth.negocio()?.id_negocio;
+    if (!id) return;
+    this.guardando.set(true);
+    this.api.aplicarPaletaNegocio(id, idPaleta).subscribe({
+      next: r => {
+        this.guardando.set(false);
+        if (!r?.success || !r.data) { this.toast.error(r?.message || 'No se pudo aplicar.'); return; }
+        this.primario.set(r.data.colores.primario);
+        this.acento.set(r.data.colores.acento);
+        this.coloresSucios.set(false);
+        this.theme.aplicar(r.data.colores);
+        this.actualizarSesion(r.data.colores, r.data.id_paleta);
+        this.toast.success(`Paleta «${r.data.nombre}» aplicada`);
+      },
+      error: e => {
+        this.guardando.set(false);
+        this.toast.error(e?.error?.message || 'Error al aplicar la paleta.');
+      },
+    });
+  }
+
+  restablecerColores() {
+    const id = this.auth.negocio()?.id_negocio;
+    if (!id) return;
+    this.guardando.set(true);
+    this.api.restablecerColores(id).subscribe({
+      next: () => {
+        this.guardando.set(false);
+        this.primario.set('#312E81');
+        this.acento.set('#6366F1');
+        this.coloresSucios.set(false);
+        this.theme.aplicar(null);
+        this.actualizarSesion(null, null);
+        this.toast.success('Colores restablecidos');
+      },
+      error: e => {
+        this.guardando.set(false);
+        this.toast.error(e?.error?.message || 'Error al restablecer.');
+      },
+    });
+  }
+
+  // ── Logo ──
+
+  elegirLogo(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const file = input?.files?.[0];
+    if (input) input.value = '';   // permite volver a elegir el mismo archivo
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      this.toast.error('Selecciona una imagen (JPG, PNG o WEBP).');
+      return;
+    }
+    if (file.size > 25 * 1024 * 1024) {
+      this.toast.error('La imagen es demasiado grande (máximo 25 MB).');
+      return;
+    }
+    this.archivoLogo.set(file);
+    this.cropperAbierto.set(true);
+  }
+
+  cerrarCropper() {
+    this.cropperAbierto.set(false);
+    this.archivoLogo.set(null);
+  }
+
+  /** El recorte llega ya cuadrado, a 512 px y en WebP: se sube tal cual. */
+  onLogoRecortado(blob: Blob) {
+    const id = this.auth.negocio()?.id_negocio;
+    this.cerrarCropper();
+    if (!id) return;
+
+    this.subiendoLogo.set(true);
+    this.api.subirLogo(id, blob).subscribe({
+      next: r => {
+        this.subiendoLogo.set(false);
+        if (!r?.success || !r.data) { this.toast.error(r?.message || 'No se pudo subir.'); return; }
+        this.marca.update(m => (m ? { ...m, logo_url: r.data!.logo_url } : m));
+        this.actualizarLogoSesion(r.data.logo_url);
+        this.toast.success(`Logo actualizado (${Math.round(r.data.bytes / 1024)} KB)`);
+      },
+      error: e => {
+        this.subiendoLogo.set(false);
+        this.toast.error(e?.error?.message || 'Error al subir el logo.');
+      },
+    });
+  }
+
+  quitarLogo() {
+    const id = this.auth.negocio()?.id_negocio;
+    if (!id) return;
+    this.api.eliminarLogo(id).subscribe({
+      next: () => {
+        this.marca.update(m => (m ? { ...m, logo_url: null } : m));
+        this.actualizarLogoSesion(null);
+        this.confirmQuitarLogo.set(false);
+        this.toast.success('Logo eliminado');
+      },
+      error: e => {
+        this.confirmQuitarLogo.set(false);
+        this.toast.error(e?.error?.message || 'Error al eliminar el logo.');
+      },
+    });
+  }
+
+  /** URL absoluta: el backend devuelve rutas relativas y la app vive en otro origen. */
+  urlImagen(ruta: string | null | undefined): string {
+    if (!ruta) return '';
+    if (/^https?:\/\//i.test(ruta)) return ruta;
+    return `${this.api.origenArchivos}${ruta}`;
+  }
+
+  esPaletaActiva(idPaleta: number): boolean {
+    return this.marca()?.id_paleta === idPaleta;
+  }
+
+  colorDe(paleta: { colores: Record<string, string> }, cual: 'primario' | 'acento'): string {
+    return paleta.colores?.[cual] ?? paleta.colores?.['primary'] ?? '#312E81';
+  }
+
+  /**
+   * Refleja el cambio en la sesión guardada.
+   *
+   * Sin esto, el color nuevo se ve hasta que el usuario recarga: `authGuard` vuelve a aplicar el
+   * tema desde la sesión de `localStorage`, que seguiría con el color anterior.
+   */
+  private actualizarSesion(colores: ColoresNegocio | null, idPaleta: number | null) {
+    this.auth.actualizarNegocioActivo({ colores });
+    this.marca.update(m => (m ? { ...m, colores, id_paleta: idPaleta } : m));
+  }
+
+  private actualizarLogoSesion(logoUrl: string | null) {
+    this.auth.actualizarNegocioActivo({ logo_url: logoUrl });
   }
 
   // ── CRUD de formas de pago ──

@@ -18,14 +18,14 @@ export const authGuard: CanActivateFn = async () => {
       const ok = await refreshFromStored(auth);
       if (!ok) { auth.logout(); return false; }
     }
-    theme.aplicarPaleta(auth.negocio()?.paleta ?? null);
+    theme.aplicar(auth.negocio()?.colores, auth.negocio()?.paleta);
     return true;
   }
 
   const stored = auth.getAccessToken();
   if (stored) {
     const ok = await auth.validateAndSetToken(stored);
-    if (ok) { theme.aplicarPaleta(auth.negocio()?.paleta ?? null); return true; }
+    if (ok) { theme.aplicar(auth.negocio()?.colores, auth.negocio()?.paleta); return true; }
     auth.logout();
     return false;
   }

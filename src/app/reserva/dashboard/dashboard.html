@@ -110,14 +110,14 @@
                   <strong>{{ c.fecha_hora_inicio | date:'HH:mm':'':'es-CO' }}</strong>
                   <span>{{ c.fecha_hora_fin | date:'HH:mm':'':'es-CO' }}</span>
                 </div>
-                <span class="tl__barra" [style.background]="c.profesional?.color_hex || 'var(--color-primary)'"></span>
+                <span class="tl__barra" [style.background]="c.profesional?.color_hex || 'var(--color-accent)'"></span>
                 <div class="tl__info">
                   <strong>{{ c.cliente_nombre }}</strong>
                   <span class="tl__svc">
                     {{ c.servicios.join(' · ') || 'Sin servicios' }}
                   </span>
                   <span class="tl__pro">
-                    <i [style.background]="c.profesional?.color_hex || 'var(--color-primary)'"></i>
+                    <i [style.background]="c.profesional?.color_hex || 'var(--color-accent)'"></i>
                     {{ c.profesional?.nombre || 'Sin profesional' }}
                     @if (c.cliente_telefono) { · {{ c.cliente_telefono }} }
                   </span>

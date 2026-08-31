@@ -6,12 +6,141 @@
     </div>
   </header>
 
+  <div class="tabs">
+    @for (t of tabs; track t.id) {
+      <button class="tab" [class.tab--on]="tab() === t.id" (click)="tab.set(t.id)">
+        <lucide-icon [name]="t.icono" [size]="15" />
+        {{ t.label }}
+      </button>
+    }
+  </div>
+
   @if (cargando()) {
     <p class="hint">Cargando…</p>
   } @else {
+
+    <!-- ───────── Identidad visual ───────── -->
+    @if (tab() === 'identidad') {
+      <div class="card identidad">
+      <h3>Identidad del negocio</h3>
+      <p class="hint">
+        El logo y los colores se aplican a toda la aplicación: botones, iconos, agenda,
+        gráficas y la ficha de cada profesional.
+      </p>
+
+      <div class="identidad__grid">
+        <!-- Logo -->
+        <div class="logo">
+          <span class="logo__lab">Logo</span>
+          <div class="logo__caja">
+            @if (marca()?.logo_url) {
+              <img [src]="urlImagen(marca()!.logo_url)" alt="Logo del negocio" />
+            } @else {
+              <span class="logo__vacio">
+                <lucide-icon name="image" [size]="26" />
+                <em>Sin logo</em>
+              </span>
+            }
+            @if (subiendoLogo()) {
+              <span class="logo__cargando"><lucide-icon name="loader" [size]="22" /></span>
+            }
+          </div>
+          <div class="logo__acciones">
+            <label class="mini">
+              <lucide-icon name="upload" [size]="13" />
+              {{ marca()?.logo_url ? 'Cambiar' : 'Subir logo' }}
+              <input type="file" accept="image/*" hidden (change)="elegirLogo($event)" />
+            </label>
+            @if (marca()?.logo_url) {
+              <button type="button" class="mini mini--danger" (click)="confirmQuitarLogo.set(true)">
+                <lucide-icon name="trash-2" [size]="13" /> Quitar
+              </button>
+            }
+          </div>
+          <small>Se recorta cuadrado y se guarda en 512 px. Pesa unos 40 KB.</small>
+        </div>
+
+        <!-- Colores -->
+        <div class="colores">
+          <span class="colores__lab">Colores propios</span>
+          <div class="colores__campos">
+            <label class="color">
+              <input type="color" [value]="primario()"
+                     (input)="setColor('primario', $any($event.target).value)" />
+              <span>
+                <strong>Principal</strong>
+                <em>{{ primario() }}</em>
+              </span>
+            </label>
+            <label class="color">
+              <input type="color" [value]="acento()"
+                     (input)="setColor('acento', $any($event.target).value)" />
+              <span>
+                <strong>Acento</strong>
+                <em>{{ acento() }}</em>
+              </span>
+            </label>
+          </div>
+
+          <p class="colores__nota">
+            El tono del hover y el color del texto sobre los botones se calculan solos a partir
+            de estos dos, para que siempre se lean bien.
+          </p>
+
+          <div class="colores__acciones">
+            @if (coloresSucios()) {
+              <span class="colores__aviso">
+                <lucide-icon name="circle-alert" [size]="14" /> Vista previa sin guardar
+              </span>
+            }
+            <button type="button" class="btn btn-outline" (click)="restablecerColores()"
+                    [disabled]="guardando()">
+              Restablecer
+            </button>
+            <button type="button" class="btn btn-primary" (click)="guardarColores()"
+                    [disabled]="guardando() || !coloresSucios()">
+              <lucide-icon name="save" [size]="15" /> Guardar colores
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Paletas -->
+      @if (marca(); as m) {
+        <div class="paletas">
+          <span class="paletas__lab">¿No tienes colores definidos? Elige una paleta</span>
+          <div class="paletas__grid">
+            @for (p of m.paletas; track p.id_paleta) {
+              <button type="button" class="paleta" [class.paleta--on]="esPaletaActiva(p.id_paleta)"
+                      [disabled]="guardando()" (click)="aplicarPaleta(p.id_paleta)"
+                      [title]="p.nombre">
+                <span class="paleta__muestras">
+                  <i [style.background]="colorDe(p, 'primario')"></i>
+                  <i [style.background]="colorDe(p, 'acento')"></i>
+                </span>
+                <span class="paleta__nombre">{{ p.nombre }}</span>
+                @if (esPaletaActiva(p.id_paleta)) {
+                  <lucide-icon class="paleta__check" name="check" [size]="14" />
+                }
+              </button>
+            }
+          </div>
+        </div>
+      }
+      </div>
+    }
+
+    <!--
+      Un solo formulario para las dos pestañas que guardan configuración.
+
+      Los controles se declaran en el componente, no en la plantilla, así que ocultar un panel
+      con `@if` desmonta el DOM pero **no** pierde el valor: se puede cambiar algo en Reservas,
+      pasar a Cobros y guardar las dos cosas de una vez. Por eso el botón es uno solo.
+    -->
     <form [formGroup]="form" (ngSubmit)="guardar()" class="cfg">
 
       <!-- Reservas -->
+      @if (tab() === 'reservas') {
       <div class="card">
         <h3>Reservas</h3>
         <p class="hint">Tiempos y ventanas que se aplican a todas las citas.</p>
@@ -40,7 +169,10 @@
         </div>
       </div>
 
+      }
+
       <!-- Cobros y caja -->
+      @if (tab() === 'cobros') {
       <div class="card">
         <h3>Cobros y caja</h3>
         <p class="hint">Cómo se registra el dinero cuando se completa una cita.</p>
@@ -158,12 +290,27 @@
         }
       </div>
 
-      <div class="actions">
-        <button type="submit" class="btn btn-primary" [disabled]="guardando() || form.invalid">
-          <lucide-icon name="save" [size]="16" />
-          @if (guardando()) { Guardando… } @else { Guardar cambios }
-        </button>
-      </div>
+      }
+
+      <!--
+        El botón vive fuera de los paneles: guarda la configuración entera, se esté en la
+        pestaña que se esté. En Identidad no aparece porque allí cada bloque tiene su propio
+        guardado (los colores se aplican en vivo y el logo se sube al recortarlo).
+      -->
+      @if (tab() !== 'identidad') {
+        <div class="actions">
+          @if (form.invalid) {
+            <span class="actions__error">
+              <lucide-icon name="triangle-alert" [size]="14" />
+              Revisa los tiempos en <strong>Reservas</strong>: hay un valor fuera de rango.
+            </span>
+          }
+          <button type="submit" class="btn btn-primary" [disabled]="guardando() || form.invalid">
+            <lucide-icon name="save" [size]="16" />
+            @if (guardando()) { Guardando… } @else { Guardar cambios }
+          </button>
+        </div>
+      }
     </form>
   }
 </section>
@@ -187,6 +334,26 @@
     </button>
   </div>
 </reserva-modal>
+
+<!-- Recorte del logo: cuadrado, porque va en el sidebar, en el catálogo público y como avatar -->
+@if (cropperAbierto() && archivoLogo(); as archivo) {
+  <reserva-image-cropper
+    [file]="archivo"
+    [aspect]="1"
+    [outputWidth]="512"
+    titulo="Ajustar el logo del negocio"
+    (recortada)="onLogoRecortado($event)"
+    (cancelada)="cerrarCropper()" />
+}
+
+<reserva-confirm
+  [open]="confirmQuitarLogo()"
+  title="Quitar el logo"
+  message="Se borrará la imagen del servidor. Puedes volver a subir otra cuando quieras."
+  confirmText="Quitar"
+  kind="danger"
+  (cancel)="confirmQuitarLogo.set(false)"
+  (confirm)="quitarLogo()" />
 
 <reserva-confirm
   [open]="confirmInactivar()"

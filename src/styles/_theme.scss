@@ -41,6 +41,11 @@
   --color-info: #0288d1;
   --color-info-bg: #e1f5fe;
 
+  // Acento de la identidad del negocio. `ThemeService` lo reescribe con el color que elija el
+  // dueño; aquí queda el valor por defecto de EscalApp para el primer pintado y para SSR.
+  --color-accent: #6366f1;
+  --color-on-accent: #ffffff;
+
   // --- Acentos (alineados con la identidad del admin) ---
   --color-accent-blue: #6366f1;
   --color-accent-blue-rgb: 99, 102, 241;

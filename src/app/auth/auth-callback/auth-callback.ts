@@ -55,7 +55,7 @@ export class AuthCallbackComponent implements OnInit {
     if (!code) { this.error.set('No se recibió un código de acceso válido.'); return; }
     const ok = await this.auth.canjearCodigo(code);
     if (ok) {
-      this.theme.aplicarPaleta(this.auth.negocio()?.paleta ?? null);
+      this.theme.aplicar(this.auth.negocio()?.colores, this.auth.negocio()?.paleta);
       await this.router.navigateByUrl('/dashboard', { replaceUrl: true });
     } else {
       this.error.set('Código inválido o expirado. Vuelve al panel y reintenta.');

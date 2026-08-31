@@ -2,11 +2,14 @@ import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } 
 import { CommonModule, CurrencyPipe } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
+import { firstValueFrom } from 'rxjs';
 
 import { AuthService } from '../../core/services/auth.service';
 import { ReservaApiService } from '../../core/services/reserva-api.service';
 import { ToastService } from '../../core/services/toast.service';
 import { Servicio } from '../../core/models';
+import { ImageCropperComponent } from '../../shared/image-cropper/image-cropper';
+import { MayusculasDirective } from '../../shared/mayusculas.directive';
 import { ModalComponent } from '../../shared/modal/modal';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dialog';
 
@@ -15,7 +18,7 @@ import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dial
   standalone: true,
   imports: [
     CommonModule, ReactiveFormsModule, LucideAngularModule, CurrencyPipe,
-    ModalComponent, ConfirmDialogComponent,
+    ModalComponent, ConfirmDialogComponent, ImageCropperComponent, MayusculasDirective,
   ],
   templateUrl: './servicios.html',
   styleUrl: './servicios.scss',
@@ -35,6 +38,13 @@ export class ServiciosComponent implements OnInit {
   readonly modalAbierto = signal(false);
   readonly editando = signal<Servicio | null>(null);
   readonly guardando = signal(false);
+
+  // Imagen pendiente de subir: el recorte vive en memoria hasta que se guarda el servicio.
+  readonly cropperAbierto = signal(false);
+  readonly archivoImagen = signal<File | null>(null);
+  readonly imagenBlob = signal<Blob | null>(null);
+  readonly imagenPreview = signal('');
+  readonly imagenBorrada = signal(false);
 
   readonly confirmAbierto = signal(false);
   readonly servicioAInactivar = signal<Servicio | null>(null);
@@ -86,6 +96,7 @@ export class ServiciosComponent implements OnInit {
   }
 
   abrirCrear() {
+    this.limpiarImagenPendiente();
     this.editando.set(null);
     this.form.reset({
       nombre: '', duracion_min: 30, precio: 0, descripcion: '',
@@ -95,6 +106,7 @@ export class ServiciosComponent implements OnInit {
   }
 
   abrirEditar(s: Servicio) {
+    this.limpiarImagenPendiente();
     this.editando.set(s);
     this.form.reset({
       nombre: s.nombre,
@@ -110,6 +122,97 @@ export class ServiciosComponent implements OnInit {
   cerrarModal() {
     this.modalAbierto.set(false);
     this.editando.set(null);
+    this.limpiarImagenPendiente();
+  }
+
+  /**
+   * Sube o borra la imagen una vez el servicio existe.
+   *
+   * Va después de guardar porque el archivo se nombra con el id (`servicio_00007.webp`), y al
+   * crear uno nuevo ese id no existe hasta que el backend responde. Un fallo aquí no invalida
+   * el guardado: el servicio ya está bien, solo se avisa de que la foto no subió.
+   */
+  private async sincronizarImagen(idServicio: number | undefined, idNegocio: number): Promise<void> {
+    if (!idServicio) return;
+    const blob = this.imagenBlob();
+
+    try {
+      if (blob) {
+        await firstValueFrom(this.api.subirImagenServicio(idServicio, idNegocio, blob));
+      } else if (this.imagenBorrada()) {
+        await firstValueFrom(this.api.eliminarImagenServicio(idServicio, idNegocio));
+      }
+    } catch {
+      this.toast.warning('El servicio se guardó, pero la imagen no se pudo actualizar.');
+    }
+  }
+
+  // ── Imagen del servicio ──
+  //
+  // El recorte se guarda en memoria y se sube DESPUÉS de guardar el servicio: el nombre del
+  // archivo lo fija el id de la entidad, y al crear uno nuevo ese id todavía no existe.
+
+  elegirImagen(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const file = input?.files?.[0];
+    if (input) input.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      this.toast.error('Selecciona una imagen (JPG, PNG o WEBP).');
+      return;
+    }
+    if (file.size > 25 * 1024 * 1024) {
+      this.toast.error('La imagen es demasiado grande (máximo 25 MB).');
+      return;
+    }
+    this.archivoImagen.set(file);
+    this.cropperAbierto.set(true);
+  }
+
+  cerrarCropper() {
+    this.cropperAbierto.set(false);
+    this.archivoImagen.set(null);
+  }
+
+  onImagenRecortada(blob: Blob) {
+    this.cerrarCropper();
+    this.revocarPreview();
+    this.imagenBlob.set(blob);
+    this.imagenPreview.set(URL.createObjectURL(blob));
+  }
+
+  /** Marca la imagen para borrarse al guardar; el archivo se elimina en el servidor. */
+  quitarImagen() {
+    this.revocarPreview();
+    this.imagenBlob.set(null);
+    this.imagenPreview.set('');
+    this.imagenBorrada.set(true);
+  }
+
+  private revocarPreview() {
+    const url = this.imagenPreview();
+    if (url) URL.revokeObjectURL(url);
+  }
+
+  private limpiarImagenPendiente() {
+    this.revocarPreview();
+    this.imagenBlob.set(null);
+    this.imagenPreview.set('');
+    this.imagenBorrada.set(false);
+  }
+
+  /** Imagen a mostrar en el modal: la recortada sin subir, o la que ya tiene el servicio. */
+  imagenActual(): string {
+    if (this.imagenPreview()) return this.imagenPreview();
+    if (this.imagenBorrada()) return '';
+    return this.urlImagen(this.editando()?.imagen_url);
+  }
+
+  /** El backend devuelve rutas relativas; la app vive en otro origen y hay que anteponerlo. */
+  urlImagen(ruta: string | null | undefined): string {
+    if (!ruta) return '';
+    if (/^https?:\/\//i.test(ruta)) return ruta;
+    return `${this.api.origenArchivos}${ruta}`;
   }
 
   guardar() {
@@ -135,15 +238,18 @@ export class ServiciosComponent implements OnInit {
       : this.api.crearServicio(payload);
 
     obs$.subscribe({
-      next: r => {
-        this.guardando.set(false);
-        if (r?.success) {
-          this.toast.success(editando ? 'Servicio actualizado' : 'Servicio creado');
-          this.cerrarModal();
-          this.recargar();
-        } else {
+      next: async r => {
+        if (!r?.success) {
+          this.guardando.set(false);
           this.toast.error(r?.message || 'No se pudo guardar.');
+          return;
         }
+        const idServicio = editando?.id_servicio ?? r.data?.id_servicio;
+        await this.sincronizarImagen(idServicio, idNegocio);
+        this.guardando.set(false);
+        this.toast.success(editando ? 'Servicio actualizado' : 'Servicio creado');
+        this.cerrarModal();
+        this.recargar();
       },
       error: e => {
         this.guardando.set(false);

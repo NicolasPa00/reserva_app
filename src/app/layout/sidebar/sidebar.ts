@@ -3,6 +3,7 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
 
 import { AuthService } from '../../core/services/auth.service';
+import { ReservaApiService } from '../../core/services/reserva-api.service';
 
 interface NavItem {
   icon: string; label: string; route: string;
@@ -18,6 +19,14 @@ interface NavItem {
 })
 export class SidebarComponent {
   readonly auth = inject(AuthService);
+  private readonly api = inject(ReservaApiService);
+
+  /** Logo del negocio, ya con el origen del backend delante. */
+  readonly logoUrl = computed(() => {
+    const ruta = this.auth.negocio()?.logo_url;
+    if (!ruta) return '';
+    return /^https?:\/\//i.test(ruta) ? ruta : this.api.origenArchivos + ruta;
+  });
 
   readonly items: NavItem[] = [
     { icon: 'layout-dashboard',  label: 'Dashboard',     route: '/dashboard' },

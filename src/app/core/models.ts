@@ -41,6 +41,22 @@ export interface PermisoSubnivel {
   puede_ver: boolean;
 }
 
+/** Los dos colores que definen la identidad del negocio. El resto se deriva en el tema. */
+export interface ColoresNegocio {
+  primario: string;
+  acento: string;
+}
+
+/** Identidad visual completa + catálogo de paletas para elegir. */
+export interface MarcaNegocio {
+  id_negocio: number;
+  nombre: string;
+  logo_url: string | null;
+  colores: ColoresNegocio | null;
+  id_paleta: number | null;
+  paletas: { id_paleta: number; nombre: string; colores: Record<string, string> }[];
+}
+
 export interface PaletaColor {
   id_paleta: number;
   nombre: string;
@@ -52,6 +68,9 @@ export interface NegocioReserva {
   nombre: string;
   tipo_negocio: string | null;
   paleta: PaletaColor | null;
+  /** Identidad visual: viaja con la sesión para pintar el tema en el primer render. */
+  logo_url?: string | null;
+  colores?: ColoresNegocio | null;
   roles: { id_rol: number; descripcion: string }[];
   permisos_vista: PermisoVista[];
   permisos_subnivel: PermisoSubnivel[];

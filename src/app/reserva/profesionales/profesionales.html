@@ -31,7 +31,7 @@
     <div class="grid">
       @for (p of profesionalesFiltrados(); track p.id_profesional) {
         <article class="card pro" [class.pro--inactivo]="p.estado === 'I'">
-          <div class="pro__avatar" [style.background]="p.color_hex || '#10b981'">
+          <div class="pro__avatar" [style.background]="p.color_hex || 'var(--color-accent)'">
             @if (p.foto_url) {
               <img [src]="p.foto_url" [alt]="p.nombre" />
             } @else {

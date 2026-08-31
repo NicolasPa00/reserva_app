@@ -19,7 +19,7 @@ import {
   // en esta lista no falla en compilación, revienta en runtime al pintar la vista.
   ArrowRight, ArrowUpRight, Ban, CalendarCheck2, CalendarCog, CalendarOff,
   ChartColumn, CircleAlert, Copy, CopyPlus, Gauge, Hash, Info, Sunrise, Sunset,
-  Tag, Timer, TrendingUp, UserCog, UserRound, Wallet,
+  Tag, Timer, TrendingUp, UserCog, UserRound, Wallet, Image, ImageOff, Crop,
 } from 'lucide-angular';
 
 registerLocaleData(localeEsCO);
@@ -34,7 +34,7 @@ const icons = {
   // en esta lista no falla en compilación, revienta en runtime al pintar la vista.
   ArrowRight, ArrowUpRight, Ban, CalendarCheck2, CalendarCog, CalendarOff,
   ChartColumn, CircleAlert, Copy, CopyPlus, Gauge, Hash, Info, Sunrise, Sunset,
-  Tag, Timer, TrendingUp, UserCog, UserRound, Wallet,
+  Tag, Timer, TrendingUp, UserCog, UserRound, Wallet, Image, ImageOff, Crop,
 };
 
 export const appConfig: ApplicationConfig = {
