@@ -8,6 +8,7 @@ import {
   ConfigReserva, DisponibilidadResponse, DiaDisponible, Informe, InfoNegocioPublico,
   ResumenDashboard, MetodoPago, PagoLinea, EstadoCaja, CajaHistorial, MovimientoCaja,
   UsuarioNegocio, RolReserva, PermisosRol, UsuarioPayload, MarcaNegocio, ColoresNegocio,
+  Vitrina, VitrinaEdicion, CitaPublica, CategoriaReserva, DiaServicio, SlotsServicio,
 } from '../models';
 
 /**
@@ -293,6 +294,79 @@ export class ReservaApiService {
     );
   }
 
+  /** El banner es 16:5; lo recorta el cropper antes de llegar aquí. */
+  subirBanner(idNegocio: number, blob: Blob) {
+    const fd = new FormData();
+    fd.append('id_negocio', String(idNegocio));
+    fd.append('imagen', blob, `banner.${blob.type === 'image/webp' ? 'webp' : 'jpg'}`);
+    return this.http.post<ApiResponse<{ banner_url: string; bytes: number }>>(
+      `${this.base}/marca/banner`, fd,
+    );
+  }
+
+  eliminarBanner(idNegocio: number) {
+    return this.http.delete<ApiResponse<{ banner_url: null }>>(
+      `${this.base}/marca/banner?id_negocio=${idNegocio}`,
+    );
+  }
+
+  // ── Categorías del catálogo ──
+
+  listarCategorias(idNegocio: number) {
+    return this.http.get<ApiResponse<CategoriaReserva[]>>(
+      `${this.base}/categorias?id_negocio=${idNegocio}`,
+    );
+  }
+
+  crearCategoria(idNegocio: number, nombre: string, descripcion?: string) {
+    return this.http.post<ApiResponse<CategoriaReserva>>(
+      `${this.base}/categorias`, { id_negocio: idNegocio, nombre, descripcion },
+    );
+  }
+
+  actualizarCategoria(id: number, idNegocio: number, datos: { nombre?: string; descripcion?: string }) {
+    return this.http.put<ApiResponse<CategoriaReserva>>(
+      `${this.base}/categorias/${id}`, { id_negocio: idNegocio, ...datos },
+    );
+  }
+
+  eliminarCategoria(id: number, idNegocio: number) {
+    return this.http.patch<ApiResponse<CategoriaReserva>>(
+      `${this.base}/categorias/${id}/inactivar?id_negocio=${idNegocio}`, {},
+    );
+  }
+
+  reordenarCategorias(idNegocio: number, idCategorias: number[]) {
+    return this.http.put<ApiResponse<CategoriaReserva[]>>(
+      `${this.base}/categorias/orden`, { id_negocio: idNegocio, id_categorias: idCategorias },
+    );
+  }
+
+  subirFotoProfesional(idProfesional: number, idNegocio: number, blob: Blob) {
+    const fd = new FormData();
+    fd.append('id_negocio', String(idNegocio));
+    fd.append('imagen', blob, `profesional.${blob.type === 'image/webp' ? 'webp' : 'jpg'}`);
+    return this.http.post<ApiResponse<{ foto_url: string; bytes: number }>>(
+      `${this.base}/profesionales/${idProfesional}/foto`, fd,
+    );
+  }
+
+  eliminarFotoProfesional(idProfesional: number, idNegocio: number) {
+    return this.http.delete<ApiResponse<{ foto_url: null }>>(
+      `${this.base}/profesionales/${idProfesional}/foto?id_negocio=${idNegocio}`,
+    );
+  }
+
+  // ── Página pública (edición desde Configuración) ──
+
+  getVitrinaEdicion(idNegocio: number) {
+    return this.http.get<ApiResponse<VitrinaEdicion>>(`${this.base}/vitrina?id_negocio=${idNegocio}`);
+  }
+
+  guardarVitrina(datos: Partial<VitrinaEdicion> & { id_negocio: number }) {
+    return this.http.put<ApiResponse<VitrinaEdicion>>(`${this.base}/vitrina`, datos);
+  }
+
   // ── Usuarios y permisos del negocio ──
   //
   // Endpoints propios del vertical, no los de `/admin`. Allí `id_negocio` es un parámetro libre
@@ -459,6 +533,15 @@ export class ReservaApiService {
 
   // ────────────── Endpoints públicos (sin token) ──────────────
 
+  /**
+   * Paquete completo de la portada. Sustituye a encadenar `info` + `servicios` +
+   * `profesionales` + un horario por profesional: son 10 peticiones desde el móvil de alguien
+   * que solo quiere ver si le cogen mañana.
+   */
+  publicoVitrina(idNegocio: number) {
+    return this.http.get<ApiResponse<Vitrina>>(`${this.base}/publico/${idNegocio}/vitrina`);
+  }
+
   publicoInfoNegocio(idNegocio: number) {
     return this.http.get<ApiResponse<InfoNegocioPublico>>(
       `${this.base}/publico/${idNegocio}/info`,
@@ -479,13 +562,62 @@ export class ReservaApiService {
     );
   }
 
-  publicoDisponibilidad(opts: { idNegocio: number; idServicio: number; idProfesional: number; fecha: string }) {
-    const p = new HttpParams()
+  /**
+   * Huecos de un día.
+   *
+   * Acepta un servicio o una lista: la duración de un combo es la **suma** de sus servicios, y
+   * pedir la disponibilidad de solo el primero devolvía huecos que luego la creación rechazaba
+   * con un 409. Cuando llegan varios se manda `id_servicios`, que es lo que el backend suma.
+   */
+  publicoDisponibilidad(opts: {
+    idNegocio: number; idServicio?: number; idServicios?: number[];
+    idProfesional: number; fecha: string;
+  }) {
+    let p = new HttpParams()
       .set('fecha', opts.fecha)
-      .set('id_servicio', String(opts.idServicio))
       .set('id_profesional', String(opts.idProfesional));
+    if (opts.idServicios?.length) p = p.set('id_servicios', opts.idServicios.join(','));
+    else if (opts.idServicio)     p = p.set('id_servicio', String(opts.idServicio));
     return this.http.get<ApiResponse<DisponibilidadResponse>>(
       `${this.base}/publico/${opts.idNegocio}/disponibilidad`, { params: p },
+    );
+  }
+
+  /**
+   * Días con atención en un rango (máx. 92 días, lo limita el backend).
+   *
+   * Es lo que apaga los días cerrados en el calendario del asistente. No se deriva del horario
+   * semanal en el cliente porque ese no conoce los bloqueos: unas vacaciones cargadas por el
+   * negocio dejarían el día pintado como abierto y sin un solo hueco al pulsarlo.
+   */
+  publicoDiasDisponibles(idNegocio: number, idProfesional: number, desde: string, hasta: string) {
+    const p = new HttpParams()
+      .set('id_profesional', String(idProfesional))
+      .set('desde', desde)
+      .set('hasta', hasta);
+    return this.http.get<ApiResponse<DiaDisponible[]>>(
+      `${this.base}/publico/${idNegocio}/dias`, { params: p },
+    );
+  }
+
+  /**
+   * Días con alguien libre para un servicio, y quién atiende cada día.
+   *
+   * Lo agrega el backend sobre todos los profesionales que lo ofrecen. Hacerlo aquí serían
+   * tantas peticiones como profesionales, con el calendario pintándose a trozos.
+   */
+  publicoDiasDeServicio(idNegocio: number, idServicio: number, desde: string, hasta: string) {
+    const p = new HttpParams().set('desde', desde).set('hasta', hasta);
+    return this.http.get<ApiResponse<DiaServicio[]>>(
+      `${this.base}/publico/${idNegocio}/servicio/${idServicio}/dias`, { params: p },
+    );
+  }
+
+  /** Huecos de un día, ya agrupados por profesional. */
+  publicoSlotsDeServicio(idNegocio: number, idServicio: number, fecha: string) {
+    const p = new HttpParams().set('fecha', fecha);
+    return this.http.get<ApiResponse<SlotsServicio>>(
+      `${this.base}/publico/${idNegocio}/servicio/${idServicio}/slots`, { params: p },
     );
   }
 
@@ -505,14 +637,14 @@ export class ReservaApiService {
       if (payload.cliente_email)    fd.append('cliente_email', payload.cliente_email);
       if (payload.notas)            fd.append('notas', payload.notas);
       fd.append('comprobante', payload.comprobante);
-      return this.http.post<ApiResponse<Cita>>(`${this.base}/publico/${idNegocio}/cita`, fd);
+      return this.http.post<ApiResponse<CitaPublica>>(`${this.base}/publico/${idNegocio}/cita`, fd);
     }
     const { comprobante: _omit, ...body } = payload;
-    return this.http.post<ApiResponse<Cita>>(`${this.base}/publico/${idNegocio}/cita`, body);
+    return this.http.post<ApiResponse<CitaPublica>>(`${this.base}/publico/${idNegocio}/cita`, body);
   }
 
   publicoConsultarCita(codigoPublico: string) {
-    return this.http.get<ApiResponse<Cita>>(`${this.base}/publico/cita/${codigoPublico}`);
+    return this.http.get<ApiResponse<CitaPublica>>(`${this.base}/publico/cita/${codigoPublico}`);
   }
 
   publicoCancelarCita(codigoPublico: string, motivo?: string) {

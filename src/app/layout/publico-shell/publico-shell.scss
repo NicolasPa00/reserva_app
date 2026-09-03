@@ -1,0 +1,279 @@
+// ── Estados de página completa ──
+.estado {
+  min-height: 100vh;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: .75rem; padding: 2rem; text-align: center;
+  background: var(--color-bg); color: var(--color-text-muted);
+
+  h1 { margin: 0; font-size: 1.15rem; color: var(--color-text-primary); }
+  p  { margin: 0; font-size: .9rem; max-width: 34ch; }
+}
+
+.spinner {
+  width: 26px; height: 26px; border-radius: 50%;
+  border: 2px solid var(--color-border);
+  border-top-color: var(--color-primary);
+  animation: girar .8s linear infinite;
+}
+@keyframes girar { to { transform: rotate(360deg); } }
+
+// ── Marco ──
+.pub {
+  min-height: 100vh;
+  display: flex; flex-direction: column;
+  background: var(--color-bg);
+}
+
+.pub__top {
+  position: sticky; top: 0; z-index: 30;
+  display: flex; align-items: center; gap: 1.25rem;
+  padding: .7rem 1.25rem;
+  background: color-mix(in srgb, var(--color-surface) 92%, transparent);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.pub__marca {
+  display: flex; align-items: center; gap: .6rem;
+  text-decoration: none; color: inherit; min-width: 0; flex-shrink: 0;
+
+  img {
+    width: 34px; height: 34px; flex-shrink: 0;
+    border-radius: var(--radius-md); object-fit: cover;
+    border: 1px solid var(--color-border);
+  }
+  strong {
+    font-size: 1rem; color: var(--color-text-primary);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+}
+
+.pub__marca-ini {
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  width: 34px; height: 34px; border-radius: var(--radius-md);
+  background: var(--color-primary); color: var(--color-on-primary);
+}
+
+// ── Buscador ──
+//
+// `margin: 0 auto` con `flex: 1` lo centra ópticamente aunque la marca y la navegación midan
+// distinto: es lo que hace que quede en el eje de la página y no colgando de la izquierda.
+.buscador {
+  position: relative;
+  flex: 1; max-width: 420px; margin: 0 auto;
+
+  &__lupa {
+    position: absolute; left: .7rem; top: 50%; transform: translateY(-50%);
+    color: var(--color-text-muted); pointer-events: none;
+  }
+
+  &__campo {
+    width: 100%;
+    padding: .5rem 2rem .5rem 2.1rem;
+    border: 1px solid var(--color-border); border-radius: var(--radius-full);
+    background: var(--color-bg-muted); color: var(--color-text-primary);
+    font-family: inherit; font-size: .87rem;
+    transition: border-color var(--transition-fast), background var(--transition-fast),
+                box-shadow var(--transition-fast);
+
+    &::placeholder { color: var(--color-text-muted); }
+    &:focus {
+      outline: none;
+      background: var(--color-surface);
+      border-color: var(--color-primary);
+      box-shadow: var(--focus-ring);
+    }
+    // El aspa nativa de `type=search` duplica la nuestra en Chrome.
+    &::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
+  }
+
+  &__x {
+    position: absolute; right: .45rem; top: 50%; transform: translateY(-50%);
+    display: flex; align-items: center; justify-content: center;
+    width: 22px; height: 22px; border-radius: var(--radius-full);
+    border: 0; background: transparent; color: var(--color-text-muted); cursor: pointer;
+    &:hover { background: var(--color-border); color: var(--color-text-primary); }
+  }
+}
+
+.sugerencias {
+  position: absolute; top: calc(100% + .4rem); left: 0; right: 0; z-index: 40;
+  list-style: none; margin: 0; padding: .3rem;
+  max-height: 62vh; overflow-y: auto;
+  border: 1px solid var(--color-border); border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-lg);
+
+  &--vacio {
+    padding: .85rem; text-align: center;
+    font-size: .85rem; color: var(--color-text-muted);
+  }
+}
+
+.sugerencia {
+  width: 100%; display: flex; align-items: center; gap: .6rem;
+  padding: .45rem .5rem; cursor: pointer; text-align: left; font-family: inherit;
+  border: 0; border-radius: var(--radius-md); background: transparent;
+
+  img, &__sinfoto {
+    width: 40px; height: 34px; flex-shrink: 0;
+    border-radius: var(--radius-sm); object-fit: cover;
+  }
+
+  &__txt {
+    display: flex; flex-direction: column; min-width: 0; flex: 1;
+    strong {
+      font-size: .86rem; color: var(--color-text-primary);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    em { font-style: normal; font-size: .74rem; color: var(--color-text-muted); }
+  }
+
+  &__precio { flex-shrink: 0; font-size: .84rem; font-weight: 700; color: var(--color-primary); }
+
+  // El resaltado lo lleva el teclado y el ratón por igual (`mouseenter` mueve el índice), así
+  // que no hay dos estados compitiendo por decir cuál está seleccionado.
+  &--activa { background: color-mix(in srgb, var(--color-primary) 10%, transparent); }
+}
+
+.pub__nav {
+  display: flex; align-items: center; gap: .35rem; flex-shrink: 0;
+
+  a {
+    padding: .45rem .7rem; border-radius: var(--radius-md);
+    color: var(--color-text-secondary); text-decoration: none;
+    font-size: .88rem; font-weight: 600; white-space: nowrap;
+    transition: color var(--transition-fast), background var(--transition-fast);
+
+    &:hover { color: var(--color-text-primary); background: var(--color-bg-muted); }
+    &.on { color: var(--color-primary); }
+  }
+
+  // El botón de reservar no debe teñirse de «activo»: es una acción, no una pestaña.
+  .btn-primary, .btn-primary.on { color: var(--color-on-primary); background: var(--color-primary); }
+  .btn-sm {
+    display: inline-flex; align-items: center; gap: .35rem;
+    padding: .5rem .85rem; font-size: .85rem;
+    &:hover { background: var(--color-primary-hover); color: var(--color-on-primary); }
+  }
+}
+
+.pub__main { flex: 1; min-width: 0; }
+
+@media (max-width: 900px) {
+  .pub__top { flex-wrap: wrap; gap: .6rem 1rem; }
+  // El buscador pasa a una segunda fila completa antes que encogerse a un campo inservible.
+  .buscador { order: 3; flex-basis: 100%; max-width: none; margin: 0; }
+  .pub__nav { margin-left: auto; }
+}
+@media (max-width: 560px) {
+  .pub__top { padding: .6rem .85rem; }
+  .pub__marca strong { font-size: .92rem; }
+  .pub__nav a:first-child { display: none; }   // el logo ya lleva a la portada
+}
+
+// ═══════════════════════════ Pie de EscalApp ═══════════════════════════
+.pie {
+  margin-top: 3rem;
+  // El pie es lo último del documento, así que es quien tiene que dejar sitio a la barra fija
+  // de «Agendar». Sin esto, al llegar abajo del todo la barra se comía el copyright.
+  padding: 2.25rem clamp(12px, 4vw, 24px) calc(1.25rem + var(--hueco-barra-inferior, 0px));
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+
+  &__interior {
+    max-width: 520px; margin: 0 auto; text-align: center;
+    display: flex; flex-direction: column; align-items: center; gap: .85rem;
+  }
+
+  &__raya {
+    width: 48px; height: 3px; border-radius: var(--radius-full);
+    background: linear-gradient(90deg,
+      var(--color-primary) 0%,
+      color-mix(in srgb, var(--color-primary) 45%, transparent) 100%);
+  }
+
+  &__logo { height: 34px; width: auto; opacity: .85; }
+
+  &__powered {
+    margin: 0; font-size: .92rem; color: var(--color-text-secondary);
+    em { font-style: italic; font-weight: 700; color: var(--color-text-primary); }
+  }
+
+  &__lema {
+    margin: 0; max-width: 44ch;
+    font-size: .82rem; line-height: 1.55; color: var(--color-text-muted);
+  }
+
+  &__cta {
+    display: inline-flex; align-items: center; gap: .65rem;
+    padding: .6rem .7rem .6rem 1.2rem; margin-top: .25rem;
+    border-radius: var(--radius-full);
+    border: 1.5px solid var(--color-primary);
+    color: var(--color-primary); text-decoration: none;
+    font-size: .88rem; font-weight: 700;
+    transition: background var(--transition-fast), color var(--transition-fast);
+
+    &:hover {
+      background: var(--color-primary); color: var(--color-on-primary);
+      .pie__cta-icono { background: var(--color-on-primary); color: var(--color-primary); }
+    }
+  }
+
+  &__cta-icono {
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    width: 28px; height: 28px; border-radius: var(--radius-full);
+    background: var(--color-primary); color: var(--color-on-primary);
+    transition: background var(--transition-fast), color var(--transition-fast);
+
+    // `lucide-icon` es inline y hereda el `line-height` del botón, que lo empujaba hacia
+    // arriba dentro del círculo. Volviéndolo caja se centra de verdad.
+    lucide-icon { display: flex; line-height: 0; }
+  }
+
+  &__copy {
+    width: 100%; margin-top: .5rem; padding-top: .9rem;
+    border-top: 1px solid var(--color-border);
+    font-size: .75rem; color: var(--color-text-muted);
+  }
+}
+
+// ═══════════════════════════ Botón flotante de WhatsApp ═══════════════════════════
+//
+// Verde de WhatsApp, no el color del inquilino: es la marca de un tercero y la gente la
+// reconoce por ese verde. Es la única pieza del portal que no sigue la paleta, a propósito.
+.wa-fab {
+  position: fixed; right: 24px; z-index: 50;
+  // `--hueco-barra-inferior` lo levanta la hoja global cuando hay una barra fija en la página
+  // (la de «Agendar» de la ficha de servicio). Sin barra vale 0 y el botón queda abajo.
+  bottom: calc(24px + var(--hueco-barra-inferior, 0px));
+  display: flex; align-items: center; justify-content: center;
+  width: 52px; height: 52px; border-radius: var(--radius-full);
+  background: #25d366; color: #fff; text-decoration: none;
+  box-shadow: 0 4px 16px rgba(37, 211, 102, .45);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+
+  &:hover { transform: translateY(-2px) scale(1.06); box-shadow: 0 8px 24px rgba(37, 211, 102, .55); }
+  &:focus-visible { outline: 2px solid #25d366; outline-offset: 3px; }
+
+  &:hover .wa-fab__globo,
+  &:focus-visible .wa-fab__globo {
+    opacity: 1; visibility: visible; transform: translateY(-50%) translateX(0);
+  }
+
+  &__globo {
+    position: absolute; right: calc(100% + 12px); top: 50%;
+    transform: translateY(-50%) translateX(8px);
+    padding: .5rem .75rem; border-radius: var(--radius-md);
+    background: var(--color-text-primary); color: #fff;
+    font-size: .82rem; font-weight: 600; white-space: nowrap;
+    pointer-events: none; opacity: 0; visibility: hidden;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, .18);
+    transition: opacity var(--transition-fast), transform var(--transition-fast),
+                visibility var(--transition-fast);
+  }
+}
+
+@media (max-width: 720px) {
+  .wa-fab { right: 16px; }
+}

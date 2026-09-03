@@ -10,6 +10,7 @@ import { EventBusService } from '../../core/services/event-bus.service';
 import { CajaHistorial, EstadoCaja, MetodoPago, MovimientoCaja } from '../../core/models';
 import { ModalComponent } from '../../shared/modal/modal';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dialog';
+import { colorDeEntidad } from '../../core/utils/color-entidad';
 
 type Tab = 'turno' | 'historial';
 
@@ -263,4 +264,10 @@ export class CajaComponent implements OnInit {
   totalSinCaja(): number {
     return this.sinCaja().reduce((a, c) => a + Number(c.monto_total ?? 0), 0);
   }
+
+  /** Color estable del profesional, derivado de su id. Ver `colorDeEntidad`. */
+  colorPro(id: number | null | undefined): string {
+    return colorDeEntidad(id);
+  }
+
 }

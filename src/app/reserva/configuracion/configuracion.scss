@@ -252,3 +252,70 @@
   > span { font-size: .8rem; font-weight: 600; color: var(--color-text-secondary); }
   small { color: var(--color-text-muted); font-size: .73rem; }
 }
+
+// ── Página pública ──
+.publica .card + .card { margin-top: 0; }
+
+.enlace {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 1rem; flex-wrap: wrap;
+  padding: .75rem .85rem; margin-bottom: 1rem;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-muted); border: 1px solid var(--color-border);
+
+  &__txt {
+    display: flex; flex-direction: column; gap: .2rem; min-width: 0;
+    span {
+      font-size: .7rem; text-transform: uppercase; letter-spacing: .04em;
+      color: var(--color-text-muted); font-weight: 700;
+    }
+    code {
+      font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+      font-size: .82rem; color: var(--color-primary);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+  }
+
+  &__botones { display: flex; gap: .35rem; flex-shrink: 0; }
+  // El `.mini` de las formas de pago sirve igual aquí, pero uno es <a> y no hereda el reset.
+  &__botones .mini { text-decoration: none; }
+}
+
+.publica .grid label > span {
+  display: inline-flex; align-items: center; gap: .35rem;
+  lucide-icon { color: var(--color-text-muted); }
+}
+
+.publica textarea { resize: vertical; font-family: inherit; }
+
+.publica .hint code {
+  padding: .05rem .3rem; border-radius: var(--radius-sm);
+  background: var(--color-bg-muted);
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace; font-size: .82em;
+}
+
+// ── Banner del portal ──
+.banner {
+  max-width: 780px;
+
+  &__caja {
+    position: relative; overflow: hidden;
+    // La misma proporción del recorte y de la cabecera: lo que se ve aquí es lo que se publica.
+    aspect-ratio: 16 / 5;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-border); background: var(--color-bg-muted);
+    img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  }
+
+  &__vacio {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: .35rem; height: 100%; padding: 1rem; text-align: center;
+    color: var(--color-text-muted);
+    em { font-style: normal; font-size: .74rem; max-width: 34ch; }
+  }
+
+  &__acciones {
+    display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; margin-top: .6rem;
+    small { flex-basis: 100%; font-size: .72rem; color: var(--color-text-muted); }
+  }
+}

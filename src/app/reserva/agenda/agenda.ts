@@ -1,5 +1,6 @@
 import {
-  ChangeDetectionStrategy, Component, OnDestroy, OnInit, computed, inject, signal,
+  ChangeDetectionStrategy, Component, ElementRef, OnDestroy, OnInit,
+  computed, inject, signal, viewChild,
 } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { LucideAngularModule } from 'lucide-angular';
@@ -16,6 +17,7 @@ import { CobroDialogComponent } from '../../shared/cobro-dialog/cobro-dialog';
 import {
   CitaDetalleComponent, ESTADO_LABELS, badgeEstado,
 } from '../../shared/cita-detalle/cita-detalle';
+import { colorDeEntidad } from '../../core/utils/color-entidad';
 
 /**
  * Alto de una hora en píxeles.
@@ -424,4 +426,29 @@ export class AgendaComponent implements OnInit, OnDestroy {
     const d = this.fechaActiva();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   }
+
+  /** Color estable del profesional, derivado de su id. Ver `colorDeEntidad`. */
+  colorPro(id: number | null | undefined): string {
+    return colorDeEntidad(id);
+  }
+
+  // ── Cabecera fija ──
+
+  private readonly cabecera = viewChild<ElementRef<HTMLElement>>('cabecera');
+  private readonly cuerpo = viewChild<ElementRef<HTMLElement>>('cuerpo');
+
+  /**
+   * Mantiene la cabecera alineada con las columnas al desplazar en horizontal.
+   *
+   * La cabecera está **fuera** del contenedor que desplaza: si estuviera dentro, ese contenedor
+   * —que necesita `overflow-x: auto` para las columnas— sería también el que resuelve su
+   * `position: sticky`, y volvería el scroll vertical interior que atrapaba la rueda del ratón.
+   * Sacándola, se pega al viewport y solo hay que copiarle el desplazamiento horizontal.
+   */
+  sincronizarCabecera(): void {
+    const cab = this.cabecera()?.nativeElement;
+    const cue = this.cuerpo()?.nativeElement;
+    if (cab && cue) cab.scrollLeft = cue.scrollLeft;
+  }
+
 }

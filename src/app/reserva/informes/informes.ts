@@ -12,6 +12,7 @@ import {
 } from '../../core/models';
 import { aHora12 } from '../../core/utils/hora';
 import { ESTADO_LABELS, badgeEstado } from '../../shared/cita-detalle/cita-detalle';
+import { colorDeEntidad } from '../../core/utils/color-entidad';
 
 type Preset = 'hoy' | '7' | '30' | 'mes' | 'personalizado';
 
@@ -388,4 +389,10 @@ export class InformesComponent implements OnInit {
     x.setDate(x.getDate() + dias);
     return x;
   }
+
+  /** Color estable del profesional, derivado de su id. Ver `colorDeEntidad`. */
+  colorPro(id: number | null | undefined): string {
+    return colorDeEntidad(id);
+  }
+
 }

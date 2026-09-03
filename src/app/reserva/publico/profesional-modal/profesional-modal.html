@@ -1,0 +1,71 @@
+@if (profesional(); as p) {
+  <reserva-modal [open]="true" [title]="p.nombre" [subtitle]="p.especialidad || 'Profesional'"
+                 size="md" (close)="cerrar.emit()">
+    <div class="pro">
+      <header class="pro__head">
+        @if (p.foto_url) {
+          <img class="pro__foto" [src]="p.foto_url | urlArchivo" [alt]="p.nombre" />
+        } @else {
+          <span class="pro__foto pro__foto--vacia"
+                [style.background]="colorPro(p.id_profesional)">
+            <lucide-icon name="user-round" [size]="30" />
+          </span>
+        }
+
+        <ul class="pro__cifras">
+          <li>
+            <strong>{{ servicios().length }}</strong>
+            <span>servicio{{ servicios().length === 1 ? '' : 's' }}</span>
+          </li>
+          <li>
+            <strong>{{ dias().length }}</strong>
+            <span>día{{ dias().length === 1 ? '' : 's' }} a la semana</span>
+          </li>
+          @if (horasSemana() > 0) {
+            <li><strong>{{ horasSemana() }} h</strong><span>semanales</span></li>
+          }
+        </ul>
+      </header>
+
+      <!-- ── Horario ── -->
+      <section class="bloque">
+        <h4><lucide-icon name="clock" [size]="14" /> Horario de atención</h4>
+        @if (dias().length === 0) {
+          <p class="vacio">Sin horario publicado.</p>
+        } @else {
+          <ul class="horario">
+            @for (d of dias(); track d.dia_semana) {
+              <li>
+                <span class="horario__dia">{{ d.dia }}</span>
+                <span class="horario__franja">{{ franjas(d) }}</span>
+              </li>
+            }
+          </ul>
+        }
+      </section>
+
+      <!-- ── Servicios ── -->
+      <section class="bloque">
+        <h4>
+          <lucide-icon name="scissors" [size]="14" /> Servicios que realiza
+          @if (p.ofrece_todo) { <em class="etiqueta">Todo el catálogo</em> }
+        </h4>
+        @if (servicios().length === 0) {
+          <p class="vacio">Sin servicios asignados.</p>
+        } @else {
+          <ul class="servicios">
+            @for (s of servicios(); track s!.id_servicio) {
+              <li>
+                <span class="servicios__nombre">{{ s!.nombre }}</span>
+                <span class="servicios__dur">{{ s!.duracion_min }} min</span>
+                <span class="servicios__precio">
+                  {{ s!.precio | currency:'COP':'symbol-narrow':'1.0-0' }}
+                </span>
+              </li>
+            }
+          </ul>
+        }
+      </section>
+    </div>
+  </reserva-modal>
+}

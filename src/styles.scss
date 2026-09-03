@@ -1,1 +1,29 @@
 @use './styles/theme';
+
+/**
+ * Hueco que reserva abajo cualquier barra fija de la aplicación.
+ *
+ * El botón flotante de WhatsApp vive en el marco del portal y la barra de «Agendar» dentro de
+ * la ficha de un servicio: son dos componentes distintos y ninguno puede medir al otro. En vez
+ * de acoplarlos —o de subir el botón a ciegas en todas las páginas, quedando descolgado donde
+ * no hay barra—, la propia presencia de la barra en el DOM levanta la variable, y quien tenga
+ * que apartarse la suma. Cualquier barra fija futura solo tiene que llevar `barra-fija`.
+ */
+:root { --hueco-barra-inferior: 0px; }
+body:has(.barra-fija) { --hueco-barra-inferior: 76px; }
+
+/* En pantallas estrechas la barra reparte sus datos en dos líneas y crece. */
+@media (max-width: 720px) {
+  body:has(.barra-fija) { --hueco-barra-inferior: 116px; }
+}
+
+/**
+ * Altura de la cabecera del portal, de la que cuelgan todos los `top` de lo pegajoso.
+ *
+ * El valor real lo publica `PublicoShellComponent` midiendo el elemento, porque depende de si
+ * el buscador cabe en la misma fila y de lo largo que sea el nombre del negocio. Esto es solo
+ * el valor de partida: el que se usa en el render del servidor y hasta que el observador mide.
+ * Sin el salto del `@media`, la primera pintura en un móvil escondía la tira de categorías.
+ */
+:root { --alto-cabecera: 56px; }
+@media (max-width: 900px) { :root { --alto-cabecera: 112px; } }

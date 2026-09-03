@@ -15,6 +15,7 @@ import { CitaFormComponent } from './cita-form/cita-form';
 import {
   CitaDetalleComponent, ESTADO_LABELS, PAGO_LABELS, badgeEstado,
 } from '../../shared/cita-detalle/cita-detalle';
+import { colorDeEntidad } from '../../core/utils/color-entidad';
 
 type Tab = 'todas' | 'pagos';
 
@@ -280,4 +281,10 @@ export class CitasComponent implements OnInit {
     const dd = String(d.getDate()).padStart(2, '0');
     return `${y}-${m}-${dd}`;
   }
+
+  /** Color estable del profesional, derivado de su id. Ver `colorDeEntidad`. */
+  colorPro(id: number | null | undefined): string {
+    return colorDeEntidad(id);
+  }
+
 }

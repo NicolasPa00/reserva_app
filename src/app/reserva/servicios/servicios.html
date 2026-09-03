@@ -1,14 +1,23 @@
 <section class="page">
+  <div class="pegajoso">
   <header class="page__head">
     <div>
       <h1>Servicios</h1>
       <p>Catálogo de servicios que ofrece el salón.</p>
     </div>
-    @if (puedeCrear()) {
-      <button type="button" class="btn btn-primary" (click)="abrirCrear()">
-        <lucide-icon name="plus" [size]="16" /> Nuevo servicio
-      </button>
-    }
+    <div class="page__acciones">
+      @if (puedeEditar()) {
+        <button type="button" class="btn btn-outline" (click)="abrirCategorias()"
+                title="Las categorías agrupan los servicios en el portal público">
+          <lucide-icon name="tag" [size]="16" /> Categorías
+        </button>
+      }
+      @if (puedeCrear()) {
+        <button type="button" class="btn btn-primary" (click)="abrirCrear()">
+          <lucide-icon name="plus" [size]="16" /> Nuevo servicio
+        </button>
+      }
+    </div>
   </header>
 
   <div class="bar">
@@ -17,25 +26,43 @@
       <input class="input" type="text" placeholder="Buscar servicio…"
              [value]="busqueda()" (input)="busqueda.set($any($event.target).value)" />
     </div>
-    <label class="check">
-      <input type="checkbox" [checked]="incluirInactivos()" (change)="toggleInactivos()" />
-      <span>Incluir inactivos</span>
-    </label>
+    @if (hayInactivos()) {
+      <label class="check">
+        <input type="checkbox" [checked]="incluirInactivos()" (change)="toggleInactivos()" />
+        <span>Incluir inactivos</span>
+      </label>
+    }
+  </div>
   </div>
 
   @if (cargando()) { <p class="hint">Cargando…</p> }
   @else if (serviciosFiltrados().length === 0) {
     <p class="hint">No hay servicios que coincidan con tu búsqueda.</p>
   } @else {
-    <div class="grid">
-      @for (s of serviciosFiltrados(); track s.id_servicio) {
+    <!-- Agrupado por categoría, en el mismo orden que verá el cliente en el portal: así se
+         revisa aquí cómo va a quedar publicado sin tener que abrir la página. -->
+    @for (g of grupos(); track g.nombre) {
+    <section class="grupo">
+      <header class="grupo__head">
+        <h2>{{ g.nombre }}</h2>
+        <span>{{ g.servicios.length }}</span>
+        @if (!g.categoria) {
+          <em>Estos servicios aparecen al final del portal, sin sección propia.</em>
+        }
+      </header>
+
+      @if (g.servicios.length === 0) {
+        <p class="grupo__vacio">Todavía no hay servicios en esta categoría.</p>
+      } @else {
+      <div class="grid">
+      @for (s of g.servicios; track s.id_servicio) {
         <article class="card servicio" [class.servicio--inactivo]="s.estado === 'I'">
           <!-- La foto manda en la tarjeta: es lo que el cliente verá en el catálogo público. -->
           <header class="servicio__foto">
             @if (s.imagen_url) {
               <img [src]="urlImagen(s.imagen_url)" [alt]="s.nombre" loading="lazy" />
             } @else {
-              <span class="servicio__sinfoto" [style.--tono]="s.color_hex || 'var(--color-primary)'">
+              <span class="servicio__sinfoto">
                 <lucide-icon name="image-off" [size]="26" />
                 <em>Sin imagen</em>
               </span>
@@ -62,7 +89,10 @@
           </footer>
         </article>
       }
-    </div>
+      </div>
+      }
+    </section>
+    }
   }
 </section>
 
@@ -85,9 +115,22 @@
         <span>Precio (COP) *</span>
         <input class="input" type="number" formControlName="precio" min="0" step="500" />
       </label>
+    </div>
+    <div class="form__row">
       <label>
-        <span>Color</span>
-        <input class="input input--color" type="color" formControlName="color_hex" />
+        <span>Categoría</span>
+        <!-- Con opciones generadas hay que marcarlas con [selected]: un [value] en el propio
+             select se aplica antes de que existan las opciones y no selecciona nada. -->
+        <select class="select" formControlName="id_categoria">
+          <option value="" [selected]="!form.controls.id_categoria.value">Sin categoría</option>
+          @for (c of categorias(); track c.id_categoria) {
+            <option [value]="c.id_categoria"
+                    [selected]="form.controls.id_categoria.value === (c.id_categoria + '')">
+              {{ c.nombre }}
+            </option>
+          }
+        </select>
+        <small>Agrupa el servicio en el portal público. Puedes crear categorías desde el botón «Categorías».</small>
       </label>
     </div>
     <div class="form__row">
@@ -110,19 +153,20 @@
           }
         </div>
         <div class="foto__acciones">
-          <label class="mini">
-            <lucide-icon name="upload" [size]="13" />
-            {{ imagenActual() ? 'Cambiar' : 'Subir imagen' }}
-            <input type="file" accept="image/*" hidden (change)="elegirImagen($event)" />
-          </label>
-          @if (imagenActual()) {
-            <button type="button" class="mini mini--danger" (click)="quitarImagen()">
-              <lucide-icon name="trash-2" [size]="13" /> Quitar
-            </button>
-          }
-          <small>
-            Se recorta en 4:3 y se guarda a 640 px. Se sube al pulsar «Guardar».
-          </small>
+          <div class="foto__botones">
+            <label class="mini">
+              <lucide-icon name="upload" [size]="14" />
+              <span>{{ imagenActual() ? 'Cambiar' : 'Subir imagen' }}</span>
+              <input type="file" accept="image/*" hidden (change)="elegirImagen($event)" />
+            </label>
+            @if (imagenActual()) {
+              <button type="button" class="mini mini--danger" (click)="quitarImagen()">
+                <lucide-icon name="trash-2" [size]="14" />
+                <span>Quitar</span>
+              </button>
+            }
+          </div>
+          <small>Se recorta en 4:3 y se guarda a 640 px. Se sube al pulsar «Guardar».</small>
         </div>
       </div>
     </div>
@@ -155,3 +199,84 @@
   kind="danger"
   (cancel)="cerrarConfirm()"
   (confirm)="inactivarConfirmado()" />
+
+<!--
+  Categorías: alta, renombrado, orden y borrado en un solo sitio.
+
+  El orden importa porque es el del portal público; por eso las flechas y no un alfabético.
+  Borrar una categoría NO borra sus servicios: quedan sin categoría y siguen publicándose.
+-->
+<reserva-modal [open]="modalCategorias()"
+               title="Categorías del catálogo"
+               subtitle="Agrupan los servicios en tu página pública. El orden es el que verá el cliente."
+               size="md"
+               (close)="modalCategorias.set(false)">
+  <div class="cats">
+    <div class="cats__nueva">
+      <input class="input" type="text" maxlength="120"
+             [value]="nombreCategoria()"
+             (input)="nombreCategoria.set($any($event.target).value)"
+             (keyup.enter)="guardarCategoria()"
+             [placeholder]="categoriaEditando() ? 'Nuevo nombre' : 'Nombre de la categoría'" />
+      <button type="button" class="btn btn-primary" (click)="guardarCategoria()"
+              [disabled]="guardando() || !nombreCategoria().trim()">
+        {{ categoriaEditando() ? 'Guardar' : 'Añadir' }}
+      </button>
+      @if (categoriaEditando()) {
+        <button type="button" class="btn btn-outline" (click)="cancelarEdicionCategoria()">
+          Cancelar
+        </button>
+      }
+    </div>
+
+    @if (categorias().length === 0) {
+      <p class="hint cats__vacio">
+        Aún no hay categorías. Sin ellas, el portal muestra todos los servicios en una sola lista.
+      </p>
+    } @else {
+      <ul class="cats__lista">
+        @for (c of categorias(); track c.id_categoria; let i = $index) {
+          <li [class.cats__item--editando]="categoriaEditando()?.id_categoria === c.id_categoria">
+            <span class="cats__orden">
+              <button type="button" (click)="moverCategoria(i, -1)" [disabled]="i === 0"
+                      title="Subir">
+                <lucide-icon name="chevron-up" [size]="13" />
+              </button>
+              <button type="button" (click)="moverCategoria(i, 1)"
+                      [disabled]="i === categorias().length - 1" title="Bajar">
+                <lucide-icon name="chevron-down" [size]="13" />
+              </button>
+            </span>
+
+            <span class="cats__nombre">
+              <strong>{{ c.nombre }}</strong>
+              <em>{{ c.total_servicios || 0 }} servicio{{ c.total_servicios === 1 ? '' : 's' }}</em>
+            </span>
+
+            <button type="button" class="mini" (click)="editarCategoria(c)">
+              <lucide-icon name="pencil" [size]="13" /> Renombrar
+            </button>
+            <button type="button" class="mini mini--danger" (click)="pedirBorrarCategoria(c)">
+              <lucide-icon name="trash-2" [size]="13" />
+            </button>
+          </li>
+        }
+      </ul>
+    }
+  </div>
+
+  <div modal-footer style="display:flex; gap:.5rem;">
+    <button type="button" class="btn btn-outline" (click)="modalCategorias.set(false)">Cerrar</button>
+  </div>
+</reserva-modal>
+
+<reserva-confirm
+  [open]="confirmCategoria()"
+  title="Eliminar categoría"
+  [message]="'Se eliminará «' + (categoriaABorrar()?.nombre || '') + '». Sus '
+             + (categoriaABorrar()?.total_servicios || 0)
+             + ' servicio(s) NO se borran: quedan sin categoría y se siguen publicando.'"
+  confirmText="Eliminar"
+  kind="danger"
+  (cancel)="confirmCategoria.set(false); categoriaABorrar.set(null)"
+  (confirm)="borrarCategoriaConfirmado()" />

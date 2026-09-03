@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
-import { forkJoin } from 'rxjs';
+import { firstValueFrom, forkJoin } from 'rxjs';
 
 import { AuthService } from '../../core/services/auth.service';
 import { ReservaApiService } from '../../core/services/reserva-api.service';
@@ -12,13 +12,15 @@ import { Profesional, Servicio } from '../../core/models';
 import { MayusculasDirective } from '../../shared/mayusculas.directive';
 import { ModalComponent } from '../../shared/modal/modal';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dialog';
+import { ImageCropperComponent } from '../../shared/image-cropper/image-cropper';
+import { colorDeEntidad } from '../../core/utils/color-entidad';
 
 @Component({
   selector: 'reserva-profesionales',
   standalone: true,
   imports: [
     CommonModule, ReactiveFormsModule, LucideAngularModule,
-    MayusculasDirective, ModalComponent, ConfirmDialogComponent,
+    MayusculasDirective, ModalComponent, ConfirmDialogComponent, ImageCropperComponent,
   ],
   templateUrl: './profesionales.html',
   styleUrl: './profesionales.scss',
@@ -48,19 +50,31 @@ export class ProfesionalesComponent implements OnInit {
   readonly confirmAbierto = signal(false);
   readonly profesionalAInactivar = signal<Profesional | null>(null);
 
+  // ── Foto ──
+  //
+  // Cuadrada (aspect 1) porque se muestra en círculo en la ficha pública y en la lista: un
+  // recorte 4:3 metido en un círculo corta la cabeza o deja aire a los lados.
+  readonly cropperAbierto = signal(false);
+  readonly archivoFoto = signal<File | null>(null);
+  readonly fotoBlob = signal<Blob | null>(null);
+  readonly fotoPreview = signal('');
+  readonly fotoBorrada = signal(false);
+
   readonly form = this.fb.nonNullable.group({
     nombre:       ['', [Validators.required, Validators.maxLength(150)]],
     especialidad: [''],
     telefono:     [''],
     email:        ['', [Validators.email]],
-    foto_url:     [''],
-    color_hex:    ['#10b981'],
   });
 
   readonly profesionalesFiltrados = computed(() => {
+    const base = this.incluirInactivos()
+      ? this.profesionales()
+      : this.profesionales().filter(p => p.estado === 'A');
+
     const q = this.busqueda().trim().toLowerCase();
-    if (!q) return this.profesionales();
-    return this.profesionales().filter(p =>
+    if (!q) return base;
+    return base.filter(p =>
       p.nombre.toLowerCase().includes(q) ||
       (p.especialidad ?? '').toLowerCase().includes(q),
     );
@@ -81,7 +95,7 @@ export class ProfesionalesComponent implements OnInit {
     if (!idNegocio) return;
     this.cargando.set(true);
     forkJoin({
-      pros: this.api.listarProfesionales(idNegocio, { incluirInactivos: this.incluirInactivos() }),
+      pros: this.api.listarProfesionales(idNegocio, { incluirInactivos: true }),
       svs:  this.api.listarServicios(idNegocio),
     }).subscribe({
       next: ({ pros, svs }) => {
@@ -93,9 +107,24 @@ export class ProfesionalesComponent implements OnInit {
     });
   }
 
+  /** Filtro local: no hay petición detrás, así que alternarlo es instantáneo. */
   toggleInactivos() {
     this.incluirInactivos.update(v => !v);
-    this.recargar();
+  }
+
+  /** Sin ninguno inactivo el check no se pinta: un control que no cambia nada estorba. */
+  readonly hayInactivos = computed(() => this.profesionales().some(p => p.estado === 'I'));
+
+  /**
+   * Cuántos servicios realiza, en texto.
+   *
+   * Sin asignaciones ofrece el catálogo entero: es la convención del backend y la que espera el
+   * portal. Decir «0 servicios» sería justo lo contrario de lo que ocurre.
+   */
+  conteoServicios(p: Profesional): string {
+    const n = p.servicios?.length ?? 0;
+    if (n === 0) return 'Todos los servicios';
+    return n === 1 ? '1 servicio' : n + ' servicios';
   }
 
   /**
@@ -112,18 +141,108 @@ export class ProfesionalesComponent implements OnInit {
 
   abrirEditar(p: Profesional) {
     this.editando.set(p);
+    this.limpiarFotoPendiente();
     this.form.reset({
       nombre: p.nombre,
       especialidad: p.especialidad ?? '',
       telefono: p.telefono ?? '',
       email: p.email ?? '',
-      foto_url: p.foto_url ?? '',
-      color_hex: p.color_hex ?? '#10b981',
     });
     this.modalAbierto.set(true);
   }
 
-  cerrarModal() { this.modalAbierto.set(false); this.editando.set(null); }
+  cerrarModal() {
+    this.modalAbierto.set(false);
+    this.editando.set(null);
+    this.limpiarFotoPendiente();
+  }
+
+  // ── Foto del profesional ──
+  //
+  // El recorte espera en memoria y se sube DESPUÉS de guardar la ficha: el archivo se nombra
+  // con el id (`profesional_00012.webp`) y en un alta ese id todavía no existe.
+
+  elegirFoto(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const file = input?.files?.[0];
+    if (input) input.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      this.toast.error('Selecciona una imagen (JPG, PNG o WEBP).');
+      return;
+    }
+    if (file.size > 25 * 1024 * 1024) {
+      this.toast.error('La imagen es demasiado grande (máximo 25 MB).');
+      return;
+    }
+    this.archivoFoto.set(file);
+    this.cropperAbierto.set(true);
+  }
+
+  cerrarCropper() {
+    this.cropperAbierto.set(false);
+    this.archivoFoto.set(null);
+  }
+
+  onFotoRecortada(blob: Blob) {
+    this.cerrarCropper();
+    this.revocarPreview();
+    this.fotoBlob.set(blob);
+    this.fotoPreview.set(URL.createObjectURL(blob));
+    this.fotoBorrada.set(false);
+  }
+
+  quitarFoto() {
+    this.revocarPreview();
+    this.fotoBlob.set(null);
+    this.fotoPreview.set('');
+    this.fotoBorrada.set(true);
+  }
+
+  private revocarPreview() {
+    const url = this.fotoPreview();
+    if (url) URL.revokeObjectURL(url);
+  }
+
+  private limpiarFotoPendiente() {
+    this.revocarPreview();
+    this.fotoBlob.set(null);
+    this.fotoPreview.set('');
+    this.fotoBorrada.set(false);
+  }
+
+  /** Lo que se ve en el modal: el recorte sin subir, o la foto que ya tiene. */
+  fotoActual(): string {
+    if (this.fotoPreview()) return this.fotoPreview();
+    if (this.fotoBorrada()) return '';
+    return this.urlImagen(this.editando()?.foto_url);
+  }
+
+  urlImagen(ruta: string | null | undefined): string {
+    if (!ruta) return '';
+    if (/^https?:\/\//i.test(ruta)) return ruta;
+    return `${this.api.origenArchivos}${ruta}`;
+  }
+
+  /**
+   * Sube o borra la foto una vez la ficha existe.
+   *
+   * Si falla, la ficha ya se guardó: se avisa de que la foto no se actualizó en vez de dar el
+   * guardado por fallido, que llevaría a reintentar y duplicar el resto de cambios.
+   */
+  private async sincronizarFoto(idProfesional: number | undefined, idNegocio: number): Promise<void> {
+    if (!idProfesional) return;
+    const blob = this.fotoBlob();
+    try {
+      if (blob) {
+        await firstValueFrom(this.api.subirFotoProfesional(idProfesional, idNegocio, blob));
+      } else if (this.fotoBorrada()) {
+        await firstValueFrom(this.api.eliminarFotoProfesional(idProfesional, idNegocio));
+      }
+    } catch {
+      this.toast.warning('Se guardaron los datos, pero la foto no se pudo actualizar.');
+    }
+  }
 
   guardar() {
     if (this.form.invalid) { this.form.markAllAsTouched(); return; }
@@ -137,8 +256,6 @@ export class ProfesionalesComponent implements OnInit {
       especialidad: v.especialidad?.trim() || null,
       telefono: v.telefono?.trim() || null,
       email: v.email?.trim() || null,
-      foto_url: v.foto_url?.trim() || null,
-      color_hex: v.color_hex?.startsWith('#') ? v.color_hex : `#${v.color_hex}`,
     };
 
     this.guardando.set(true);
@@ -148,13 +265,17 @@ export class ProfesionalesComponent implements OnInit {
       : this.api.crearProfesional(payload);
 
     obs$.subscribe({
-      next: r => {
-        this.guardando.set(false);
+      next: async r => {
         if (r?.success) {
+          await this.sincronizarFoto(r.data?.id_profesional ?? editando?.id_profesional, idNegocio);
+          this.guardando.set(false);
           this.toast.success(editando ? 'Profesional actualizado' : 'Profesional creado');
           this.cerrarModal();
           this.recargar();
-        } else this.toast.error(r?.message || 'No se pudo guardar.');
+        } else {
+          this.guardando.set(false);
+          this.toast.error(r?.message || 'No se pudo guardar.');
+        }
       },
       error: e => {
         this.guardando.set(false);
@@ -231,4 +352,10 @@ export class ProfesionalesComponent implements OnInit {
   }
 
   cerrarConfirm() { this.confirmAbierto.set(false); this.profesionalAInactivar.set(null); }
+
+  /** Color estable del profesional, derivado de su id. Ver `colorDeEntidad`. */
+  colorPro(id: number | null | undefined): string {
+    return colorDeEntidad(id);
+  }
+
 }

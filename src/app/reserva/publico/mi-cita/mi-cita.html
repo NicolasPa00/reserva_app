@@ -1,0 +1,97 @@
+<section class="micita">
+  <header class="micita__head">
+    <h1>Mi cita</h1>
+    <p>Escribe el código que te dimos al reservar para consultarla o cancelarla.</p>
+  </header>
+
+  <div class="buscador">
+    <input class="input" type="text" [value]="codigo()" placeholder="Código de la cita"
+           (input)="codigo.set($any($event.target).value)"
+           (keyup.enter)="buscar()" autocomplete="off" spellcheck="false" />
+    <button type="button" class="btn btn-primary" (click)="buscar()"
+            [disabled]="buscando() || !codigo().trim()">
+      @if (buscando()) { Buscando… } @else { Buscar }
+    </button>
+  </div>
+
+  @if (error(); as e) {
+    <p class="aviso aviso--error"><lucide-icon name="triangle-alert" [size]="15" /> {{ e }}</p>
+  }
+  @if (mensaje(); as m) {
+    <p class="aviso aviso--ok"><lucide-icon name="check" [size]="15" /> {{ m }}</p>
+  }
+
+  @if (cita(); as c) {
+    <article class="detalle" [class.detalle--cancelada]="c.estado === 'cancelada'">
+      <header class="detalle__head">
+        <div>
+          <span class="detalle__cuando">
+            {{ c.fecha_hora_inicio | date:'EEEE d \'de\' MMMM':'':'es-CO' }}
+          </span>
+          <strong>{{ hora12(c.fecha_hora_inicio) }} – {{ hora12(c.fecha_hora_fin) }}</strong>
+        </div>
+        <span class="chip" [attr.data-estado]="c.estado">{{ etiquetaEstado() }}</span>
+      </header>
+
+      <dl class="detalle__datos">
+        @if (c.profesional) {
+          <div><dt>Profesional</dt><dd>{{ c.profesional.nombre }}</dd></div>
+        }
+        <div><dt>A nombre de</dt><dd>{{ c.cliente_nombre }}</dd></div>
+        @if (c.cliente_telefono) {
+          <div><dt>Teléfono</dt><dd>{{ c.cliente_telefono }}</dd></div>
+        }
+      </dl>
+
+      @if (c.servicios.length) {
+        <ul class="detalle__servicios">
+          @for (s of c.servicios; track s.id_servicio) {
+            <li>
+              <span>{{ s.nombre }}</span>
+              <em>{{ s.duracion_min }} min</em>
+              <strong>{{ s.precio | currency:'COP':'symbol-narrow':'1.0-0' }}</strong>
+            </li>
+          }
+        </ul>
+      }
+
+      <footer class="detalle__pie">
+        <span>Total</span>
+        <strong>{{ c.monto_total | currency:'COP':'symbol-narrow':'1.0-0' }}</strong>
+      </footer>
+
+      @if (c.notas) {
+        <p class="detalle__notas"><lucide-icon name="file-text" [size]="13" /> {{ c.notas }}</p>
+      }
+
+      @if (cancelable()) {
+        <div class="detalle__acciones">
+          @if (!confirmandoCancelacion()) {
+            <button type="button" class="btn btn-outline"
+                    (click)="confirmandoCancelacion.set(true)">
+              Cancelar mi cita
+            </button>
+            @if (ventanaHoras(); as h) {
+              <small>Puedes cancelar hasta {{ h }} horas antes.</small>
+            }
+          } @else {
+            <p class="confirmar">¿Seguro que quieres cancelar esta cita?</p>
+            <div class="confirmar__botones">
+              <button type="button" class="btn btn-outline"
+                      (click)="confirmandoCancelacion.set(false)" [disabled]="cancelando()">
+                No, volver
+              </button>
+              <button type="button" class="btn btn-peligro" (click)="cancelar()" [disabled]="cancelando()">
+                @if (cancelando()) { Cancelando… } @else { Sí, cancelar }
+              </button>
+            </div>
+          }
+        </div>
+      }
+    </article>
+
+    <a class="volver" [routerLink]="raiz()">
+      <lucide-icon name="arrow-left" [size]="15" /> Volver al inicio
+    </a>
+  }
+</section>

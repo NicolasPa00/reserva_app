@@ -1,11 +1,14 @@
-<aside class="sidebar">
-  <header class="sidebar__brand">
+<!-- ══════════════ Barra lateral (escritorio y tablet) ══════════════ -->
+<aside class="sidebar" [class.sidebar--min]="colapsado()">
+  <header class="sidebar__brand" [title]="auth.negocio()?.nombre || 'Reservas'">
     @if (logoUrl(); as logo) {
       <img class="sidebar__logo" [src]="logo" [alt]="auth.negocio()?.nombre || 'Logo'" />
     } @else {
-      <lucide-icon name="calendar-clock" [size]="22" />
+      <span class="sidebar__logo sidebar__logo--vacio">
+        <lucide-icon name="calendar-clock" [size]="20" />
+      </span>
     }
-    <div>
+    <div class="sidebar__marca">
       <strong>{{ auth.negocio()?.nombre || 'Reservas' }}</strong>
       <span>{{ auth.rolPrincipal() }}</span>
     </div>
@@ -15,7 +18,8 @@
     @for (it of itemsPermitidos(); track it.route) {
       <a [routerLink]="it.route"
          routerLinkActive="active"
-         [routerLinkActiveOptions]="{ exact: false }">
+         [routerLinkActiveOptions]="{ exact: false }"
+         [title]="it.label">
         <lucide-icon [name]="it.icon" [size]="18" />
         <span>{{ it.label }}</span>
       </a>
@@ -29,3 +33,57 @@
     </button>
   </footer>
 </aside>
+
+<!-- ══════════════ Barra inferior (móvil) ══════════════
+     El pulgar llega al borde de abajo; a un menú lateral de iconos, no. Y devuelve el ancho
+     completo al contenido, que es lo que escasea en un teléfono. -->
+<nav class="inferior" aria-label="Navegación principal">
+  @for (it of principales(); track it.route) {
+    <a class="inferior__item"
+       [routerLink]="it.route"
+       routerLinkActive="active"
+       [routerLinkActiveOptions]="{ exact: false }"
+       (click)="cerrarMas()">
+      <lucide-icon [name]="it.icon" [size]="21" />
+      <span>{{ it.label }}</span>
+    </a>
+  }
+
+  @if (secundarios().length > 0) {
+    <button type="button" class="inferior__item" [class.active]="masAbierto()"
+            (click)="alternarMas()" [attr.aria-expanded]="masAbierto()">
+      <lucide-icon name="menu" [size]="21" />
+      <span>Más</span>
+    </button>
+  }
+</nav>
+
+<!-- Panel «Más»: lo que no cupo en la barra, más el cierre de sesión -->
+@if (masAbierto()) {
+  <div class="mas__fondo" (click)="cerrarMas()"></div>
+  <div class="mas" role="dialog" aria-label="Más opciones">
+    <header class="mas__head">
+      <span>Más opciones</span>
+      <button type="button" class="mas__x" (click)="cerrarMas()" aria-label="Cerrar">
+        <lucide-icon name="x" [size]="18" />
+      </button>
+    </header>
+
+    <div class="mas__lista">
+      @for (it of secundarios(); track it.route) {
+        <a class="mas__item"
+           [routerLink]="it.route"
+           routerLinkActive="active"
+           [routerLinkActiveOptions]="{ exact: false }"
+           (click)="cerrarMas()">
+          <lucide-icon [name]="it.icon" [size]="19" />
+          <span>{{ it.label }}</span>
+        </a>
+      }
+      <button type="button" class="mas__item mas__item--salir" (click)="logout()">
+        <lucide-icon name="log-out" [size]="19" />
+        <span>Cerrar sesión</span>
+      </button>
+    </div>
+  </div>
+}

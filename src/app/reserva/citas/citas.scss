@@ -52,3 +52,44 @@
 }
 .block { display: flex; flex-direction: column; gap: .35rem; }
 .block span { font-size: .8rem; color: var(--color-text-secondary); }
+
+// ── Pie del detalle de cita ──
+//
+// Salir a la izquierda, acciones a la derecha, y dentro de ellas: primero las que cierran la
+// cita en mal estado y después las que la hacen avanzar, con la principal al final.
+.pie-cita {
+  display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; width: 100%;
+
+  &__salir { flex-shrink: 0; }
+
+  // `margin-left: auto` va en el contenedor de las acciones, no en «Cerrar»: así al envolver
+  // el bloque entero baja de línea junto, en vez de repartirse por el hueco que quede.
+  &__acciones {
+    display: flex; align-items: center; gap: .75rem; flex-wrap: wrap;
+    margin-left: auto;
+  }
+
+  &__grupo { display: flex; align-items: center; gap: .5rem; }
+
+  // La línea separa lo que revierte de lo que avanza: dos rojos y dos azules seguidos sin
+  // separación se leen como una sola fila de cinco opciones equivalentes.
+  &__grupo--baja {
+    padding-right: .75rem;
+    border-right: 1px solid var(--color-border);
+  }
+
+  .btn { white-space: nowrap; }
+}
+
+// En un móvil no caben cinco botones en fila: cada grupo ocupa el ancho y «Cerrar» baja al
+// final, que es donde menos estorba cuando lo que se quiere es actuar.
+@media (max-width: 600px) {
+  .pie-cita {
+    flex-direction: column-reverse; align-items: stretch; gap: .6rem;
+
+    &__acciones { margin-left: 0; flex-direction: column; align-items: stretch; }
+    &__grupo { justify-content: stretch; }
+    &__grupo .btn { flex: 1; justify-content: center; }
+    &__grupo--baja { padding-right: 0; border-right: 0; }
+  }
+}

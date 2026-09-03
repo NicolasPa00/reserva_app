@@ -1,9 +1,16 @@
+// Las tres medidas que gobiernan la navegación. En variables porque el layout también las
+// necesita (para el hueco inferior del contenido) y descuadrarlas parte la pantalla.
+$ancho: 240px;
+$ancho-min: 68px;
+$alto-inferior: 62px;
+
 .sidebar {
   display: flex; flex-direction: column;
-  width: 240px; height: 100vh;
-  position: sticky; top: 0;
+  width: $ancho; height: 100vh;
+  position: sticky; top: 0; flex-shrink: 0;
   background: var(--color-surface);
   border-right: 1px solid var(--color-border);
+  transition: width var(--transition-fast);
 
   // La marca comparte la altura exacta del topbar (64px) para que su borde
   // inferior quede a ras del borde del header del contenido.
@@ -13,12 +20,16 @@
     padding: 0 1.25rem;
     border-bottom: 1px solid var(--color-border);
     color: var(--color-primary);
-    div { display: flex; flex-direction: column; min-width: 0; }
+    overflow: hidden;
+  }
+
+  &__marca {
+    display: flex; flex-direction: column; min-width: 0;
     strong {
       color: var(--color-text-primary); font-size: .95rem; line-height: 1.2;
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
-    span   { color: var(--color-text-muted); font-size: .75rem; line-height: 1.2; }
+    span { color: var(--color-text-muted); font-size: .75rem; line-height: 1.2; }
   }
 
   // El logo es cuadrado por construcción (el recorte lo fuerza), así que `cover` no deforma.
@@ -26,11 +37,17 @@
     width: 32px; height: 32px; flex-shrink: 0;
     border-radius: var(--radius-sm); object-fit: cover;
     border: 1px solid var(--color-border);
+
+    &--vacio {
+      display: flex; align-items: center; justify-content: center;
+      background: var(--color-primary); color: var(--color-on-primary); border: 0;
+      lucide-icon { display: flex; line-height: 0; }
+    }
   }
 
   &__nav {
     display: flex; flex-direction: column; padding: .5rem; gap: .15rem;
-    flex: 1; min-height: 0; overflow-y: auto;
+    flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden;
 
     a {
       display: flex; align-items: center; gap: .65rem;
@@ -38,10 +55,12 @@
       border-radius: var(--radius-md);
       color: var(--color-text-secondary);
       text-decoration: none; font-size: .9rem; font-weight: 500;
+      white-space: nowrap;
       transition: background var(--transition-fast), color var(--transition-fast);
 
       &:hover { background: var(--color-bg-muted); color: var(--color-text-primary); }
       &.active { background: var(--color-primary); color: var(--color-on-primary); }
+      lucide-icon { flex-shrink: 0; display: flex; line-height: 0; }
     }
   }
 
@@ -58,19 +77,125 @@
     border-radius: var(--radius-md);
     color: var(--color-text-secondary);
     font-size: .9rem; font-weight: 500; font-family: inherit;
-    text-align: left; cursor: pointer;
+    text-align: left; cursor: pointer; white-space: nowrap;
     transition: background var(--transition-fast), color var(--transition-fast);
 
     &:hover { background: var(--color-error-bg, var(--color-bg-muted)); color: var(--color-error); }
+    lucide-icon { flex-shrink: 0; display: flex; line-height: 0; }
+  }
+
+  // ── Plegada ──
+  //
+  // Solo iconos. Las etiquetas se ocultan pero siguen en el DOM: el `title` de cada enlace las
+  // devuelve al pasar el ratón, y así un lector de pantalla no se queda sin el nombre.
+  &--min {
+    width: $ancho-min;
+
+    .sidebar__brand { justify-content: center; padding: 0; }
+    .sidebar__marca { display: none; }
+    .sidebar__nav a,
+    .sidebar__logout { justify-content: center; padding: .6rem; gap: 0; }
+    .sidebar__nav a span,
+    .sidebar__logout span { display: none; }
   }
 }
 
-@media (max-width: 768px) {
-  .sidebar {
-    width: 64px;
-    &__brand div, &__nav a span, &__logout span { display: none; }
-    &__brand { justify-content: center; padding: 0; }
-    &__nav a { justify-content: center; padding: .65rem; }
-    &__logout { justify-content: center; }
+// ══════════════ Móvil: barra inferior ══════════════
+.inferior { display: none; }
+.mas, .mas__fondo { display: none; }
+
+@media (max-width: 767px) {
+  .sidebar { display: none; }
+
+  .inferior {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 200;
+    display: flex; align-items: stretch;
+    background: var(--color-surface);
+    border-top: 1px solid var(--color-border);
+
+    // El área segura va **sumada** a la altura, no metida dentro.
+    //
+    // Con `box-sizing: border-box` (global en el proyecto) un `padding-bottom` se descuenta de
+    // la altura declarada: los 62 px seguían siendo el total y el indicador de gestos del
+    // iPhone aplastaba los iconos. Peor aún, el panel «Más» se aparta `62px + área segura`, así
+    // que sobraba justo esa distancia y quedaba una franja muerta entre los dos.
+    height: calc(#{$alto-inferior} + env(safe-area-inset-bottom, 0px));
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+
+    &__item {
+      flex: 1; min-width: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 3px; padding: .35rem .2rem;
+      border: 0; background: none; cursor: pointer; font-family: inherit;
+      color: var(--color-text-muted); text-decoration: none;
+      font-size: .66rem; font-weight: 600;
+      transition: color var(--transition-fast);
+
+      span {
+        max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      }
+      lucide-icon { display: flex; line-height: 0; }
+
+      &:hover { color: var(--color-text-secondary); }
+      // Sin relleno de color: cinco pastillas seguidas en 360 px se leen como una cuadrícula,
+      // no como una barra. El color del icono y del rótulo basta para señalar dónde se está.
+      &.active { color: var(--color-primary); }
+    }
+  }
+
+  // ── Panel «Más» ──
+  .mas__fondo {
+    display: block; position: fixed; inset: 0; z-index: 250;
+    background: rgba(15, 10, 42, .45);
+  }
+
+  .mas {
+    display: flex; flex-direction: column;
+    position: fixed; left: 0; right: 0; z-index: 260;
+    bottom: calc(#{$alto-inferior} + env(safe-area-inset-bottom, 0px));
+    max-height: 60vh;
+    background: var(--color-surface);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, .18);
+
+    &__head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: .85rem 1rem .6rem;
+      font-size: .82rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .04em;
+      color: var(--color-text-muted);
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    &__x {
+      display: flex; align-items: center; justify-content: center;
+      width: 30px; height: 30px; border-radius: var(--radius-full);
+      border: 0; background: transparent; color: var(--color-text-muted); cursor: pointer;
+      &:hover { background: var(--color-bg-muted); color: var(--color-text-primary); }
+      lucide-icon { display: flex; line-height: 0; }
+    }
+
+    // Sin relleno abajo: la última fila cierra el panel a ras de la barra, sin una franja
+    // blanca que parece un error de medida.
+    &__lista { padding: .4rem .4rem 0; overflow-y: auto; }
+
+    &__item {
+      width: 100%; display: flex; align-items: center; gap: .75rem;
+      padding: .7rem .8rem; border-radius: var(--radius-md);
+      border: 0; background: transparent; cursor: pointer; font-family: inherit;
+      color: var(--color-text-secondary); text-decoration: none;
+      font-size: .9rem; font-weight: 500; text-align: left;
+
+      lucide-icon { flex-shrink: 0; display: flex; line-height: 0; }
+      &:hover { background: var(--color-bg-muted); color: var(--color-text-primary); }
+      &.active { background: var(--color-primary); color: var(--color-on-primary); }
+      // Cierra el panel: el separador llega de borde a borde y la fila apoya en el fondo.
+      &--salir {
+        margin: .25rem -.4rem 0; width: auto;
+        padding: .8rem 1.2rem;
+        border-top: 1px solid var(--color-border); border-radius: 0;
+        &:hover { background: var(--color-error-bg, var(--color-bg-muted)); color: var(--color-error); }
+      }
+    }
   }
 }

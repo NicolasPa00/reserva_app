@@ -52,6 +52,7 @@ export interface MarcaNegocio {
   id_negocio: number;
   nombre: string;
   logo_url: string | null;
+  banner_url: string | null;
   colores: ColoresNegocio | null;
   id_paleta: number | null;
   paletas: { id_paleta: number; nombre: string; colores: Record<string, string> }[];
@@ -105,6 +106,8 @@ export interface Servicio {
   precio: number;
   color_hex: string | null;
   imagen_url: string | null;
+  id_categoria: number | null;
+  categoria?: { id_categoria: number; nombre: string; orden: number } | null;
   estado: 'A' | 'I';
   fecha_creacion?: string;
   fecha_actualizacion?: string;
@@ -531,4 +534,172 @@ export interface ResumenDashboard {
 
   agenda_hoy: CitaResumen[];
   top_servicios: { id_servicio: number; nombre: string; citas: number; ingresos: number }[];
+}
+
+// ────────────────────── Página pública del negocio ──────────────────────
+
+export interface FranjaHoraria {
+  hora_inicio: string;  // "HH:MM"
+  hora_fin: string;
+}
+
+/**
+ * Un día de la semana en el horario de atención.
+ *
+ * `abierto` lo decide el backend con la misma regla que la agenda (horario propio del
+ * profesional para ese día y, si no tiene, el general del negocio), así que lo que se publica
+ * aquí y lo que acepta la reserva no pueden divergir.
+ */
+export interface DiaHorario {
+  dia_semana: number;   // 0=Dom..6=Sáb
+  dia: string;
+  franjas: FranjaHoraria[];
+  abierto: boolean;
+}
+
+export interface ServicioPublico {
+  id_servicio: number;
+  nombre: string;
+  descripcion: string | null;
+  duracion_min: number;
+  precio: number;
+  color_hex: string | null;
+  imagen_url: string | null;
+  id_categoria: number | null;
+  id_profesionales: number[];
+}
+
+export interface ProfesionalPublico {
+  id_profesional: number;
+  nombre: string;
+  especialidad: string | null;
+  foto_url: string | null;
+  color_hex: string | null;
+  /** Sin asignaciones en la base: ofrece el catálogo entero. */
+  ofrece_todo: boolean;
+  id_servicios: number[];
+  horario: DiaHorario[];
+}
+
+export interface NegocioPublico {
+  id_negocio: number;
+  nombre: string;
+  descripcion: string | null;
+  logo_url: string | null;
+  banner_url: string | null;
+  colores: ColoresNegocio | null;
+  paleta: PaletaColor | null;
+  email_contacto: string | null;
+  telefono: string | null;
+  direccion: string | null;
+  redes: {
+    whatsapp: string | null;
+    facebook: string | null;
+    instagram: string | null;
+  };
+}
+
+/** Todo lo que la portada pública necesita, en una sola respuesta. */
+export interface Vitrina {
+  negocio: NegocioPublico;
+  reglas: {
+    anticipacion_min_horas: number;
+    ventana_cancelacion_horas: number;
+    paso_slot_min: number;
+    cobro_adelantado: boolean;
+    instrucciones_pago: string | null;
+  };
+  horario_negocio: DiaHorario[];
+  /** Plano, para buscar un servicio por id sin recorrer las secciones. */
+  servicios: ServicioPublico[];
+  /** El mismo catálogo agrupado por categoría, en el orden que fijó el negocio. */
+  secciones: SeccionPublica[];
+  profesionales: ProfesionalPublico[];
+}
+
+/** Lo que el dueño edita en Configuración → Página pública. */
+export interface VitrinaEdicion {
+  id_negocio: number;
+  nombre: string;
+  email_contacto: string | null;
+  telefono: string | null;
+  direccion: string | null;
+  url_whatsapp: string | null;
+  url_facebook: string | null;
+  url_instagram: string | null;
+  descripcion_publica: string | null;
+  publico_activo: boolean;
+}
+
+/**
+ * Cita tal y como la devuelven los endpoints públicos.
+ *
+ * **No es `Cita`.** `formatearCitaPublica` aplana el detalle (`precio_snapshot` →
+ * `precio`, `duracion_snapshot_min` → `duracion_min`, `servicio.nombre` → `nombre`) y omite
+ * todo lo interno: caja, método de pago, motivo de rechazo, quién canceló. Tipar la respuesta
+ * pública como `Cita` haría creer que esos campos llegan, y llegan como `undefined`.
+ */
+export interface CitaPublica {
+  id_cita: number;
+  codigo_publico: string;
+  estado: EstadoCita;
+  pago_estado: PagoEstado;
+  requiere_pago: boolean;
+  fecha_hora_inicio: string;
+  fecha_hora_fin: string;
+  cliente_nombre: string;
+  cliente_telefono: string | null;
+  cliente_email: string | null;
+  notas: string | null;
+  monto_total: number;
+  profesional?: { id_profesional: number; nombre: string; color_hex?: string | null } | null;
+  servicios: { id_servicio: number; nombre: string; precio: number; duracion_min: number }[];
+  negocio?: { id_negocio: number; nombre: string };
+}
+
+/** Categoría del catálogo: la sección en la que el portal agrupa los servicios. */
+export interface CategoriaReserva {
+  id_categoria: number;
+  id_negocio: number;
+  nombre: string;
+  descripcion: string | null;
+  orden: number;
+  estado: 'A' | 'I';
+  /** Solo lo devuelve el listado, para avisar de cuántos servicios quedarían sin categoría. */
+  total_servicios?: number;
+}
+
+/**
+ * Una sección del portal público: la categoría con sus servicios ya dentro.
+ *
+ * `id_categoria` es `null` en el grupo de servicios sin clasificar, que el backend añade al
+ * final para que ninguno desaparezca por no tener categoría.
+ */
+export interface SeccionPublica {
+  id_categoria: number | null;
+  nombre: string;
+  descripcion: string | null;
+  servicios: ServicioPublico[];
+}
+
+/** Un día del calendario de un servicio: `id_profesionales` son los que atienden ese día. */
+export interface DiaServicio {
+  fecha: string;
+  abierto: boolean;
+  id_profesionales: number[];
+}
+
+/** Huecos de un día para un servicio, agrupados por quien lo presta. */
+export interface SlotsServicio {
+  fecha: string;
+  duracion_min: number;
+  profesionales: {
+    id_profesional: number;
+    nombre: string;
+    especialidad: string | null;
+    foto_url: string | null;
+    color_hex: string | null;
+    /** Solo horas libres, en "HH:MM" de 24 h. Vacío = ese día no atiende. */
+    slots: string[];
+  }[];
 }

@@ -1,82 +1,162 @@
-import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
-import { LucideAngularModule } from 'lucide-angular';
+import {
+  ChangeDetectionStrategy, Component, ElementRef, HostListener, Injector,
+  afterNextRender, computed, effect, inject, signal, viewChild,
+} from '@angular/core';
 import { CurrencyPipe } from '@angular/common';
+import { Router } from '@angular/router';
+import { LucideAngularModule } from 'lucide-angular';
 
-import { ReservaApiService } from '../../../core/services/reserva-api.service';
-import { Servicio } from '../../../core/models';
+import { VitrinaStore } from '../vitrina.store';
+import { UrlArchivoPipe } from '../../../shared/url-archivo.pipe';
+import { ProfesionalPublico } from '../../../core/models';
+import { rangoHora12 } from '../../../core/utils/hora';
+import { ProfesionalModalComponent } from '../profesional-modal/profesional-modal';
+import { colorDeEntidad } from '../../../core/utils/color-entidad';
 
 /**
- * Placeholder de Ola 2: lista los servicios disponibles del negocio.
- * El wizard completo (servicio → profesional → hora → form + comprobante)
- * se construye en Ola 5.
+ * Portada pública del negocio.
+ *
+ * ## El orden responde a lo que trae el cliente
+ *
+ * Quien abre el enlace trae tres preguntas: **quiénes sois**, **qué hacéis y cuánto cuesta**, y
+ * **cuándo podéis atenderme**. La cabecera responde la primera de un vistazo; el catálogo por
+ * categorías, la segunda; y el equipo con su horario, la tercera.
+ *
+ * ## Por qué el catálogo va por categorías
+ *
+ * Trece servicios en una sola rejilla ya se leen como una lista de la compra, y un salón real
+ * tiene cuarenta. Las secciones —«Barbería», «Color», «Uñas»— son cómo el negocio piensa su
+ * carta y cómo el cliente busca. La tira de categorías de arriba salta a cada sección sin
+ * recargar: es un índice, no un filtro, porque esconder las demás obliga a volver atrás para
+ * comparar precios entre secciones.
+ *
+ * ## Por qué el horario va dentro de cada profesional
+ *
+ * Un salón no tiene un horario: tiene el de cada persona. Publicar un «Lunes a sábado 9-18» que
+ * es la unión de todos lleva a pedir el lunes con alguien que solo trabaja los jueves.
  */
 @Component({
   selector: 'reserva-publico-inicio',
   standalone: true,
-  imports: [LucideAngularModule, CurrencyPipe],
-  template: `
-    <section>
-      <h1>Reserva tu cita</h1>
-      <p class="hint">Elige el servicio que deseas reservar.</p>
-
-      @if (cargando()) { <p class="hint">Cargando servicios…</p> }
-      @else if (error()) { <p class="error">{{ error() }}</p> }
-      @else if (servicios().length === 0) {
-        <p class="hint">Este negocio aún no tiene servicios publicados.</p>
-      } @else {
-        <div class="grid">
-          @for (s of servicios(); track s.id_servicio) {
-            <article class="card servicio">
-              <header [style.background]="s.color_hex || 'var(--color-primary)'">
-                <lucide-icon name="scissors" [size]="20" />
-              </header>
-              <div class="servicio__body">
-                <strong>{{ s.nombre }}</strong>
-                <span class="duracion">{{ s.duracion_min }} min</span>
-                <span class="precio">{{ s.precio | currency:'COP':'symbol':'1.0-0' }}</span>
-                @if (s.descripcion) { <p>{{ s.descripcion }}</p> }
-              </div>
-            </article>
-          }
-        </div>
-      }
-    </section>
-  `,
-  styles: [`
-    h1 { margin: 0 0 .35rem; font-size: 1.4rem; }
-    .hint, .error { color: var(--color-text-muted); }
-    .error { color: var(--color-error); }
-    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem; margin-top: 1.25rem; }
-    .servicio { padding: 0; overflow: hidden; }
-    .servicio header { padding: 1rem; color: #fff; display: flex; align-items: center; }
-    .servicio__body { padding: 1rem; display: flex; flex-direction: column; gap: .25rem; }
-    .servicio__body strong { font-size: 1rem; color: var(--color-text-primary); }
-    .duracion { font-size: .8rem; color: var(--color-text-muted); }
-    .precio { font-weight: 700; color: var(--color-primary); margin-top: .25rem; }
-    .servicio__body p { font-size: .85rem; color: var(--color-text-secondary); margin-top: .5rem; }
-  `],
+  imports: [LucideAngularModule, CurrencyPipe, UrlArchivoPipe, ProfesionalModalComponent],
+  templateUrl: './inicio.html',
+  styleUrl: './inicio.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class PublicoInicioComponent implements OnInit {
-  private readonly route = inject(ActivatedRoute);
-  private readonly api = inject(ReservaApiService);
+export class PublicoInicioComponent {
+  private readonly router = inject(Router);
+  readonly store = inject(VitrinaStore);
 
-  readonly servicios = signal<Servicio[]>([]);
-  readonly cargando = signal(false);
-  readonly error = signal<string | null>(null);
+  readonly negocio = this.store.negocio;
+  readonly servicios = this.store.servicios;
+  readonly profesionales = this.store.profesionales;
+  readonly secciones = this.store.secciones;
 
-  ngOnInit(): void {
-    const id = Number(this.route.snapshot.paramMap.get('id_negocio'));
-    if (!id) { this.error.set('Negocio no especificado en la URL'); return; }
-    this.cargando.set(true);
-    this.api.publicoListarServicios(id).subscribe({
-      next: r => {
-        if (r?.success && r.data) this.servicios.set(r.data);
-        else this.error.set(r?.message || 'No se pudo cargar la lista de servicios.');
-        this.cargando.set(false);
-      },
-      error: () => { this.error.set('Error de conexión.'); this.cargando.set(false); },
+  readonly raiz = computed(() => `/p/${this.negocio()?.id_negocio ?? ''}`);
+
+  /** Sección visible en la tira de categorías. Solo resalta; no filtra el contenido. */
+  readonly seccionActiva = signal<string | null>(null);
+
+  private readonly tira = viewChild<ElementRef<HTMLElement>>('tira');
+
+  /**
+   * ¿La tira de categorías no cabe en su ancho?
+   *
+   * Las flechas solo aparecen cuando hay algo a lo que desplazarse. Con cuatro categorías que
+   * caben de sobra, dos flechas muertas a los lados hacen creer que hay más contenido oculto.
+   * Se mide en el DOM y no por número de categorías porque depende del ancho de los nombres y
+   * de la pantalla, no de cuántas haya.
+   */
+  readonly desbordada = signal(false);
+
+  private readonly injector = inject(Injector);
+
+  constructor() {
+    // Se remide cuando cambian las secciones (llega la vitrina) y al cambiar el tamaño de la
+    // ventana. `afterNextRender` garantiza que el elemento ya existe y solo corre en navegador.
+    effect(() => {
+      this.secciones();
+      afterNextRender(() => this.medirTira(), { injector: this.injector });
     });
   }
+
+  @HostListener('window:resize')
+  medirTira(): void {
+    const el = this.tira()?.nativeElement;
+    if (!el) return;
+    // +2 px de holgura: el redondeo subpíxel marca desborde en tiras que caben justas.
+    this.desbordada.set(el.scrollWidth > el.clientWidth + 2);
+  }
+
+  readonly diasCortos = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+  readonly diasAbiertos = this.store.diasAbiertos;
+
+  /** Rango de precios del catálogo: da una idea sin leer las trece tarjetas. */
+  readonly rangoPrecios = computed(() => {
+    const precios = this.servicios().map(s => s.precio).filter(p => p > 0);
+    if (!precios.length) return null;
+    return { min: Math.min(...precios), max: Math.max(...precios) };
+  });
+
+  readonly duracionMinima = computed(() => {
+    const d = this.servicios().map(s => s.duracion_min);
+    return d.length ? Math.min(...d) : null;
+  });
+
+  /** Enlace `tel:` limpio: los espacios y paréntesis del teléfono no valen en un href. */
+  readonly telefonoLlamada = computed(() => {
+    const t = this.negocio()?.telefono;
+    return t ? `tel:${t.replace(/[^\d+]/g, '')}` : null;
+  });
+
+  readonly enlaceMapa = computed(() => {
+    const d = this.negocio()?.direccion;
+    return d ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(d)}` : null;
+  });
+
+  /** `id_categoria` puede ser null (grupo «Otros»); el ancla necesita una clave estable. */
+  anclaDe(idCategoria: number | null): string {
+    return `sec-${idCategoria ?? 'otros'}`;
+  }
+
+  irASeccion(idCategoria: number | null): void {
+    const ancla = this.anclaDe(idCategoria);
+    this.seccionActiva.set(ancla);
+    document.getElementById(ancla)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  /** Flechas de la tira: la lista de categorías puede no caber en un móvil. */
+  desplazarTira(direccion: -1 | 1): void {
+    this.tira()?.nativeElement.scrollBy({ left: direccion * 220, behavior: 'smooth' });
+  }
+
+  nombreProfesional(id: number): string {
+    return this.store.profesionalPorId(id)?.nombre ?? '';
+  }
+
+  /** Solo los días que trabaja: siete filas con cuatro «Cerrado» ocupan sin informar. */
+  diasDe(p: ProfesionalPublico) {
+    return p.horario.filter(d => d.abierto);
+  }
+
+  franjas(dia: { franjas: { hora_inicio: string; hora_fin: string }[] }): string {
+    return dia.franjas.map(f => rangoHora12(f.hora_inicio, f.hora_fin)).join(' · ');
+  }
+
+  abrirServicio(idServicio: number): void {
+    this.router.navigate([this.raiz(), 'servicio', idServicio]);
+  }
+
+  /** Ficha del profesional. `null` cierra el modal. */
+  readonly profesionalAbierto = signal<number | null>(null);
+
+  verProfesional(id: number): void {
+    this.profesionalAbierto.set(id);
+  }
+
+  /** Color estable del profesional, derivado de su id. Ver `colorDeEntidad`. */
+  colorPro(id: number | null | undefined): string {
+    return colorDeEntidad(id);
+  }
+
 }

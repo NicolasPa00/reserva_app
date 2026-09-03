@@ -208,7 +208,7 @@
             <ul class="pros">
               @for (p of porProfesional(); track p.id_profesional) {
                 <li>
-                  <span class="pros__dot" [style.background]="p.color_hex || 'var(--color-primary)'"></span>
+                  <span class="pros__dot" [style.background]="colorPro(p.id_profesional)"></span>
                   <div class="pros__txt">
                     <strong>{{ p.nombre }}</strong>
                     <span>

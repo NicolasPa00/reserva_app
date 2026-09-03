@@ -52,10 +52,11 @@ export class ConfiguracionComponent implements OnInit {
    */
   readonly tabs = [
     { id: 'identidad' as const, label: 'Identidad',     icono: 'image' },
+    { id: 'publica'   as const, label: 'Página pública', icono: 'globe' },
     { id: 'reservas'  as const, label: 'Reservas',      icono: 'calendar-clock' },
     { id: 'cobros'    as const, label: 'Cobros y pagos', icono: 'wallet' },
   ];
-  readonly tab = signal<'identidad' | 'reservas' | 'cobros'>('identidad');
+  readonly tab = signal<'identidad' | 'publica' | 'reservas' | 'cobros'>('identidad');
 
   // ── Identidad visual ──
   readonly marca = signal<MarcaNegocio | null>(null);
@@ -63,6 +64,11 @@ export class ConfiguracionComponent implements OnInit {
   readonly cropperAbierto = signal(false);
   readonly archivoLogo = signal<File | null>(null);
   readonly confirmQuitarLogo = signal(false);
+
+  readonly subiendoBanner = signal(false);
+  readonly cropperBannerAbierto = signal(false);
+  readonly archivoBanner = signal<File | null>(null);
+  readonly confirmQuitarBanner = signal(false);
 
   /** Colores en edición. Se previsualizan en vivo antes de guardar. */
   readonly primario = signal('#312E81');
@@ -82,6 +88,34 @@ export class ConfiguracionComponent implements OnInit {
 
   /** Con menos de dos formas activas, el multipago no tiene entre qué repartir. */
   readonly puedeMultipago = computed(() => this.metodosActivos().length >= 2);
+
+  // ── Página pública ──
+  //
+  // Contacto y redes viven en `gener_negocio` y la presentación en `reserva_config`, pero para
+  // quien rellena el formulario son una sola cosa: «lo que verá mi cliente». Se editan juntos y
+  // el backend los reparte.
+  readonly guardandoVitrina = signal(false);
+  readonly urlPublicaCopiada = signal(false);
+  readonly puedeEditarVitrina = computed(() => this.auth.puedeAccion('configuracion_vitrina'));
+
+  readonly vitrinaForm = this.fb.nonNullable.group({
+    telefono:            [''],
+    direccion:           [''],
+    url_whatsapp:        [''],
+    url_facebook:        [''],
+    url_instagram:       [''],
+    descripcion_publica: ['', [Validators.maxLength(1200)]],
+    publico_activo:      [true],
+  });
+
+  /** Enlace que el negocio comparte con sus clientes. */
+  readonly urlPublica = computed(() => {
+    const id = this.auth.negocio()?.id_negocio;
+    if (!id) return '';
+    // `location` no existe en SSR; se compone sin él y se completa en el navegador.
+    const origen = typeof window !== 'undefined' ? window.location.origin : '';
+    return `${origen}/p/${id}`;
+  });
 
   readonly form = this.fb.nonNullable.group({
     anticipacion_min_horas:    [1,  [Validators.required, Validators.min(0), Validators.max(168)]],
@@ -120,8 +154,22 @@ export class ConfiguracionComponent implements OnInit {
       cfg: this.api.getConfig(idNegocio),
       metodos: this.api.listarMetodosPago(idNegocio, { incluirInactivos: true }),
       marca: this.api.getMarca(idNegocio),
+      vitrina: this.api.getVitrinaEdicion(idNegocio),
     }).subscribe({
-      next: ({ cfg, metodos, marca }) => {
+      next: ({ cfg, metodos, marca, vitrina }) => {
+        if (vitrina?.success && vitrina.data) {
+          const v = vitrina.data;
+          this.vitrinaForm.patchValue({
+            telefono:            v.telefono ?? '',
+            direccion:           v.direccion ?? '',
+            url_whatsapp:        v.url_whatsapp ?? '',
+            url_facebook:        v.url_facebook ?? '',
+            url_instagram:       v.url_instagram ?? '',
+            descripcion_publica: v.descripcion_publica ?? '',
+            publico_activo:      v.publico_activo,
+          });
+          this.vitrinaForm.markAsPristine();
+        }
         if (marca?.success && marca.data) {
           this.marca.set(marca.data);
           this.primario.set(marca.data.colores?.primario ?? '#312E81');
@@ -179,6 +227,61 @@ export class ConfiguracionComponent implements OnInit {
         this.toast.error(e?.error?.message || 'Error al guardar.');
       },
     });
+  }
+
+  // ── Página pública ──
+
+  guardarVitrina() {
+    const idNegocio = this.auth.negocio()?.id_negocio;
+    if (!idNegocio || this.vitrinaForm.invalid) { this.vitrinaForm.markAllAsTouched(); return; }
+
+    const v = this.vitrinaForm.getRawValue();
+    this.guardandoVitrina.set(true);
+    this.api.guardarVitrina({
+      id_negocio: idNegocio,
+      telefono:            v.telefono.trim(),
+      direccion:           v.direccion.trim(),
+      url_whatsapp:        v.url_whatsapp.trim(),
+      url_facebook:        v.url_facebook.trim(),
+      url_instagram:       v.url_instagram.trim(),
+      descripcion_publica: v.descripcion_publica.trim(),
+      publico_activo:      v.publico_activo,
+    }).subscribe({
+      next: r => {
+        this.guardandoVitrina.set(false);
+        if (!r?.success || !r.data) { this.toast.error(r?.message || 'No se pudo guardar.'); return; }
+        // El backend normaliza («@usuario» acaba siendo una URL completa); se refresca el
+        // formulario con lo guardado para que se vea exactamente lo que quedó.
+        const d = r.data;
+        this.vitrinaForm.patchValue({
+          telefono:      d.telefono ?? '',
+          direccion:     d.direccion ?? '',
+          url_whatsapp:  d.url_whatsapp ?? '',
+          url_facebook:  d.url_facebook ?? '',
+          url_instagram: d.url_instagram ?? '',
+        });
+        this.vitrinaForm.markAsPristine();
+        this.toast.success('Página pública actualizada');
+      },
+      error: e => {
+        this.guardandoVitrina.set(false);
+        this.toast.error(e?.error?.message || 'Error al guardar la página pública.');
+      },
+    });
+  }
+
+  async copiarUrlPublica() {
+    const url = this.urlPublica();
+    if (!url) return;
+    try {
+      await navigator.clipboard.writeText(url);
+      this.urlPublicaCopiada.set(true);
+      setTimeout(() => this.urlPublicaCopiada.set(false), 2000);
+    } catch {
+      // Sin permiso de portapapeles (http sin TLS, por ejemplo) queda el enlace visible para
+      // copiarlo a mano; avisar de un fallo técnico no le sirve de nada al usuario.
+      this.toast.info('Copia el enlace manualmente.');
+    }
   }
 
   // ── Identidad visual ──
@@ -295,6 +398,71 @@ export class ConfiguracionComponent implements OnInit {
       error: e => {
         this.subiendoLogo.set(false);
         this.toast.error(e?.error?.message || 'Error al subir el logo.');
+      },
+    });
+  }
+
+  // ── Banner ──
+  //
+  // Va aparte del logo porque cumple otra función: el logo identifica en la barra y en el
+  // avatar; el banner ambienta la cabecera del portal. Se recorta 16:5, la proporción exacta
+  // de esa cabecera, para que ninguna subida la deforme.
+
+  elegirBanner(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const file = input?.files?.[0];
+    if (input) input.value = '';
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      this.toast.error('Selecciona una imagen (JPG, PNG o WEBP).');
+      return;
+    }
+    if (file.size > 25 * 1024 * 1024) {
+      this.toast.error('La imagen es demasiado grande (máximo 25 MB).');
+      return;
+    }
+    this.archivoBanner.set(file);
+    this.cropperBannerAbierto.set(true);
+  }
+
+  cerrarCropperBanner() {
+    this.cropperBannerAbierto.set(false);
+    this.archivoBanner.set(null);
+  }
+
+  onBannerRecortado(blob: Blob) {
+    const id = this.auth.negocio()?.id_negocio;
+    this.cerrarCropperBanner();
+    if (!id) return;
+
+    this.subiendoBanner.set(true);
+    this.api.subirBanner(id, blob).subscribe({
+      next: r => {
+        this.subiendoBanner.set(false);
+        if (!r?.success || !r.data) { this.toast.error(r?.message || 'No se pudo subir.'); return; }
+        this.marca.update(m => (m ? { ...m, banner_url: r.data!.banner_url } : m));
+        this.toast.success(`Banner actualizado (${Math.round(r.data.bytes / 1024)} KB)`);
+      },
+      error: e => {
+        this.subiendoBanner.set(false);
+        this.toast.error(e?.error?.message || 'Error al subir el banner.');
+      },
+    });
+  }
+
+  quitarBanner() {
+    const id = this.auth.negocio()?.id_negocio;
+    if (!id) return;
+    this.api.eliminarBanner(id).subscribe({
+      next: () => {
+        this.marca.update(m => (m ? { ...m, banner_url: null } : m));
+        this.confirmQuitarBanner.set(false);
+        this.toast.success('Banner eliminado');
+      },
+      error: e => {
+        this.confirmQuitarBanner.set(false);
+        this.toast.error(e?.error?.message || 'Error al eliminar el banner.');
       },
     });
   }

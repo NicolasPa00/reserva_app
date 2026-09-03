@@ -145,7 +145,7 @@
               <li>
                 <div class="ranking__fila">
                   <span class="ranking__nombre">
-                    <i [style.background]="p.color_hex || 'var(--color-primary)'"></i>
+                    <i [style.background]="colorPro(p.id_profesional)"></i>
                     {{ p.nombre }}
                   </span>
                   <strong class="ranking__valor">{{ moneda(p.ingresos) }}</strong>
@@ -267,7 +267,7 @@
                 <th class="num">Citas</th>
                 <th class="num">Completadas</th>
                 <th class="num">Canceladas</th>
-                <th class="num">No-show</th>
+                <th class="num">No asistió</th>
                 <th class="num">Servicios</th>
                 <th class="num">Tiempo</th>
                 <th class="num">Ticket</th>
@@ -279,7 +279,7 @@
                 <tr>
                   <td>
                     <span class="celda-pro">
-                      <i [style.background]="p.color_hex || 'var(--color-primary)'"></i>
+                      <i [style.background]="colorPro(p.id_profesional)"></i>
                       <span>
                         <strong>{{ p.nombre }}</strong>
                         @if (p.especialidad) { <em>{{ p.especialidad }}</em> }

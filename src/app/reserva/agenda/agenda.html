@@ -41,13 +41,13 @@
     </div>
   } @else {
     <div class="cal card" [style.--cols]="profesionales().length">
-      <div class="cal__scroll">
-        <!-- Cabecera de profesionales -->
+      <!-- Cabecera: pegada al viewport, y su desplazamiento horizontal lo copia del cuerpo. -->
+      <div class="cal__cabecera" #cabecera>
         <div class="cal__header">
           <div class="cal__corner"></div>
           @for (p of profesionales(); track p.id_profesional) {
             <div class="cal__pro" [class.cal__pro--cerrado]="cerrado(p.id_profesional)">
-              <span class="cal__punto" [style.background]="p.color_hex || 'var(--color-primary)'"></span>
+              <span class="cal__punto" [style.background]="colorPro(p.id_profesional)"></span>
               <div class="cal__pro-txt">
                 <strong>{{ p.nombre }}</strong>
                 <span>{{ jornadaLabel(p.id_profesional) || (citasDe(p.id_profesional) + ' cita(s)') }}</span>
@@ -58,8 +58,10 @@
             </div>
           }
         </div>
+      </div>
 
-        <!-- Cuerpo -->
+      <!-- Cuerpo: solo desplaza en horizontal; el vertical lo hace la página. -->
+      <div class="cal__scroll" #cuerpo (scroll)="sincronizarCabecera()">
         <div class="cal__body">
           <div class="cal__hours">
             @for (h of horasGrid(); track h) {
@@ -95,7 +97,7 @@
                         [style.height.px]="pos.heightPx"
                         [style.left]="'calc(' + (100 / pos.cols) * pos.col + '% + 3px)'"
                         [style.width]="'calc(' + (100 / pos.cols) + '% - 6px)'"
-                        [style.--cita-color]="p.color_hex || 'var(--color-primary)'"
+                        [style.--cita-color]="colorPro(p.id_profesional)"
                         [title]="pos.cita.cliente_nombre + ' · ' + pos.duracionMin + ' min'"
                         (click)="abrirDetalle(pos.cita)">
                   <span class="cita__barra"></span>

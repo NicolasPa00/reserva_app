@@ -1,4 +1,5 @@
 <section class="page">
+  <div class="pegajoso">
   <header class="page__head">
     <div>
       <h1>Profesionales</h1>
@@ -18,10 +19,13 @@
       <input class="input" type="text" placeholder="Buscar por nombre o especialidad…"
              [value]="busqueda()" (input)="busqueda.set($any($event.target).value)" />
     </div>
-    <label class="check">
-      <input type="checkbox" [checked]="incluirInactivos()" (change)="toggleInactivos()" />
-      <span>Incluir inactivos</span>
-    </label>
+    @if (hayInactivos()) {
+      <label class="check">
+        <input type="checkbox" [checked]="incluirInactivos()" (change)="toggleInactivos()" />
+        <span>Incluir inactivos</span>
+      </label>
+    }
+  </div>
   </div>
 
   @if (cargando()) { <p class="hint">Cargando…</p> }
@@ -30,36 +34,62 @@
   } @else {
     <div class="grid">
       @for (p of profesionalesFiltrados(); track p.id_profesional) {
-        <article class="card pro" [class.pro--inactivo]="p.estado === 'I'">
-          <div class="pro__avatar" [style.background]="p.color_hex || 'var(--color-accent)'">
-            @if (p.foto_url) {
-              <img [src]="p.foto_url" [alt]="p.nombre" />
-            } @else {
-              <lucide-icon name="user" [size]="22" />
-            }
-          </div>
-          <div class="pro__body">
-            <strong>{{ p.nombre }}</strong>
-            @if (p.especialidad) { <span class="pro__esp">{{ p.especialidad }}</span> }
-            @if (p.email) { <span class="pro__meta"><lucide-icon name="mail" [size]="12" /> {{ p.email }}</span> }
-            @if (p.telefono) { <span class="pro__meta"><lucide-icon name="phone" [size]="12" /> {{ p.telefono }}</span> }
-            @if (p.estado === 'I') { <span class="badge b-off">Inactivo</span> }
-          </div>
-          <footer class="pro__foot">
-            @if (puedeEditar() && p.estado === 'A') {
-              <button type="button" class="btn btn-outline" (click)="abrirServicios(p)" title="Asignar servicios">
-                <lucide-icon name="scissors" [size]="14" /> Servicios
-              </button>
-              <button type="button" class="btn btn-outline" (click)="abrirEditar(p)">
-                <lucide-icon name="pencil" [size]="14" /> Editar
-              </button>
-            }
-            @if (puedeEliminar() && p.estado === 'A') {
-              <button type="button" class="btn btn-ghost" (click)="pedirInactivar(p)">
-                <lucide-icon name="trash-2" [size]="14" />
-              </button>
-            }
-          </footer>
+        <article class="card pro" [class.pro--inactivo]="p.estado === 'I'"
+                 [style.--tono]="colorPro(p.id_profesional)">
+          <!-- La franja de color identifica a la persona igual que en la agenda: es el mismo
+               color derivado del id, así que la tarjeta y su columna se reconocen entre sí. -->
+          <span class="pro__franja"></span>
+
+          <header class="pro__head">
+            <div class="pro__avatar">
+              @if (p.foto_url) {
+                <img [src]="urlImagen(p.foto_url)" [alt]="p.nombre" />
+              } @else {
+                <lucide-icon name="user-round" [size]="24" />
+              }
+            </div>
+            <div class="pro__quien">
+              <strong>{{ p.nombre }}</strong>
+              <span class="pro__esp">{{ p.especialidad || 'Sin especialidad' }}</span>
+            </div>
+            @if (p.estado === 'I') { <span class="badge b-off pro__estado">Inactivo</span> }
+          </header>
+
+          <!-- Los huecos se dicen, no se dejan en blanco: una tarjeta sin correo y otra con él
+               tenían alturas distintas y la rejilla quedaba desigual. -->
+          <ul class="pro__datos">
+            <li [class.pro__dato--vacio]="!p.email">
+              <lucide-icon name="mail" [size]="13" />
+              <span>{{ p.email || 'Sin correo' }}</span>
+            </li>
+            <li [class.pro__dato--vacio]="!p.telefono">
+              <lucide-icon name="phone" [size]="13" />
+              <span>{{ p.telefono || 'Sin teléfono' }}</span>
+            </li>
+            <li>
+              <lucide-icon name="scissors" [size]="13" />
+              <span>{{ conteoServicios(p) }}</span>
+            </li>
+          </ul>
+
+          @if (p.estado === 'A' && (puedeEditar() || puedeEliminar())) {
+            <footer class="pro__foot">
+              @if (puedeEditar()) {
+                <button type="button" class="btn btn-primary pro__accion" (click)="abrirEditar(p)">
+                  <lucide-icon name="pencil" [size]="14" /> Editar
+                </button>
+                <button type="button" class="btn btn-outline pro__accion" (click)="abrirServicios(p)">
+                  <lucide-icon name="scissors" [size]="14" /> Servicios
+                </button>
+              }
+              @if (puedeEliminar()) {
+                <button type="button" class="pro__baja" (click)="pedirInactivar(p)"
+                        title="Dar de baja">
+                  <lucide-icon name="trash-2" [size]="15" />
+                </button>
+              }
+            </footer>
+          }
         </article>
       }
     </div>
@@ -78,14 +108,10 @@
         <input class="input" type="text" reservaMayusculas formControlName="nombre" maxlength="150" />
       </label>
     </div>
-    <div class="form__grid-2">
+    <div class="form__row">
       <label>
         <span>Especialidad</span>
         <input class="input" type="text" reservaMayusculas formControlName="especialidad" />
-      </label>
-      <label>
-        <span>Color</span>
-        <input class="input input--color" type="color" formControlName="color_hex" />
       </label>
     </div>
     <div class="form__grid-2">
@@ -95,14 +121,45 @@
       </label>
       <label>
         <span>Email</span>
-        <input class="input" type="email" formControlName="email" />
+        <input class="input" type="email" formControlName="email" autocomplete="off" />
       </label>
     </div>
+    <!--
+      La foto se sube y se recorta aquí; ya no se pega una URL externa. Un enlace de fuera se
+      rompe en cuanto el otro sitio lo mueve, y la página pública quedaría con un hueco que
+      nadie relaciona con esta pantalla.
+    -->
     <div class="form__row">
-      <label>
-        <span>URL de foto (opcional)</span>
-        <input class="input" type="url" formControlName="foto_url" placeholder="https://…" />
-      </label>
+      <div class="foto">
+        <span class="foto__lab">Foto</span>
+        <div class="foto__fila">
+          <div class="foto__caja">
+            @if (fotoActual(); as url) {
+              <img [src]="url" alt="Foto del profesional" />
+            } @else {
+              <span class="foto__vacia" [style.background]="colorPro(editando()?.id_profesional)">
+                <lucide-icon name="user-round" [size]="24" />
+              </span>
+            }
+          </div>
+          <div class="foto__acciones">
+            <div class="foto__botones">
+              <label class="mini">
+                <input type="file" accept="image/*" hidden (change)="elegirFoto($event)" />
+                <lucide-icon name="crop" [size]="14" />
+                <span>{{ fotoActual() ? 'Cambiar' : 'Subir foto' }}</span>
+              </label>
+              @if (fotoActual()) {
+                <button type="button" class="mini mini--danger" (click)="quitarFoto()">
+                  <lucide-icon name="trash-2" [size]="14" />
+                  <span>Quitar</span>
+                </button>
+              }
+            </div>
+            <small>Cuadrada. Se recorta al subirla.</small>
+          </div>
+        </div>
+      </div>
     </div>
   </form>
   <div modal-footer style="display:flex; gap:.5rem;">
@@ -152,3 +209,17 @@
   kind="danger"
   (cancel)="cerrarConfirm()"
   (confirm)="inactivarConfirmado()" />
+
+<!--
+  Recorte cuadrado: la ficha pública muestra la foto en círculo, y un 4:3 metido en un círculo
+  corta la frente o la barbilla. El ancho de salida (512) es el que se sirve tal cual.
+-->
+@if (cropperAbierto() && archivoFoto(); as archivo) {
+  <reserva-image-cropper
+    [file]="archivo"
+    [aspect]="1"
+    [outputWidth]="512"
+    titulo="Ajustar foto del profesional"
+    (recortada)="onFotoRecortada($event)"
+    (cancelada)="cerrarCropper()" />
+}

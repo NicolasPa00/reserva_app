@@ -9,7 +9,7 @@ export const ESTADO_LABELS: Record<EstadoCita, string> = {
   confirmada: 'Confirmada',
   completada: 'Completada',
   cancelada: 'Cancelada',
-  no_show: 'No se presentó',
+  no_show: 'No asistió',
 };
 
 export const PAGO_LABELS: Record<PagoEstado, string> = {

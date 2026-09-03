@@ -10,6 +10,7 @@ import { EventBusService } from '../../core/services/event-bus.service';
 import { CitaResumen, EstadoCita, ResumenDashboard } from '../../core/models';
 import { CitaFormComponent } from '../citas/cita-form/cita-form';
 import { ESTADO_LABELS, badgeEstado } from '../../shared/cita-detalle/cita-detalle';
+import { colorDeEntidad } from '../../core/utils/color-entidad';
 
 interface Kpi {
   label: string;
@@ -211,4 +212,10 @@ export class DashboardComponent implements OnInit {
     if (h === 0) return `${m} min`;
     return m === 0 ? `${h} h` : `${h} h ${m} min`;
   }
+
+  /** Color estable del profesional, derivado de su id. Ver `colorDeEntidad`. */
+  colorPro(id: number | null | undefined): string {
+    return colorDeEntidad(id);
+  }
+
 }

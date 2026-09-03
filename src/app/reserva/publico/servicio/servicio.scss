@@ -1,0 +1,466 @@
+// Todo el color de esta pantalla sale de `--color-primary` / `--color-accent`, que inyecta
+// `ThemeService` con la paleta del inquilino. Nunca `rgba(var(--color-primary-rgb))`: las
+// paletas dinámicas no definen ese token.
+.pagina {
+  max-width: 1040px; margin: 0 auto;
+  // El hueco de la barra fija lo reserva el pie, que es lo último del documento; aquí solo
+  // hace falta separación normal. Reservarlo en los dos sitios abría un blanco enorme entre la
+  // agenda y el pie.
+  padding: 1.25rem 1.25rem 2rem;
+
+  // `--alto-cabecera` viene del marco del portal, que la mide. `--alto-migas` va un par de
+  // píxeles por encima de su altura real: pasarse deja una rendija, quedarse corto mete la
+  // imagen por debajo de las migas.
+  --alto-migas: 56px;
+}
+
+// Migas y ficha quedan clavadas mientras solo se desplaza la agenda; al terminar la agenda,
+// todo sube junto y aparece el pie. Es `sticky` y no `fixed` justamente por eso: `fixed` los
+// dejaría flotando encima del pie para siempre.
+.migas {
+  position: sticky; top: var(--alto-cabecera); z-index: 12;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: .75rem 1rem; flex-wrap: wrap;
+  padding: .7rem 0;
+  font-size: .82rem; color: var(--color-text-muted);
+
+  // El fondo se derrama **solo a los lados**, hasta los bordes del contenedor, para que la
+  // agenda que pasa por detrás no asome por el área con `padding` de la página. Con una sombra
+  // de expansión se derramaría también hacia abajo y taparía el borde superior de la imagen,
+  // que queda fija justo debajo.
+  &::before {
+    content: ''; position: absolute; z-index: -1;
+    top: 0; bottom: 0; left: -1.25rem; right: -1.25rem;
+    background: var(--color-bg);
+  }
+
+  &__ruta { display: flex; align-items: center; gap: .35rem; flex-wrap: wrap; min-width: 0; }
+
+  a { color: var(--color-text-secondary); text-decoration: none; }
+  a:hover { color: var(--color-primary); }
+}
+
+.volver {
+  display: inline-flex; align-items: center; gap: .35rem; flex-shrink: 0;
+  padding: .38rem .75rem; border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary) !important;
+  font-size: .8rem; font-weight: 600;
+  transition: border-color var(--transition-fast), color var(--transition-fast),
+              background var(--transition-fast);
+
+  &:hover {
+    border-color: var(--color-primary);
+    color: var(--color-primary) !important;
+    background: color-mix(in srgb, var(--color-primary) 7%, transparent);
+  }
+}
+
+.cols {
+  display: grid; gap: 1.75rem;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+  align-items: start;
+}
+@media (max-width: 860px) { .cols { grid-template-columns: 1fr; gap: 1.25rem; } }
+
+// ═══════════════════════════ Ficha (imagen + qué es + cuánto cuesta) ═══════════════════════════
+//
+// `sticky` sobre la columna entera, no solo sobre la foto: al recorrer una agenda larga el
+// precio y la duración siguen a la vista, que es lo que se está comparando contra las horas.
+.ficha {
+  position: sticky;
+  top: calc(var(--alto-cabecera) + var(--alto-migas));
+  h1 { margin: 0; font-size: clamp(1.3rem, 3.2vw, 1.6rem); line-height: 1.2; }
+}
+
+// La categoría acompaña al nombre en la misma fila; baja sola solo si no cabe.
+.titulo-fila {
+  display: flex; align-items: baseline; gap: .6rem; flex-wrap: wrap;
+  margin: 1rem 0 .5rem;
+}
+
+.etiqueta {
+  display: inline-flex; align-items: center; gap: .3rem; flex-shrink: 0;
+  padding: .18rem .55rem; border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+  color: var(--color-primary);
+  font-size: .74rem; font-weight: 600; white-space: nowrap;
+  lucide-icon { display: flex; line-height: 0; }
+}
+
+// Apilado no hay dos columnas que fijar, y una ficha pegajosa taparía la agenda.
+@media (max-width: 860px) {
+  .ficha { position: static; }
+  .migas { position: static; &::before { display: none; } }
+}
+
+// En móvil la cabecera ya ocupa dos filas: el aire de más entre ella y el contenido dejaba la
+// imagen del servicio casi fuera de la primera pantalla.
+@media (max-width: 560px) {
+  .pagina { padding: .35rem .85rem 2rem; }
+  .migas { padding: .45rem 0; gap: .5rem .75rem; }
+  .titulo-fila { margin: .75rem 0 .4rem; }
+}
+
+.foto {
+  aspect-ratio: 4 / 3; overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-muted);
+  border: 1px solid var(--color-border);
+
+  img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  &__vacia {
+    display: flex; align-items: center; justify-content: center;
+    width: 100%; height: 100%; color: #fff; opacity: .8;
+  }
+}
+
+// ═══════════════════════════ Panel de disponibilidad ═══════════════════════════
+.panel { min-width: 0; }
+
+.desc {
+  margin: 0; font-size: .9rem; line-height: 1.6; color: var(--color-text-secondary);
+  display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden;
+  &--abierta { -webkit-line-clamp: unset; display: block; }
+}
+
+.enlace {
+  padding: 0; margin-top: .35rem; border: 0; background: none; cursor: pointer;
+  font-family: inherit; font-size: .82rem; font-weight: 600;
+  color: var(--color-primary); text-decoration: underline;
+  &:hover { color: var(--color-primary-hover); }
+}
+
+// Recuadro de la opción: el borde en color de marca lo separa del texto sin gritar.
+//
+// Qué se contrata a la izquierda, cuánto cuesta a la derecha. Con todo alineado a la izquierda
+// la tarjeta dejaba media anchura en blanco y el precio —lo que se compara— quedaba escondido
+// en medio de un párrafo.
+.opcion {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 1rem; flex-wrap: wrap;
+  margin: 1.1rem 0 0; padding: .8rem .95rem;
+  border-radius: var(--radius-md);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 35%, transparent);
+  background: color-mix(in srgb, var(--color-primary) 4%, transparent);
+
+  &__que {
+    display: flex; flex-direction: column; gap: .1rem; min-width: 0;
+    strong {
+      font-size: .84rem; font-weight: 700; color: var(--color-text-primary);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    em {
+      font-style: normal; font-size: .68rem; letter-spacing: .05em;
+      text-transform: uppercase; color: var(--color-text-muted);
+    }
+  }
+
+  &__cuanto {
+    display: flex; flex-direction: column; align-items: flex-end; gap: .1rem; flex-shrink: 0;
+  }
+
+  &__precio { font-size: 1.2rem; font-weight: 700; color: var(--color-primary); line-height: 1.1; }
+  &__dur {
+    display: inline-flex; align-items: center; gap: .3rem;
+    font-size: .8rem; color: var(--color-text-muted);
+  }
+}
+
+.titulo { margin: 0 0 .75rem; font-size: 1.05rem; }
+
+.cargando, .vacio {
+  display: flex; align-items: center; justify-content: center; gap: .5rem;
+  padding: 1.5rem 1rem; text-align: center;
+  color: var(--color-text-muted); font-size: .87rem;
+}
+.vacio {
+  border: 1px dashed var(--color-border); border-radius: var(--radius-md);
+  background: var(--color-surface);
+  &--suelto { max-width: 420px; margin: 4rem auto; flex-direction: column; gap: .75rem; }
+  a { color: var(--color-primary); }
+}
+
+.spinner {
+  width: 16px; height: 16px; border-radius: 50%; flex-shrink: 0;
+  border: 2px solid var(--color-border); border-top-color: var(--color-primary);
+  animation: girar .8s linear infinite;
+}
+@keyframes girar { to { transform: rotate(360deg); } }
+
+// ═══════════════════════════ Semana ═══════════════════════════
+.semana {
+  padding: .6rem;
+  border: 1px solid var(--color-border); border-radius: var(--radius-lg);
+  background: var(--color-surface);
+
+  &__nav {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 .25rem .55rem;
+
+    span { font-size: .85rem; font-weight: 600; color: var(--color-text-primary); }
+    button {
+      display: flex; align-items: center; justify-content: center;
+      width: 28px; height: 28px; border-radius: var(--radius-full);
+      border: 0; background: transparent; color: var(--color-text-secondary); cursor: pointer;
+      &:hover:not(:disabled) { background: var(--color-bg-muted); color: var(--color-primary); }
+      &:disabled { opacity: .3; cursor: not-allowed; }
+    }
+  }
+
+  &__dias { display: grid; grid-template-columns: repeat(7, 1fr); gap: .3rem; }
+}
+
+.dia {
+  display: flex; flex-direction: column; align-items: center; gap: .15rem;
+  padding: .5rem .1rem .45rem; cursor: pointer; font-family: inherit;
+  border: 1px solid transparent; border-radius: var(--radius-md);
+  background: transparent;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+
+  em { font-style: normal; font-size: .68rem; color: var(--color-text-muted); text-transform: capitalize; }
+  strong { font-size: .95rem; color: var(--color-text-primary); }
+
+  &:hover:not(:disabled) { border-color: var(--color-primary); }
+
+  &--on {
+    border-color: var(--color-primary);
+    background: color-mix(in srgb, var(--color-primary) 8%, transparent);
+    strong { color: var(--color-primary); }
+  }
+  // Hoy se marca aunque no esté elegido: es el ancla de todo el calendario.
+  &--hoy strong { text-decoration: underline; text-underline-offset: 3px; }
+
+  &--cerrado { cursor: not-allowed; opacity: .45; }
+}
+
+// El punto de disponibilidad no es solo color: los días cerrados además van al 45 % de opacidad
+// y deshabilitados, así que la información no depende de distinguir verde de gris.
+.punto {
+  width: 6px; height: 6px; border-radius: 50%; margin-top: .1rem;
+  background: var(--color-border);
+  &--libre { background: var(--color-success, #16a34a); }
+}
+
+// ═══════════════════════════ Agenda por profesional ═══════════════════════════
+.agenda {
+  margin-top: .85rem;
+  border: 1px solid var(--color-border); border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.pro {
+  padding: .9rem;
+  & + & { border-top: 1px solid var(--color-border); }
+
+  &__head { display: flex; align-items: center; gap: .6rem; margin-bottom: .65rem; }
+
+  &__foto {
+    width: 34px; height: 34px; flex-shrink: 0;
+    border-radius: var(--radius-full); object-fit: cover;
+    &--vacia { display: flex; align-items: center; justify-content: center; color: #fff; }
+  }
+
+  &__quien {
+    display: flex; flex-direction: column; min-width: 0; flex: 1;
+    strong { font-size: .88rem; color: var(--color-text-primary); }
+    em { font-style: normal; font-size: .74rem; color: var(--color-text-muted); }
+  }
+
+  // Abre la misma ficha que la tarjeta del equipo en la portada: quién es y qué más hace, sin
+  // salir de la agenda que se está mirando.
+  &__info {
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    width: 26px; height: 26px; border-radius: var(--radius-full);
+    border: 1px solid var(--color-border); background: transparent;
+    color: var(--color-text-muted); cursor: pointer;
+    transition: border-color var(--transition-fast), color var(--transition-fast),
+                background var(--transition-fast);
+
+    lucide-icon { display: flex; line-height: 0; }
+    &:hover {
+      border-color: var(--color-primary); color: var(--color-primary);
+      background: color-mix(in srgb, var(--color-primary) 8%, transparent);
+    }
+  }
+
+  &__cuando {
+    flex-shrink: 0; font-size: .74rem; color: var(--color-text-muted);
+    text-transform: capitalize;
+  }
+
+  &__horas {
+    display: grid; gap: .35rem;
+    grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
+  }
+}
+
+.hora {
+  padding: .45rem .3rem; cursor: pointer; font-family: inherit;
+  border: 1px solid var(--color-border); border-radius: var(--radius-md);
+  background: var(--color-surface); color: var(--color-text-primary);
+  font-size: .8rem; font-weight: 600;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+
+  &:hover { border-color: var(--color-primary); }
+  &--on {
+    background: var(--color-primary); border-color: var(--color-primary);
+    color: var(--color-on-primary);
+  }
+}
+
+// ═══════════════════════════ Barra fija ═══════════════════════════
+.barra {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 25;
+  background: color-mix(in srgb, var(--color-surface) 95%, transparent);
+  backdrop-filter: blur(10px);
+  border-top: 1px solid var(--color-border);
+
+  &__caja {
+    max-width: 1040px; margin: 0 auto;
+    display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+    padding: .7rem 1.25rem;
+  }
+
+  &__datos {
+    display: flex; align-items: center; gap: 1.75rem; margin: 0;
+    min-width: 0; flex-wrap: wrap;
+
+    > div { display: flex; flex-direction: column; min-width: 0; }
+    dt { font-size: .68rem; text-transform: uppercase; letter-spacing: .04em;
+         color: var(--color-text-muted); font-weight: 700; }
+    dd { margin: 0; font-size: .85rem; color: var(--color-text-primary); font-weight: 600;
+         overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  }
+
+  &__precio { color: var(--color-primary) !important; font-size: .95rem !important; }
+  // Sin día elegido el texto es una instrucción, no un dato: se pinta en el color de marca
+  // para que el ojo lo encuentre al mirar el botón deshabilitado.
+  &__falta { color: var(--color-primary) !important; font-weight: 500 !important; }
+
+  &__cta {
+    flex-shrink: 0; padding: .7rem 1.6rem; font-size: .92rem; font-weight: 600;
+    border-radius: var(--radius-md);
+    &:disabled { opacity: .45; cursor: not-allowed; }
+  }
+}
+
+@media (max-width: 720px) {
+  .barra__datos { gap: 1rem; }
+  .barra__ocultable { display: none; }
+  .barra__caja { padding: .6rem .85rem; }
+}
+
+// ═══════════════════════════ Hoja de datos ═══════════════════════════
+.lienzo {
+  position: fixed; inset: 0; z-index: 60;
+  display: flex; align-items: center; justify-content: center;
+  padding: 1rem;
+  background: rgba(15, 10, 42, .45);
+  backdrop-filter: blur(2px);
+  overflow-y: auto;
+}
+
+.hoja {
+  width: 100%; max-width: 520px;
+  padding: 1.25rem;
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-lg);
+
+  &__head {
+    display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+    margin-bottom: .5rem;
+    h2 { margin: 0; font-size: 1.15rem; }
+  }
+
+  &__x {
+    display: flex; align-items: center; justify-content: center;
+    width: 30px; height: 30px; border-radius: var(--radius-full);
+    border: 0; background: transparent; color: var(--color-text-muted); cursor: pointer;
+    &:hover { background: var(--color-bg-muted); color: var(--color-text-primary); }
+  }
+
+  &__resumen {
+    margin: 0 0 1rem; padding: .65rem .8rem;
+    border-radius: var(--radius-md); background: var(--color-bg-muted);
+    font-size: .86rem; color: var(--color-text-secondary); line-height: 1.5;
+    strong { display: block; color: var(--color-text-primary); }
+  }
+
+  &__form { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; }
+
+  &__cta { width: 100%; margin-top: 1rem; padding: .75rem; font-size: .92rem; font-weight: 600; }
+
+  &__nota {
+    margin: .7rem 0 0; text-align: center; font-size: .77rem; color: var(--color-text-muted);
+    &--aviso {
+      display: flex; align-items: center; justify-content: center; gap: .35rem;
+      color: var(--color-warning);
+    }
+  }
+
+  &--listo { text-align: center; h2 { margin: .75rem 0 .35rem; font-size: 1.3rem; } }
+}
+@media (max-width: 520px) { .hoja__form { grid-template-columns: 1fr; } }
+
+.campo {
+  display: flex; flex-direction: column; gap: .3rem;
+  > span { font-size: .8rem; font-weight: 600; color: var(--color-text-secondary); }
+  > span small { font-weight: 400; color: var(--color-text-muted); }
+  &--ancho { grid-column: 1 / -1; }
+  textarea { resize: vertical; font-family: inherit; }
+}
+
+.pago {
+  padding: .8rem; border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-primary) 5%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 22%, transparent);
+
+  h3 { display: flex; align-items: center; gap: .35rem; margin: 0 0 .35rem;
+       font-size: .86rem; color: var(--color-primary); }
+  p { margin: 0 0 .65rem; font-size: .8rem; color: var(--color-text-secondary); line-height: 1.5; }
+
+  &__archivo {
+    display: block; cursor: pointer;
+    input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+    span {
+      display: flex; align-items: center; gap: .4rem;
+      padding: .5rem .7rem; border-radius: var(--radius-md);
+      border: 1px dashed var(--color-primary); color: var(--color-primary);
+      font-size: .82rem; font-weight: 600;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    input:focus-visible + span { box-shadow: var(--focus-ring); }
+  }
+}
+
+.error {
+  display: flex; align-items: center; gap: .4rem; margin: .9rem 0 0;
+  padding: .6rem .75rem; border-radius: var(--radius-md);
+  background: var(--color-error-bg, color-mix(in srgb, var(--color-error) 10%, transparent));
+  color: var(--color-error); font-size: .84rem;
+}
+
+.listo__icono {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 68px; height: 68px; border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-success, #16a34a) 12%, transparent);
+  color: var(--color-success, #16a34a);
+}
+.listo__acciones { display: flex; justify-content: center; gap: .6rem; flex-wrap: wrap; margin-top: 1.25rem; }
+
+.codigo {
+  margin: 1.25rem 0 0; padding: .9rem;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-muted); border: 1px dashed var(--color-border);
+
+  span { display: block; font-size: .7rem; text-transform: uppercase; letter-spacing: .05em;
+         color: var(--color-text-muted); }
+  strong {
+    display: block; margin: .3rem 0;
+    font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+    font-size: .9rem; color: var(--color-primary); word-break: break-all;
+  }
+  em { font-style: normal; font-size: .76rem; color: var(--color-text-muted); }
+}

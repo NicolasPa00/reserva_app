@@ -110,14 +110,14 @@
                   <strong>{{ c.fecha_hora_inicio | date:'HH:mm':'':'es-CO' }}</strong>
                   <span>{{ c.fecha_hora_fin | date:'HH:mm':'':'es-CO' }}</span>
                 </div>
-                <span class="tl__barra" [style.background]="c.profesional?.color_hex || 'var(--color-accent)'"></span>
+                <span class="tl__barra" [style.background]="colorPro(c.profesional?.id_profesional)"></span>
                 <div class="tl__info">
                   <strong>{{ c.cliente_nombre }}</strong>
                   <span class="tl__svc">
                     {{ c.servicios.join(' · ') || 'Sin servicios' }}
                   </span>
                   <span class="tl__pro">
-                    <i [style.background]="c.profesional?.color_hex || 'var(--color-accent)'"></i>
+                    <i [style.background]="colorPro(c.profesional?.id_profesional)"></i>
                     {{ c.profesional?.nombre || 'Sin profesional' }}
                     @if (c.cliente_telefono) { · {{ c.cliente_telefono }} }
                   </span>
@@ -177,7 +177,7 @@
             <div><strong>{{ r.semana.citas | number }}</strong><span>Citas</span></div>
             <div><strong>{{ r.semana.completadas | number }}</strong><span>Completadas</span></div>
             <div><strong>{{ r.semana.canceladas | number }}</strong><span>Canceladas</span></div>
-            <div><strong>{{ r.semana.no_show | number }}</strong><span>No-show</span></div>
+            <div><strong>{{ r.semana.no_show | number }}</strong><span>No asistió</span></div>
           </div>
           <p class="mini__total">
             <span>Ingresos del periodo</span>

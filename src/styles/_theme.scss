@@ -150,6 +150,39 @@ body {
   p  { margin: .25rem 0 0; color: var(--color-text-muted); font-size: .9rem; }
 }
 
+/**
+ * Cabecera de una vista que se queda fija al desplazar.
+ *
+ * Envuelve el encabezado y la barra de búsqueda/acciones. En un catálogo largo —servicios
+ * agrupados por categoría, o el equipo entero— «Nuevo…» y el buscador se perdían de vista a los
+ * dos scrolls, justo cuando más se usan.
+ *
+ * Vive aquí y no en cada vista porque ya son dos las que lo necesitan y el `top` depende de la
+ * altura de la barra superior del layout, que es común a todas.
+ *
+ * El fondo se derrama a los lados con un `::before`, hasta los bordes del `.page`, para que el
+ * contenido que pasa por detrás no asome por el área con `padding`. Con una sombra de expansión
+ * se derramaría también hacia abajo y taparía la primera fila de tarjetas.
+ */
+.pegajoso {
+  position: sticky; top: 0; z-index: 12;
+  display: flex; flex-direction: column; gap: 1.25rem;
+  padding-block: 1rem; margin-block: -1rem 0;
+  background: var(--color-bg);
+
+  &::before {
+    content: ''; position: absolute; z-index: -1;
+    top: 0; bottom: 0; left: -1.5rem; right: -1.5rem;
+    background: var(--color-bg);
+  }
+}
+
+/* En móvil la barra inferior ya recorta la pantalla; una cabecera fija de dos filas se comería
+   media vista, así que solo se pega la barra de acciones. */
+@media (max-width: 767px) {
+  .pegajoso { position: static; padding-block: 0; margin-block: 0; &::before { display: none; } }
+}
+
 // ============================================================
 // Componentes compartidos con la identidad (admin / verticales)
 // ============================================================

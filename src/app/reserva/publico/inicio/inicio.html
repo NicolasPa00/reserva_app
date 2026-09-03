@@ -1,0 +1,204 @@
+@if (negocio(); as n) {
+  <!-- ═════════ Cabecera ═════════
+       El banner ocupa la mitad derecha y se disuelve por su borde izquierdo sobre el color de
+       marca; el contenido vive en la mitad limpia, así que nunca compite con la foto. -->
+  <header class="cab" [class.cab--sinfoto]="!n.banner_url">
+    <div class="cab__caja">
+      <div class="cab__marca">
+        @if (n.logo_url) {
+          <img class="cab__logo" [src]="n.logo_url | urlArchivo" [alt]="n.nombre" />
+        } @else {
+          <span class="cab__logo cab__logo--vacio"><lucide-icon name="scissors" [size]="26" /></span>
+        }
+        <div class="cab__titulo">
+          <h1>{{ n.nombre }}</h1>
+          @if (n.descripcion) { <p>{{ n.descripcion }}</p> }
+        </div>
+      </div>
+
+      <div class="cab__datos">
+        @if (n.telefono) {
+          <a class="cab__dato" [href]="telefonoLlamada()">
+            <lucide-icon name="phone" [size]="15" /> {{ n.telefono }}
+          </a>
+        }
+        @if (n.direccion) {
+          <a class="cab__dato" [href]="enlaceMapa()" target="_blank" rel="noopener">
+            <lucide-icon name="map-pin" [size]="15" /> {{ n.direccion }}
+          </a>
+        }
+        @if (diasAbiertos().size > 0) {
+          <span class="cab__dato">
+            <lucide-icon name="clock" [size]="15" />
+            <span class="dias">
+              @for (d of diasCortos; track $index) {
+                <i [class.on]="diasAbiertos().has($index)">{{ d }}</i>
+              }
+            </span>
+          </span>
+        }
+      </div>
+
+      <!-- Solo «síguenos». WhatsApp no está aquí: es una acción de contacto y vive en el botón
+           flotante, donde se usa de verdad. -->
+      <div class="cab__acciones">
+        @if (n.redes.facebook) {
+          <a class="cab__red" [href]="n.redes.facebook" target="_blank" rel="noopener" aria-label="Facebook">
+            <lucide-icon name="facebook" [size]="17" />
+          </a>
+        }
+        @if (n.redes.instagram) {
+          <a class="cab__red" [href]="n.redes.instagram" target="_blank" rel="noopener" aria-label="Instagram">
+            <lucide-icon name="instagram" [size]="17" />
+          </a>
+        }
+      </div>
+    </div>
+
+    @if (n.banner_url) {
+      <div class="cab__lienzo" aria-hidden="true">
+        <img class="cab__foto" [src]="n.banner_url | urlArchivo" alt="" />
+        <span class="cab__fundido"></span>
+      </div>
+    }
+  </header>
+
+  <div class="contenido" id="catalogo">
+    <!-- ═════════ Índice de categorías ═════════ -->
+    @if (secciones().length > 1) {
+      <div class="tira-fila">
+        <nav class="tira" aria-label="Categorías">
+          @if (desbordada()) {
+            <button type="button" class="tira__flecha" (click)="desplazarTira(-1)" aria-label="Anterior">
+              <lucide-icon name="chevron-left" [size]="16" />
+            </button>
+          }
+          <div class="tira__pista" #tira>
+            @for (sec of secciones(); track sec.nombre) {
+              <button type="button" class="chip"
+                      [class.chip--on]="seccionActiva() === anclaDe(sec.id_categoria)"
+                      (click)="irASeccion(sec.id_categoria)">
+                {{ sec.nombre }}
+                <em>{{ sec.servicios.length }}</em>
+              </button>
+            }
+          </div>
+          @if (desbordada()) {
+            <button type="button" class="tira__flecha" (click)="desplazarTira(1)" aria-label="Siguiente">
+              <lucide-icon name="chevron-right" [size]="16" />
+            </button>
+          }
+        </nav>
+      </div>
+    }
+
+    <!-- ═════════ Catálogo ═════════ -->
+    @if (secciones().length === 0) {
+      <p class="vacio">Este negocio aún no ha publicado servicios.</p>
+    }
+
+    @for (sec of secciones(); track sec.nombre) {
+      <section class="seccion" [id]="anclaDe(sec.id_categoria)">
+        <header class="seccion__head">
+          <h2>{{ sec.nombre }}</h2>
+          @if (sec.descripcion) { <p>{{ sec.descripcion }}</p> }
+        </header>
+
+        <div class="rejilla">
+          @for (s of sec.servicios; track s.id_servicio) {
+            <article class="srv" (click)="abrirServicio(s.id_servicio)" tabindex="0"
+                     (keyup.enter)="abrirServicio(s.id_servicio)" role="button">
+              <div class="srv__foto">
+                @if (s.imagen_url) {
+                  <img [src]="s.imagen_url | urlArchivo" [alt]="s.nombre" loading="lazy" />
+                } @else {
+                  <span class="srv__sinfoto">
+                    <lucide-icon name="image-off" [size]="22" />
+                  </span>
+                }
+              </div>
+
+              <div class="srv__cuerpo">
+                <h3>{{ s.nombre }}</h3>
+                @if (s.descripcion) { <p>{{ s.descripcion }}</p> }
+                <footer class="srv__meta">
+                  <span class="srv__precio">{{ s.precio | currency:'COP':'symbol-narrow':'1.0-0' }}</span>
+                  <span class="srv__dur"><lucide-icon name="clock" [size]="13" /> {{ s.duracion_min }} min</span>
+                  @if (s.id_profesionales.length > 1) {
+                    <span class="srv__pros">
+                      <lucide-icon name="user-round" [size]="13" /> {{ s.id_profesionales.length }}
+                    </span>
+                  }
+                </footer>
+              </div>
+            </article>
+          }
+        </div>
+      </section>
+    }
+
+    <!-- ═════════ Equipo ═════════ -->
+    <section class="seccion" id="equipo">
+      <header class="seccion__head">
+        <h2>Nuestro equipo</h2>
+        <p>Qué hace cada uno y en qué horario atiende.</p>
+      </header>
+
+      @if (profesionales().length === 0) {
+        <p class="vacio">Aún no hay profesionales publicados.</p>
+      } @else {
+        <div class="rejilla rejilla--equipo">
+          @for (p of profesionales(); track p.id_profesional) {
+            <!-- La tarjeta entera abre la ficha del profesional. Antes llevaba un botón de
+                 «Reservar con…» que entraba a un servicio elegido por nosotros; aquí lo que se
+                 quiere es conocer a la persona, y reservar se hace desde el servicio. -->
+            <article class="ficha" role="button" tabindex="0"
+                     (click)="verProfesional(p.id_profesional)"
+                     (keyup.enter)="verProfesional(p.id_profesional)">
+              <header class="ficha__head">
+                @if (p.foto_url) {
+                  <img class="ficha__foto" [src]="p.foto_url | urlArchivo" [alt]="p.nombre" loading="lazy" />
+                } @else {
+                  <span class="ficha__foto ficha__foto--vacia"
+                        [style.background]="colorPro(p.id_profesional)">
+                    <lucide-icon name="user-round" [size]="24" />
+                  </span>
+                }
+                <div class="ficha__quien">
+                  <strong>{{ p.nombre }}</strong>
+                  @if (p.especialidad) { <span>{{ p.especialidad }}</span> }
+                  <em>
+                    @if (p.ofrece_todo) { Todos los servicios }
+                    @else { {{ p.id_servicios.length }} servicio{{ p.id_servicios.length === 1 ? '' : 's' }} }
+                  </em>
+                </div>
+              </header>
+
+              @if (diasDe(p).length > 0) {
+                <ul class="ficha__horario">
+                  @for (d of diasDe(p); track d.dia_semana) {
+                    <li>
+                      <span class="ficha__dia">{{ d.dia }}</span>
+                      <span class="ficha__franja">{{ franjas(d) }}</span>
+                    </li>
+                  }
+                </ul>
+              } @else {
+                <p class="ficha__sinhorario">
+                  <lucide-icon name="calendar-off" [size]="13" /> Sin horario publicado
+                </p>
+              }
+
+              <span class="ficha__pista">
+                <lucide-icon name="info" [size]="13" /> Ver ficha completa
+              </span>
+            </article>
+          }
+        </div>
+      }
+    </section>
+  </div>
+
+  <reserva-profesional-modal [idProfesional]="profesionalAbierto()"
+                             (cerrar)="profesionalAbierto.set(null)" />
+}

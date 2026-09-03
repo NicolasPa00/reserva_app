@@ -2,12 +2,12 @@ import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } 
 import { CommonModule, CurrencyPipe } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, forkJoin } from 'rxjs';
 
 import { AuthService } from '../../core/services/auth.service';
 import { ReservaApiService } from '../../core/services/reserva-api.service';
 import { ToastService } from '../../core/services/toast.service';
-import { Servicio } from '../../core/models';
+import { CategoriaReserva, Servicio } from '../../core/models';
 import { ImageCropperComponent } from '../../shared/image-cropper/image-cropper';
 import { MayusculasDirective } from '../../shared/mayusculas.directive';
 import { ModalComponent } from '../../shared/modal/modal';
@@ -49,19 +49,34 @@ export class ServiciosComponent implements OnInit {
   readonly confirmAbierto = signal(false);
   readonly servicioAInactivar = signal<Servicio | null>(null);
 
+  // ── Categorías ──
+  //
+  // Se gestionan desde aquí y no en una pantalla propia porque solo existen para agrupar
+  // servicios: separarlas obligaría a ir y volver para clasificar cada alta.
+  readonly categorias = signal<CategoriaReserva[]>([]);
+  readonly modalCategorias = signal(false);
+  readonly nombreCategoria = signal('');
+  readonly categoriaEditando = signal<CategoriaReserva | null>(null);
+  readonly confirmCategoria = signal(false);
+  readonly categoriaABorrar = signal<CategoriaReserva | null>(null);
+
   readonly form = this.fb.nonNullable.group({
     nombre:       ['', [Validators.required, Validators.maxLength(150)]],
     duracion_min: [30, [Validators.required, Validators.min(5), Validators.max(600)]],
     precio:       [0,  [Validators.required, Validators.min(0)]],
     descripcion:  [''],
-    color_hex:    ['#3b82f6', [Validators.pattern(/^#?[0-9a-fA-F]{6}$/)]],
+    id_categoria: [''],
     imagen_url:   [''],
   });
 
   readonly serviciosFiltrados = computed(() => {
+    const base = this.incluirInactivos()
+      ? this.servicios()
+      : this.servicios().filter(s => s.estado === 'A');
+
     const q = this.busqueda().trim().toLowerCase();
-    if (!q) return this.servicios();
-    return this.servicios().filter(s =>
+    if (!q) return base;
+    return base.filter(s =>
       s.nombre.toLowerCase().includes(q) ||
       (s.descripcion ?? '').toLowerCase().includes(q),
     );
@@ -81,26 +96,142 @@ export class ServiciosComponent implements OnInit {
     const idNegocio = this.auth.negocio()?.id_negocio;
     if (!idNegocio) return;
     this.cargando.set(true);
-    this.api.listarServicios(idNegocio, { incluirInactivos: this.incluirInactivos() }).subscribe({
-      next: r => {
-        if (r?.success && r.data) this.servicios.set(r.data);
+    forkJoin({
+      servicios: this.api.listarServicios(idNegocio, { incluirInactivos: true }),
+      categorias: this.api.listarCategorias(idNegocio),
+    }).subscribe({
+      next: ({ servicios, categorias }) => {
+        if (servicios?.success && servicios.data) this.servicios.set(servicios.data);
+        if (categorias?.success && categorias.data) this.categorias.set(categorias.data);
         this.cargando.set(false);
       },
       error: () => { this.toast.error('No se pudieron cargar los servicios.'); this.cargando.set(false); },
     });
   }
 
+  /**
+   * El catálogo agrupado tal y como se verá en el portal.
+   *
+   * Se construye desde `categorias` y no desde los servicios: así una categoría recién creada
+   * aparece vacía —y se ve que hay que llenarla— en vez de no existir hasta tener contenido.
+   * Los servicios sin clasificar van al final, nunca ocultos.
+   */
+  readonly grupos = computed(() => {
+    const filtrados = this.serviciosFiltrados();
+    const grupos = this.categorias().map(c => ({
+      categoria: c as CategoriaReserva | null,
+      nombre: c.nombre,
+      servicios: filtrados.filter(s => s.id_categoria === c.id_categoria),
+    }));
+
+    const sueltos = filtrados.filter(s => s.id_categoria == null);
+    if (sueltos.length) {
+      grupos.push({ categoria: null, nombre: 'Sin categoría', servicios: sueltos });
+    }
+    // Con búsqueda activa, una categoría sin coincidencias solo estorba.
+    return this.busqueda().trim() ? grupos.filter(g => g.servicios.length > 0) : grupos;
+  });
+
+  // ── Gestión de categorías ──
+
+  abrirCategorias() {
+    this.nombreCategoria.set('');
+    this.categoriaEditando.set(null);
+    this.modalCategorias.set(true);
+  }
+
+  editarCategoria(c: CategoriaReserva) {
+    this.categoriaEditando.set(c);
+    this.nombreCategoria.set(c.nombre);
+  }
+
+  cancelarEdicionCategoria() {
+    this.categoriaEditando.set(null);
+    this.nombreCategoria.set('');
+  }
+
+  guardarCategoria() {
+    const idNegocio = this.auth.negocio()?.id_negocio;
+    const nombre = this.nombreCategoria().trim();
+    if (!idNegocio || !nombre) return;
+
+    this.guardando.set(true);
+    const editando = this.categoriaEditando();
+    const peticion = editando
+      ? this.api.actualizarCategoria(editando.id_categoria, idNegocio, { nombre })
+      : this.api.crearCategoria(idNegocio, nombre);
+
+    peticion.subscribe({
+      next: r => {
+        this.guardando.set(false);
+        if (!r?.success) { this.toast.error(r?.message || 'No se pudo guardar.'); return; }
+        this.toast.success(editando ? 'Categoría actualizada' : 'Categoría creada');
+        this.cancelarEdicionCategoria();
+        this.recargar();
+      },
+      error: e => {
+        this.guardando.set(false);
+        this.toast.error(e?.error?.message || 'Error al guardar la categoría.');
+      },
+    });
+  }
+
+  pedirBorrarCategoria(c: CategoriaReserva) {
+    this.categoriaABorrar.set(c);
+    this.confirmCategoria.set(true);
+  }
+
+  borrarCategoriaConfirmado() {
+    const c = this.categoriaABorrar();
+    const idNegocio = this.auth.negocio()?.id_negocio;
+    if (!c || !idNegocio) return;
+
+    this.api.eliminarCategoria(c.id_categoria, idNegocio).subscribe({
+      next: r => {
+        this.confirmCategoria.set(false);
+        this.categoriaABorrar.set(null);
+        if (r?.success) { this.toast.success(r.message); this.recargar(); }
+        else this.toast.error(r?.message || 'No se pudo eliminar.');
+      },
+      error: e => {
+        this.confirmCategoria.set(false);
+        this.categoriaABorrar.set(null);
+        this.toast.error(e?.error?.message || 'Error al eliminar la categoría.');
+      },
+    });
+  }
+
+  /** Sube o baja una categoría una posición; el orden manda en el portal. */
+  moverCategoria(indice: number, delta: -1 | 1) {
+    const lista = [...this.categorias()];
+    const destino = indice + delta;
+    if (destino < 0 || destino >= lista.length) return;
+    [lista[indice], lista[destino]] = [lista[destino], lista[indice]];
+
+    const idNegocio = this.auth.negocio()?.id_negocio;
+    if (!idNegocio) return;
+    // Optimista: reordenar es reversible y esperar al servidor para mover una fila se siente
+    // roto. Si falla, se recarga y vuelve a su sitio.
+    this.categorias.set(lista);
+    this.api.reordenarCategorias(idNegocio, lista.map(c => c.id_categoria)).subscribe({
+      error: () => { this.toast.error('No se pudo guardar el orden.'); this.recargar(); },
+    });
+  }
+
+  /** Filtro local: no hay petición detrás, así que alternarlo es instantáneo. */
   toggleInactivos() {
     this.incluirInactivos.update(v => !v);
-    this.recargar();
   }
+
+  /** Si no hay ninguno inactivo, el check no se pinta: un control que no cambia nada estorba. */
+  readonly hayInactivos = computed(() => this.servicios().some(s => s.estado === 'I'));
 
   abrirCrear() {
     this.limpiarImagenPendiente();
     this.editando.set(null);
     this.form.reset({
       nombre: '', duracion_min: 30, precio: 0, descripcion: '',
-      color_hex: '#3b82f6', imagen_url: '',
+      imagen_url: '', id_categoria: '',
     });
     this.modalAbierto.set(true);
   }
@@ -113,8 +244,8 @@ export class ServiciosComponent implements OnInit {
       duracion_min: s.duracion_min,
       precio: Number(s.precio),
       descripcion: s.descripcion ?? '',
-      color_hex: s.color_hex ?? '#3b82f6',
       imagen_url: s.imagen_url ?? '',
+      id_categoria: s.id_categoria != null ? String(s.id_categoria) : '',
     });
     this.modalAbierto.set(true);
   }
@@ -227,8 +358,9 @@ export class ServiciosComponent implements OnInit {
       duracion_min: Number(v.duracion_min),
       precio: Number(v.precio),
       descripcion: v.descripcion?.trim() || null,
-      color_hex: this.normalizarColor(v.color_hex),
       imagen_url: v.imagen_url?.trim() || null,
+      // El `<select>` devuelve texto; `''` es «sin categoría» y viaja como null.
+      id_categoria: v.id_categoria ? Number(v.id_categoria) : null,
     };
 
     this.guardando.set(true);
@@ -284,8 +416,4 @@ export class ServiciosComponent implements OnInit {
     this.servicioAInactivar.set(null);
   }
 
-  private normalizarColor(c: string): string {
-    if (!c) return '#3b82f6';
-    return c.startsWith('#') ? c : `#${c}`;
-  }
 }

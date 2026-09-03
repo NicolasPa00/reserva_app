@@ -10,22 +10,101 @@
 .hint { color: var(--color-text-muted); }
 
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
+// ── Tarjeta de profesional ──
+//
+// El color de la franja y del avatar lo inyecta la plantilla en `--tono`, derivado del id (el
+// mismo de la agenda), así que la tarjeta y la columna de esa persona se reconocen entre sí sin
+// que nadie tenga que elegir nada.
 .pro {
-  display: flex; flex-direction: column; gap: .75rem;
-  &--inactivo { opacity: .65; }
+  position: relative;
+  display: flex; flex-direction: column;
+  padding: 0; overflow: hidden;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+
+  &:hover { box-shadow: var(--shadow-md); }
+  &--inactivo { opacity: .62; }
+
+  // Franja superior: la identidad de la persona, sin robarle sitio al contenido.
+  &__franja { display: block; height: 4px; background: var(--tono); flex-shrink: 0; }
+
+  &__head {
+    display: flex; align-items: center; gap: .75rem;
+    padding: .9rem 1rem .75rem;
+  }
+
   &__avatar {
-    width: 56px; height: 56px; border-radius: 50%;
-    display: flex; align-items: center; justify-content: center; color: #fff;
-    img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+    width: 52px; height: 52px; flex-shrink: 0;
+    border-radius: 50%; overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--tono); color: #fff;
+    // El anillo separa la foto del fondo sin meter un borde duro.
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--tono) 18%, transparent);
+    img { width: 100%; height: 100%; object-fit: cover; }
+    lucide-icon { display: flex; line-height: 0; }
   }
-  &__body {
-    display: flex; flex-direction: column; gap: .15rem;
-    strong { color: var(--color-text-primary); }
-    .badge { align-self: flex-start; margin-top: .35rem; }
+
+  &__quien {
+    display: flex; flex-direction: column; gap: .1rem; min-width: 0; flex: 1;
+    strong {
+      font-size: .95rem; color: var(--color-text-primary); line-height: 1.25;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
   }
-  &__esp  { font-size: .85rem; color: var(--color-text-secondary); }
-  &__meta { font-size: .75rem; color: var(--color-text-muted); display: inline-flex; align-items: center; gap: .25rem; }
-  &__foot { margin-top: auto; display: flex; gap: .35rem; justify-content: flex-end; padding-top: .5rem; border-top: 1px solid var(--color-border); }
+
+  &__esp {
+    font-size: .8rem; color: var(--color-text-muted);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+
+  &__estado { flex-shrink: 0; align-self: flex-start; }
+
+  // Tres filas siempre, con dato o sin él: así todas las tarjetas miden lo mismo y la rejilla
+  // no queda escalonada. El hueco se dice en gris en vez de dejarse en blanco.
+  &__datos {
+    list-style: none; margin: 0; padding: 0 1rem .9rem;
+    display: flex; flex-direction: column; gap: .3rem;
+
+    li {
+      display: flex; align-items: center; gap: .45rem; min-width: 0;
+      font-size: .8rem; color: var(--color-text-secondary);
+      lucide-icon { flex-shrink: 0; color: var(--color-text-muted); display: flex; line-height: 0; }
+      span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    }
+  }
+  &__dato--vacio span { color: var(--color-text-muted); font-style: italic; }
+
+  // Mismo aire arriba y abajo de la línea. Antes el `padding-top` era la mitad del hueco que
+  // dejaba el `gap` del contenido, y los botones parecían descolgados hacia abajo.
+  &__foot {
+    margin-top: auto;
+    display: flex; align-items: center; gap: .4rem;
+    padding: .75rem 1rem;
+    border-top: 1px solid var(--color-border);
+    background: var(--color-bg-muted);
+  }
+
+  // La acción principal en color y la secundaria en contorno: antes eran dos botones idénticos
+  // y no había forma de saber cuál es la de todos los días.
+  &__accion {
+    flex: 1; min-width: 0;
+    display: inline-flex; align-items: center; justify-content: center; gap: .35rem;
+    padding: .45rem .6rem; font-size: .82rem;
+  }
+
+  &__baja {
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    width: 34px; height: 34px; padding: 0; cursor: pointer;
+    border: 1px solid var(--color-border); border-radius: var(--radius-md);
+    background: var(--color-surface); color: var(--color-text-muted);
+    transition: border-color var(--transition-fast), color var(--transition-fast),
+                background var(--transition-fast);
+
+    lucide-icon { display: flex; line-height: 0; }
+    &:hover {
+      border-color: var(--color-error); color: var(--color-error);
+      background: var(--color-error-bg, var(--color-surface));
+    }
+  }
 }
 
 .form { display: flex; flex-direction: column; gap: 1rem; }
@@ -33,8 +112,67 @@
   display: flex; flex-direction: column; gap: .35rem;
   span { font-size: .8rem; color: var(--color-text-secondary); font-weight: 500; }
 }
-.form__grid-2 { display: grid; grid-template-columns: 1fr 80px; gap: .75rem; }
-.input--color { padding: .25rem; height: 38px; }
+// `min-width: 0` no es opcional: sin él un item de grid no baja de su ancho mínimo intrínseco
+// y un correo largo desborda el modal.
+.form__grid-2 {
+  display: grid; grid-template-columns: 1fr 1fr; gap: .75rem;
+  > * { min-width: 0; }
+}
+@media (max-width: 520px) { .form__grid-2 { grid-template-columns: 1fr; } }
 
 .srv-list { list-style: none; display: flex; flex-direction: column; gap: .35rem; padding: 0; margin: 0; }
 .srv-list em { color: var(--color-text-muted); font-style: normal; }
+
+// ── Foto en el modal ──
+.foto {
+  display: flex; flex-direction: column; gap: .4rem;
+
+  &__lab { font-size: .8rem; font-weight: 600; color: var(--color-text-secondary); }
+  &__fila { display: flex; align-items: flex-start; gap: .85rem; }
+
+  &__caja {
+    width: 84px; height: 84px; flex-shrink: 0; overflow: hidden;
+    border-radius: var(--radius-full);
+    border: 1px solid var(--color-border); background: var(--color-bg-muted);
+    img { width: 100%; height: 100%; object-fit: cover; }
+  }
+
+  &__vacia {
+    display: flex; align-items: center; justify-content: center;
+    width: 100%; height: 100%; color: #fff;
+  }
+
+  // Columna, no `flex-wrap`: al envolver, los dos botones caían uno a cada lado del texto de
+  // ayuda según el ancho disponible y quedaban a distinta altura.
+  &__acciones {
+    display: flex; flex-direction: column; align-items: flex-start; gap: .45rem;
+    min-width: 0; flex: 1;
+    small { font-size: .74rem; color: var(--color-text-muted); line-height: 1.35; }
+  }
+
+  &__botones { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; }
+}
+
+// El botón de subir es un <label> (envuelve el input file), así que necesita el estilo aparte.
+// El botón de subir es un <label> (envuelve el input file), así que necesita el estilo aparte.
+// Altura fija en los dos: sin ella, el que lleva icono grande y el que no quedaban desalineados.
+.mini {
+  display: inline-flex; align-items: center; justify-content: center; gap: .35rem;
+  height: 34px; padding: 0 .7rem; cursor: pointer; font-family: inherit;
+  border: 1px solid var(--color-border); border-radius: var(--radius-md);
+  background: var(--color-surface); color: var(--color-text-secondary);
+  font-size: .8rem; font-weight: 600; white-space: nowrap;
+  transition: border-color var(--transition-fast), color var(--transition-fast),
+              background var(--transition-fast);
+
+  lucide-icon { flex-shrink: 0; display: flex; line-height: 0; }
+
+  &:hover {
+    border-color: var(--color-primary); color: var(--color-primary);
+    background: color-mix(in srgb, var(--color-primary) 6%, transparent);
+  }
+  &--danger:hover {
+    border-color: var(--color-error); color: var(--color-error);
+    background: color-mix(in srgb, var(--color-error) 6%, transparent);
+  }
+}

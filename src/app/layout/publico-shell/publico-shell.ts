@@ -1,73 +1,185 @@
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
-import { ActivatedRoute, RouterOutlet } from '@angular/router';
+import {
+  ChangeDetectionStrategy, Component, ElementRef, OnDestroy, OnInit,
+  computed, effect, inject, signal, viewChild,
+} from '@angular/core';
+import { CurrencyPipe, DOCUMENT } from '@angular/common';
+import { ActivatedRoute, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
 
-import { ReservaApiService } from '../../core/services/reserva-api.service';
-import { ThemeService } from '../../core/theme/theme.service';
-import { InfoNegocioPublico } from '../../core/models';
+import { VitrinaStore } from '../../reserva/publico/vitrina.store';
+import { UrlArchivoPipe } from '../../shared/url-archivo.pipe';
+import { ServicioPublico } from '../../core/models';
 
 /**
- * Layout liviano para el flujo público (sin sidebar). Carga `info` del negocio
- * usando el `:id_negocio` de la URL para mostrar el brand y aplicar la paleta.
+ * Marco del portal público: la página que ve un cliente que llega por un enlace o un QR.
+ *
+ * Es un layout aparte del de la consola y no comparte nada con él por una razón concreta: aquí
+ * no hay barra lateral, ni permisos, ni negocio «activo». Hay un negocio, el de la URL, y un
+ * visitante que solo quiere saber qué ofrecen y a qué hora.
+ *
+ * La carga y el error se resuelven **aquí**, no en cada hijo: si el negocio no existe o escondió
+ * su página, no tiene sentido pintar la cabecera con su nombre y debajo un error.
  */
 @Component({
   selector: 'reserva-publico-shell',
   standalone: true,
-  imports: [RouterOutlet, LucideAngularModule],
-  template: `
-    <div class="publico">
-      <header class="publico__header">
-        <div class="publico__brand">
-          <lucide-icon name="calendar-clock" [size]="20" />
-          <strong>{{ info()?.nombre || 'Reserva tu cita' }}</strong>
-        </div>
-        <span class="publico__tag">EscalApp</span>
-      </header>
-      <main class="publico__content">
-        <router-outlet />
-      </main>
-      <footer class="publico__footer">
-        <span>Sistema de reservas · EscalApp</span>
-      </footer>
-    </div>
-  `,
-  styles: [`
-    .publico { min-height: 100vh; display: flex; flex-direction: column; background: var(--color-bg); }
-    .publico__header {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: .85rem 1.25rem; background: var(--color-surface);
-      border-bottom: 1px solid var(--color-border);
-    }
-    .publico__brand { display: flex; align-items: center; gap: .55rem; color: var(--color-primary); }
-    .publico__brand strong { color: var(--color-text-primary); font-size: 1rem; }
-    .publico__tag { color: var(--color-text-muted); font-size: .75rem; letter-spacing: .05em; }
-    .publico__content { flex: 1; padding: 1.5rem 1rem; max-width: 720px; margin: 0 auto; width: 100%; }
-    .publico__footer { padding: 1rem; text-align: center; color: var(--color-text-muted); font-size: .75rem; }
-  `],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, LucideAngularModule, UrlArchivoPipe, CurrencyPipe],
+  templateUrl: './publico-shell.html',
+  styleUrl: './publico-shell.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class PublicoShellComponent implements OnInit {
+export class PublicoShellComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
-  private readonly api = inject(ReservaApiService);
-  private readonly theme = inject(ThemeService);
+  private readonly document = inject(DOCUMENT);
+  private readonly router = inject(Router);
+  readonly store = inject(VitrinaStore);
 
-  readonly info = signal<InfoNegocioPublico | null>(null);
+  readonly negocio = this.store.negocio;
+  readonly idNegocio = computed(() => this.negocio()?.id_negocio ?? null);
+
+  /** Base de las rutas hijas. Todas cuelgan de `/p/:id`, así se arma una sola vez. */
+  readonly raiz = computed(() => `/p/${this.idNegocio() ?? ''}`);
+
+  readonly anio = new Date().getFullYear();
+
+  // ── Datos de EscalApp para el pie ──
+  readonly escalappLogo = 'images/escalapplogo.png';
+  readonly escalappSitio = 'https://escalapp.cloud/admin/';
+
+  // ── Buscador ──
+  readonly termino = signal('');
+  readonly abierto = signal(false);
+  readonly indiceActivo = signal(0);
+  private readonly caja = viewChild<ElementRef<HTMLInputElement>>('caja');
+  private readonly cabecera = viewChild<ElementRef<HTMLElement>>('cabecera');
+
+  /**
+   * Búsqueda insensible a mayúsculas **y a tildes**.
+   *
+   * `normalize('NFD')` separa cada letra de su acento y el rango de combinantes los borra, así
+   * que «Diseño de cejas» se encuentra escribiendo «diseno» y «Barbería» escribiendo «barberia».
+   * Sin esto, quien escribe sin tildes —la mayoría en un móvil— no encontraría media carta.
+   */
+  private static plano(texto: string): string {
+    return String(texto ?? '')
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+      .toLowerCase()
+      .trim();
+  }
+
+  /**
+   * Coincidencias por nombre, descripción o categoría.
+   *
+   * Se busca por **cada palabra** del término, no por la cadena entera: «corte barba» encuentra
+   * «Corte y barba» aunque la «y» esté en medio. Se ordena poniendo delante lo que empieza por
+   * el término, que es casi siempre lo que se busca.
+   */
+  readonly resultados = computed<ServicioPublico[]>(() => {
+    const q = PublicoShellComponent.plano(this.termino());
+    if (q.length < 2) return [];
+
+    const palabras = q.split(/\s+/).filter(Boolean);
+    const seccionPorServicio = new Map<number, string>();
+    for (const sec of this.store.secciones()) {
+      for (const s of sec.servicios) seccionPorServicio.set(s.id_servicio, sec.nombre);
+    }
+
+    const coincide = this.store.servicios().filter(s => {
+      const heno = PublicoShellComponent.plano(
+        `${s.nombre} ${s.descripcion ?? ''} ${seccionPorServicio.get(s.id_servicio) ?? ''}`);
+      return palabras.every(p => heno.includes(p));
+    });
+
+    return coincide
+      .sort((a, b) => {
+        const ea = PublicoShellComponent.plano(a.nombre).startsWith(palabras[0]) ? 0 : 1;
+        const eb = PublicoShellComponent.plano(b.nombre).startsWith(palabras[0]) ? 0 : 1;
+        return ea - eb || a.nombre.localeCompare(b.nombre);
+      })
+      .slice(0, 8);
+  });
+
+  readonly sinResultados = computed(() =>
+    this.abierto() && this.termino().trim().length >= 2 && this.resultados().length === 0);
 
   ngOnInit(): void {
-    // El componente que se monte adentro recibirá `id_negocio` por param.
-    // También lo obtenemos aquí para cargar la info del brand.
-    this.route.firstChild?.paramMap.subscribe(params => {
-      const id = Number(params.get('id_negocio'));
-      if (!id) return;
-      this.api.publicoInfoNegocio(id).subscribe({
-        next: r => {
-          if (r?.success && r.data) {
-            this.info.set(r.data);
-            this.theme.aplicarPaleta(r.data.paleta);
-          }
-        },
-        error: () => { /* fallback silencioso al brand genérico */ },
-      });
+    // El `:id_negocio` está en **esta** ruta, no en la hija: `firstChild.paramMap` llega vacío.
+    this.route.paramMap.subscribe(params => {
+      this.store.cargar(Number(params.get('id_negocio')));
     });
+  }
+
+  /**
+   * Publica la altura real de la cabecera en `--alto-cabecera`.
+   *
+   * Todo lo que se queda pegado bajo el header —la tira de categorías de la portada, las migas
+   * y la ficha del servicio— necesita saber cuánto mide. Estaba escrito a mano como 56 px, y en
+   * pantallas estrechas la cabecera pasa a dos filas (el buscador baja a la suya) y mide casi
+   * el doble: la tira quedaba escondida detrás.
+   *
+   * Se mide en vez de calcularse con un `@media` porque la altura depende también de lo largo
+   * que sea el nombre del negocio, que es dato del inquilino.
+   */
+  private observador?: ResizeObserver;
+
+  constructor() {
+    // Va en un `effect` sobre la señal del `viewChild`, no en `ngAfterViewInit`: la cabecera
+    // vive dentro de un `@if` que espera a la vitrina, así que cuando ese gancho se dispara el
+    // elemento todavía no existe y no se llegaría a medir nunca.
+    effect(onCleanup => {
+      const el = this.cabecera()?.nativeElement;
+      if (!el || typeof ResizeObserver === 'undefined') return;
+
+      const publicar = () => this.document.documentElement.style
+        .setProperty('--alto-cabecera', `${Math.round(el.getBoundingClientRect().height)}px`);
+
+      publicar();
+      this.observador = new ResizeObserver(publicar);
+      this.observador.observe(el);
+
+      onCleanup(() => this.observador?.disconnect());
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.observador?.disconnect();
+    // La variable es global: dejarla puesta descuadraría cualquier otra pantalla.
+    this.document.documentElement.style.removeProperty('--alto-cabecera');
+  }
+
+  escribir(valor: string): void {
+    this.termino.set(valor);
+    this.indiceActivo.set(0);
+    this.abierto.set(valor.trim().length >= 2);
+  }
+
+  /** El blur se retrasa: sin esto, el clic en un resultado cierra la lista antes de registrarse. */
+  cerrarConRetraso(): void {
+    setTimeout(() => this.abierto.set(false), 150);
+  }
+
+  mover(delta: 1 | -1): void {
+    const total = this.resultados().length;
+    if (!total) return;
+    this.indiceActivo.update(i => (i + delta + total) % total);
+  }
+
+  aceptar(): void {
+    const elegido = this.resultados()[this.indiceActivo()];
+    if (elegido) this.abrir(elegido);
+  }
+
+  abrir(servicio: ServicioPublico): void {
+    this.termino.set('');
+    this.abierto.set(false);
+    this.caja()?.nativeElement.blur();
+    this.router.navigate([this.raiz(), 'servicio', servicio.id_servicio]);
+  }
+
+  limpiar(): void {
+    this.termino.set('');
+    this.abierto.set(false);
+    this.caja()?.nativeElement.focus();
   }
 }

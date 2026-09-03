@@ -14,7 +14,23 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./reserva/publico/inicio/inicio').then(m => m.PublicoInicioComponent),
       },
-      // El wizard servicio→profesional→hora→form se enchufa aquí en Ola 5.
+      {
+        // Reservar es elegir un servicio: la ficha del servicio resuelve día, hora y
+        // profesional en una sola vista. Sustituye al asistente de cuatro pasos.
+        path: 'servicio/:id_servicio',
+        title: 'Reservar cita',
+        loadComponent: () =>
+          import('./reserva/publico/servicio/servicio').then(m => m.PublicoServicioComponent),
+      },
+      // Enlaces antiguos a `/reservar`: al catálogo, que es donde empieza la reserva ahora.
+      { path: 'reservar', redirectTo: '', pathMatch: 'full' },
+      {
+        path: 'mi-cita',
+        title: 'Mi cita',
+        loadComponent: () =>
+          import('./reserva/publico/mi-cita/mi-cita').then(m => m.PublicoMiCitaComponent),
+      },
+      { path: '**', redirectTo: '' },
     ],
   },
 

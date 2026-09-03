@@ -1,0 +1,316 @@
+@if (servicio(); as s) {
+  <section class="pagina">
+    <!-- Migas a la izquierda y salida a la derecha: se puede volver al catálogo sin recurrir
+         al botón del navegador, que en un móvil no siempre está a mano. -->
+    <nav class="migas">
+      <div class="migas__ruta">
+        <a [routerLink]="raiz()">{{ negocio()?.nombre }}</a>
+        @if (seccion(); as sec) {
+          <lucide-icon name="chevron-right" [size]="13" />
+          <span>{{ sec.nombre }}</span>
+        }
+      </div>
+      <a class="volver" [routerLink]="raiz()">
+        <lucide-icon name="arrow-left" [size]="15" />
+        Ver otros servicios
+      </a>
+    </nav>
+
+    <div class="cols">
+      <!-- ═════════ Columna izquierda: qué es y cuánto cuesta ═════════
+           La descripción y el precio van bajo la imagen, no al lado de la agenda: dejaban medio
+           metro de blanco bajo la foto y empujaban el calendario fuera de la primera pantalla. -->
+      <div class="ficha">
+        <div class="foto">
+          @if (s.imagen_url) {
+            <img [src]="s.imagen_url | urlArchivo" [alt]="s.nombre" />
+          } @else {
+            <span class="foto__vacia">
+              <lucide-icon name="image-off" [size]="44" />
+            </span>
+          }
+        </div>
+
+        <!-- La categoría acompaña al nombre: sola al pie de la columna quedaba huérfana y
+             lejos de lo que clasifica. -->
+        <div class="titulo-fila">
+          <h1>{{ s.nombre }}</h1>
+          @if (seccion(); as sec) {
+            <span class="etiqueta"><lucide-icon name="tag" [size]="12" /> {{ sec.nombre }}</span>
+          }
+        </div>
+
+        @if (s.descripcion) {
+          <p class="desc" [class.desc--abierta]="descripcionAbierta()">{{ s.descripcion }}</p>
+          @if (s.descripcion.length > 180) {
+            <button type="button" class="enlace" (click)="descripcionAbierta.set(!descripcionAbierta())">
+              {{ descripcionAbierta() ? 'Ver menos' : 'Ver más' }}
+            </button>
+          }
+        }
+
+        <!-- Lo contratado. El nombre a la izquierda y el importe a la derecha: alineados los dos
+             a la izquierda, la tarjeta dejaba media anchura vacía. -->
+        <div class="opcion">
+          <span class="opcion__que">
+            <strong>{{ s.nombre }}</strong>
+            <em>Servicio</em>
+          </span>
+          <span class="opcion__cuanto">
+            <span class="opcion__precio">{{ s.precio | currency:'COP':'symbol-narrow':'1.0-0' }}</span>
+            <span class="opcion__dur"><lucide-icon name="clock" [size]="13" /> {{ s.duracion_min }} min</span>
+          </span>
+        </div>
+      </div>
+
+      <!-- ═════════ Columna derecha: cuándo y con quién ═════════ -->
+      <div class="panel">
+        <h2 class="titulo">Disponibilidad</h2>
+
+        @if (cargandoDias()) {
+          <p class="cargando"><span class="spinner"></span> Buscando días con hueco…</p>
+        } @else if (dias().length === 0) {
+          <p class="vacio">Este servicio no tiene horarios publicados todavía.</p>
+        } @else {
+          <div class="semana">
+            <header class="semana__nav">
+              <button type="button" (click)="cambiarSemana(-1)" [disabled]="semana() === 0"
+                      aria-label="Semana anterior">
+                <lucide-icon name="chevron-left" [size]="16" />
+              </button>
+              <span>{{ rotuloSemana() }}</span>
+              <button type="button" (click)="cambiarSemana(1)"
+                      [disabled]="semana() >= totalSemanas() - 1" aria-label="Semana siguiente">
+                <lucide-icon name="chevron-right" [size]="16" />
+              </button>
+            </header>
+
+            <div class="semana__dias">
+              @for (d of diasVisibles(); track d.fecha) {
+                <button type="button" class="dia"
+                        [class.dia--on]="fecha() === d.fecha"
+                        [class.dia--cerrado]="!d.abierto"
+                        [class.dia--hoy]="esHoy(d.fecha)"
+                        [disabled]="!d.abierto"
+                        (click)="elegirFecha(d.fecha)">
+                  <em>{{ diaSemana(d.fecha) }}</em>
+                  <strong>{{ diaNumero(d.fecha) }}</strong>
+                  <!-- El punto dice de un vistazo si ese día hay alguien: verde sí, gris no -->
+                  <i class="punto" [class.punto--libre]="d.abierto"></i>
+                </button>
+              }
+            </div>
+          </div>
+
+          @if (fecha()) {
+            @if (cargandoSlots()) {
+              <p class="cargando"><span class="spinner"></span> Buscando horas…</p>
+            } @else if (profesionalesConHueco().length === 0) {
+              <p class="vacio">No quedan horas libres ese día. Prueba con otro.</p>
+            } @else {
+              <div class="agenda">
+                @for (p of profesionalesConHueco(); track p.id_profesional) {
+                  <article class="pro">
+                    <header class="pro__head">
+                      @if (p.foto_url) {
+                        <img class="pro__foto" [src]="p.foto_url | urlArchivo" [alt]="p.nombre" loading="lazy" />
+                      } @else {
+                        <span class="pro__foto pro__foto--vacia"
+                              [style.background]="colorPro(p.id_profesional)">
+                          <lucide-icon name="user-round" [size]="17" />
+                        </span>
+                      }
+                      <div class="pro__quien">
+                        <strong>{{ p.nombre }}</strong>
+                        @if (p.especialidad) { <em>{{ p.especialidad }}</em> }
+                      </div>
+                      <button type="button" class="pro__info"
+                              (click)="profesionalAbierto.set(p.id_profesional)"
+                              [attr.aria-label]="'Ver la ficha de ' + p.nombre"
+                              title="Ver servicios y horario">
+                        <lucide-icon name="info" [size]="15" />
+                      </button>
+                      <span class="pro__cuando">
+                        {{ fecha() + 'T00:00:00' | date:'EEE d MMM':'':'es-CO' }}
+                      </span>
+                    </header>
+
+                    <div class="pro__horas">
+                      @for (h of slotsDe(p); track h) {
+                        <button type="button" class="hora"
+                                [class.hora--on]="estaElegida(p.id_profesional, h)"
+                                (click)="elegirHora(p.id_profesional, h)">
+                          {{ hora12(h) }}
+                        </button>
+                      }
+                    </div>
+
+                    @if (ocultos(p) > 0) {
+                      <button type="button" class="enlace" (click)="alternarExpandido(p.id_profesional)">
+                        {{ expandido().has(p.id_profesional)
+                            ? 'Ver menos horas'
+                            : 'Ver ' + ocultos(p) + ' horas más' }}
+                      </button>
+                    }
+                  </article>
+                }
+              </div>
+            }
+          }
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- ═════════ Barra de resumen ═════════
+       Fija abajo: el precio y lo elegido siguen a la vista mientras se recorre la agenda. -->
+  <!-- `barra-fija` es la marca que lee la hoja global para apartar el botón de WhatsApp. -->
+  <div class="barra barra-fija">
+    <div class="barra__caja">
+      <dl class="barra__datos">
+        <div>
+          <dt>Servicio</dt>
+          <dd>{{ s.nombre }}</dd>
+        </div>
+        <div>
+          <dt>Precio</dt>
+          <dd class="barra__precio">{{ s.precio | currency:'COP':'symbol-narrow':'1.0-0' }}</dd>
+        </div>
+        <div class="barra__ocultable">
+          <dt>Duración</dt>
+          <dd>{{ s.duracion_min }} min</dd>
+        </div>
+        <div>
+          <dt>Cuándo</dt>
+          @if (listoParaAgendar()) {
+            <dd>
+              {{ fecha() + 'T00:00:00' | date:'EEE d MMM':'':'es-CO' }} ·
+              {{ hora12(hora()) }} · {{ profesionalElegido()?.nombre }}
+            </dd>
+          } @else {
+            <dd class="barra__falta">Selecciona día y hora</dd>
+          }
+        </div>
+      </dl>
+
+      <button type="button" class="btn btn-primary barra__cta"
+              [disabled]="!listoParaAgendar()" (click)="abrirFormulario()">
+        Agendar
+      </button>
+    </div>
+  </div>
+}
+
+<!-- ═════════ Datos del cliente ═════════ -->
+@if (modalAbierto()) {
+  <div class="lienzo" (click)="modalAbierto.set(false)">
+    <div class="hoja" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
+      <header class="hoja__head">
+        <h2>Confirma tu reserva</h2>
+        <button type="button" class="hoja__x" (click)="modalAbierto.set(false)" aria-label="Cerrar">
+          <lucide-icon name="x" [size]="18" />
+        </button>
+      </header>
+
+      <p class="hoja__resumen">
+        <strong>{{ servicio()?.nombre }}</strong>
+        {{ fecha() + 'T00:00:00' | date:'EEEE d \'de\' MMMM':'':'es-CO' }}
+        a las {{ hora12(hora()) }} con {{ profesionalElegido()?.nombre }}.
+      </p>
+
+      <div class="hoja__form">
+        <label class="campo">
+          <span>Nombre completo *</span>
+          <input class="input" type="text" [value]="nombre()" maxlength="150"
+                 (input)="nombre.set($any($event.target).value)"
+                 placeholder="Como quieres que te llamemos" />
+        </label>
+        <label class="campo">
+          <span>Teléfono *</span>
+          <input class="input" type="tel" [value]="telefono()" maxlength="30"
+                 (input)="telefono.set($any($event.target).value)" placeholder="300 000 0000" />
+        </label>
+        <label class="campo">
+          <span>Correo <small>(opcional)</small></span>
+          <input class="input" type="email" [value]="email()" maxlength="150"
+                 (input)="email.set($any($event.target).value)" placeholder="tu@correo.com" />
+        </label>
+        <label class="campo campo--ancho">
+          <span>Notas <small>(opcional)</small></span>
+          <textarea class="input" rows="2" maxlength="500" [value]="notas()"
+                    (input)="notas.set($any($event.target).value)"
+                    placeholder="Algo que debamos saber antes de tu cita"></textarea>
+        </label>
+
+        @if (requierePago()) {
+          <div class="pago campo--ancho">
+            <h3><lucide-icon name="credit-card" [size]="15" /> Pago por adelantado</h3>
+            @if (reglas()?.instrucciones_pago; as instr) { <p>{{ instr }}</p> }
+            <label class="pago__archivo">
+              <input type="file" accept="image/jpeg,image/png,image/webp" (change)="archivoElegido($event)" />
+              <span>
+                <lucide-icon name="upload" [size]="15" />
+                {{ comprobante()?.name || 'Adjuntar comprobante' }}
+              </span>
+            </label>
+          </div>
+        }
+      </div>
+
+      @if (errorEnvio(); as e) {
+        <p class="error"><lucide-icon name="triangle-alert" [size]="15" /> {{ e }}</p>
+      }
+
+      <button type="button" class="btn btn-primary hoja__cta"
+              [disabled]="!puedeConfirmar()" (click)="confirmar()">
+        @if (enviando()) { Confirmando… } @else { Confirmar reserva }
+      </button>
+
+      @if (reglas()?.ventana_cancelacion_horas; as h) {
+        <p class="hoja__nota">Puedes cancelar hasta {{ h }} horas antes con el código que te daremos.</p>
+      }
+    </div>
+  </div>
+}
+
+<!-- ═════════ Confirmación ═════════ -->
+@if (citaCreada(); as cita) {
+  <div class="lienzo">
+    <div class="hoja hoja--listo" role="dialog" aria-modal="true">
+      <span class="listo__icono"><lucide-icon name="circle-check-big" [size]="38" /></span>
+      <h2>¡Cita reservada!</h2>
+      <p class="hoja__resumen">
+        {{ fecha() + 'T00:00:00' | date:'EEEE d \'de\' MMMM':'':'es-CO' }}
+        a las {{ hora12(hora()) }} con {{ profesionalElegido()?.nombre }}.
+      </p>
+
+      <div class="codigo">
+        <span>Tu código</span>
+        <strong>{{ cita.codigo_publico }}</strong>
+        <em>Guárdalo: con él puedes consultar o cancelar tu cita.</em>
+      </div>
+
+      @if (cita.requiere_pago && cita.pago_estado === 'pendiente_validacion') {
+        <p class="hoja__nota hoja__nota--aviso">
+          <lucide-icon name="info" [size]="14" /> Tu pago está pendiente de validación.
+        </p>
+      }
+
+      <div class="listo__acciones">
+        <button type="button" class="btn btn-primary" (click)="verMiCita()">Ver mi cita</button>
+        <button type="button" class="btn btn-outline" (click)="volverAlInicio()">Volver al inicio</button>
+      </div>
+    </div>
+  </div>
+}
+
+@if (!servicio() && !store.cargando()) {
+  <p class="vacio vacio--suelto">
+    Este servicio ya no está disponible.
+    <a [routerLink]="raiz()">Ver el catálogo</a>
+  </p>
+}
+
+<!-- Ficha del profesional, la misma que abre la tarjeta del equipo en la portada. -->
+<reserva-profesional-modal [idProfesional]="profesionalAbierto()"
+                           (cerrar)="profesionalAbierto.set(null)" />

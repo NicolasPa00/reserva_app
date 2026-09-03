@@ -128,6 +128,151 @@
         </div>
       }
       </div>
+
+      <!-- Banner: la foto ancha de la cabecera del portal público -->
+      <div class="card banner">
+        <h3>Banner del portal</h3>
+        <p class="hint">
+          La imagen ancha de la cabecera de tu página pública. El nombre y tus datos se
+          superponen sobre ella con un difuminado de tu color principal, así que funciona mejor
+          una foto del local o del equipo con el lado izquierdo despejado.
+        </p>
+
+        <div class="banner__caja">
+          @if (marca()?.banner_url) {
+            <img [src]="urlImagen(marca()!.banner_url)" alt="Banner del negocio" />
+          } @else {
+            <span class="banner__vacio">
+              <lucide-icon name="image" [size]="24" />
+              <em>Sin banner — la cabecera usará un degradado de tus colores</em>
+            </span>
+          }
+          @if (subiendoBanner()) {
+            <span class="logo__cargando"><lucide-icon name="loader" [size]="22" /></span>
+          }
+        </div>
+
+        <div class="banner__acciones">
+          <label class="mini">
+            <lucide-icon name="crop" [size]="13" />
+            {{ marca()?.banner_url ? 'Cambiar banner' : 'Subir banner' }}
+            <input type="file" accept="image/*" hidden (change)="elegirBanner($event)" />
+          </label>
+          @if (marca()?.banner_url) {
+            <button type="button" class="mini mini--danger" (click)="confirmQuitarBanner.set(true)">
+              <lucide-icon name="trash-2" [size]="13" /> Quitar
+            </button>
+          }
+          <small>Panorámico (16:5). Se guarda a 1600 px de ancho.</small>
+        </div>
+      </div>
+    }
+
+    <!-- ───────── Página pública ───────── -->
+    @if (tab() === 'publica') {
+      <form [formGroup]="vitrinaForm" (ngSubmit)="guardarVitrina()" class="cfg publica">
+        <div class="card">
+          <h3>Tu página pública</h3>
+          <p class="hint">
+            Lo que ve un cliente al abrir tu enlace: quién eres, cómo contactarte, tus servicios
+            y el horario de cada profesional. Las fotos salen de Servicios y Profesionales.
+          </p>
+
+          <div class="enlace">
+            <div class="enlace__txt">
+              <span>Enlace para compartir</span>
+              <code>{{ urlPublica() }}</code>
+            </div>
+            <div class="enlace__botones">
+              <button type="button" class="mini" (click)="copiarUrlPublica()">
+                <lucide-icon [name]="urlPublicaCopiada() ? 'check' : 'copy'" [size]="13" />
+                {{ urlPublicaCopiada() ? 'Copiado' : 'Copiar' }}
+              </button>
+              <a class="mini" [href]="urlPublica()" target="_blank" rel="noopener">
+                <lucide-icon name="external-link" [size]="13" /> Abrir
+              </a>
+            </div>
+          </div>
+
+          <label class="toggle block">
+            <input type="checkbox" formControlName="publico_activo" />
+            <span class="toggle__txt">
+              <strong>Página publicada</strong>
+              <em>
+                Al desactivarla, el enlace deja de funcionar y nadie puede reservar desde fuera.
+                Las citas ya creadas no se tocan.
+              </em>
+            </span>
+          </label>
+
+          <label class="block">
+            <span>Presentación</span>
+            <textarea class="input" rows="4" maxlength="1200" formControlName="descripcion_publica"
+                      placeholder="Cuenta en dos frases quién eres y qué te diferencia."></textarea>
+            <small>{{ vitrinaForm.controls.descripcion_publica.value.length }}/1200 caracteres.</small>
+          </label>
+        </div>
+
+        <div class="card">
+          <h3>Contacto</h3>
+          <p class="hint">Aparece en la portada con botones para llamar o escribir.</p>
+
+          <div class="grid">
+            <label>
+              <span>Teléfono</span>
+              <input class="input" type="tel" formControlName="telefono" placeholder="300 000 0000" />
+              <small>Se muestra como botón «Llamar».</small>
+            </label>
+            <label>
+              <span>Dirección</span>
+              <input class="input" type="text" formControlName="direccion"
+                     placeholder="Calle 93 #13-45, Bogotá" />
+              <small>Enlaza al mapa.</small>
+            </label>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Redes sociales</h3>
+          <p class="hint">
+            Puedes escribir el usuario (<code>@minegocio</code>) o pegar el enlace completo:
+            lo convertimos a la dirección correcta.
+          </p>
+
+          <div class="grid">
+            <label>
+              <span><lucide-icon name="message-circle" [size]="13" /> WhatsApp</span>
+              <input class="input" type="tel" formControlName="url_whatsapp"
+                     placeholder="300 000 0000" />
+              <small>Solo el número. Si es colombiano, añadimos el 57.</small>
+            </label>
+            <label>
+              <span><lucide-icon name="facebook" [size]="13" /> Facebook</span>
+              <input class="input" type="text" formControlName="url_facebook"
+                     placeholder="minegocio" />
+            </label>
+            <label>
+              <span><lucide-icon name="instagram" [size]="13" /> Instagram</span>
+              <input class="input" type="text" formControlName="url_instagram"
+                     placeholder="@minegocio" />
+            </label>
+          </div>
+        </div>
+
+        <div class="actions">
+          @if (!puedeEditarVitrina()) {
+            <span class="actions__error">
+              <lucide-icon name="triangle-alert" [size]="14" />
+              No tienes permiso para editar la página pública.
+            </span>
+          }
+          <button type="submit" class="btn btn-primary"
+                  [disabled]="guardandoVitrina() || vitrinaForm.invalid || !puedeEditarVitrina()">
+            <lucide-icon name="save" [size]="16" />
+            @if (guardandoVitrina()) { Guardando… } @else { Guardar página pública }
+          </button>
+        </div>
+      </form>
     }
 
     <!--
@@ -334,6 +479,26 @@
     </button>
   </div>
 </reserva-modal>
+
+<!-- Recorte del banner: 16:5, la proporción exacta de la cabecera del portal público -->
+@if (cropperBannerAbierto() && archivoBanner(); as archivo) {
+  <reserva-image-cropper
+    [file]="archivo"
+    [aspect]="3.2"
+    [outputWidth]="1600"
+    titulo="Ajustar el banner del portal"
+    (recortada)="onBannerRecortado($event)"
+    (cancelada)="cerrarCropperBanner()" />
+}
+
+<reserva-confirm
+  [open]="confirmQuitarBanner()"
+  title="Quitar el banner"
+  message="La cabecera del portal volverá a mostrarse con un degradado de tus colores de marca."
+  confirmText="Quitar"
+  kind="danger"
+  (cancel)="confirmQuitarBanner.set(false)"
+  (confirm)="quitarBanner()" />
 
 <!-- Recorte del logo: cuadrado, porque va en el sidebar, en el catálogo público y como avatar -->
 @if (cropperAbierto() && archivoLogo(); as archivo) {

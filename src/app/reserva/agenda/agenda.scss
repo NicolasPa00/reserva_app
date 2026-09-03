@@ -41,11 +41,27 @@
 .cal {
   --hours-col: 62px;
   --pro-col-min: 190px;
-  padding: 0; overflow: hidden;
+  padding: 0;
 
-  // El scroll horizontal vive aquí dentro, no en la página: con muchos profesionales se
-  // desplaza la rejilla y la cabecera va con ella, en vez de romper el ancho del layout.
-  &__scroll { overflow-x: auto; overflow-y: visible; }
+  // Nada de `overflow: hidden` aquí: haría de la tarjeta un contenedor de scroll y la cabecera
+  // volvería a pegarse a ella en lugar de a la página. El radio lo recortan los hijos.
+  border-radius: var(--radius-lg);
+
+  // Solo desplazamiento horizontal, y solo del cuerpo. La rejilla crece a su altura natural y
+  // el desplazamiento vertical lo hace la vista entera, como en el resto de la aplicación.
+  //
+  // Lo que hacía aparecer la barra vertical no era esta declaración sino el `max-height` que
+  // tenía antes: `overflow-x: auto` convierte la caja en contenedor de scroll en los dos ejes,
+  // pero sin altura acotada no hay nada que desplazar en vertical y la rueda pasa a la página.
+  &__scroll { overflow-x: auto; }
+
+  // La cabecera se pega al borde superior del área de contenido. Su desplazamiento horizontal
+  // no es suyo: lo copia del cuerpo en cada `scroll`, así columnas y títulos van a la par.
+  &__cabecera {
+    position: sticky; top: 0; z-index: 6;
+    overflow: hidden;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  }
 
   &__header,
   &__body {
@@ -55,10 +71,11 @@
   }
 
   &__header {
-    position: sticky; top: 0; z-index: 3;
     border-bottom: 1px solid var(--color-border);
     background: var(--color-bg-muted);
   }
+  // La esquina se mantiene a la izquierda al desplazar en horizontal, igual que la columna de
+  // horas del cuerpo, para que la rejilla siga leyéndose desde el borde.
   &__corner {
     border-right: 1px solid var(--color-border);
     position: sticky; left: 0; z-index: 1; background: var(--color-bg-muted);
@@ -214,3 +231,4 @@
   .lg--cerrado { background: var(--color-bg-muted); border: 1px solid var(--color-border); }
   .lg--ahora   { height: 0; border-top: 2px solid var(--color-error); border-radius: 0; }
 }
+

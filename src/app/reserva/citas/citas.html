@@ -49,7 +49,7 @@
           <option value="confirmada">Confirmada</option>
           <option value="completada">Completada</option>
           <option value="cancelada">Cancelada</option>
-          <option value="no_show">No-show</option>
+          <option value="no_show">No asistió</option>
         </select>
       </label>
     </div>
@@ -76,7 +76,7 @@
               }
             </span>
             <span class="row__pro">
-              <i [style.background]="c.profesional?.color_hex || 'var(--color-accent)'"></i>
+              <i [style.background]="colorPro(c.profesional?.id_profesional)"></i>
               {{ c.profesional?.nombre }}
             </span>
           </div>
@@ -108,29 +108,55 @@
 <!-- Detalle de cita + acciones -->
 <reserva-modal [open]="modalDetalle()" [title]="'Cita #' + (citaDetalle()?.id_cita || '')" size="lg" (close)="cerrarDetalle()">
   <reserva-cita-detalle [cita]="citaDetalle()" />
-  <div modal-footer style="display:flex; gap:.5rem; flex-wrap: wrap;">
+  <!--
+    Pie ordenado por intención, no por el orden en que se fueron añadiendo los botones.
+
+    Izquierda: salir. Derecha: lo que hace avanzar la cita, con la acción principal la última
+    —donde va el ojo y el pulgar—. En medio, separadas por una línea, las dos que la cierran en
+    mal estado. Antes eran cinco botones sueltos en un `flex-wrap` con «Cerrar» empujado por un
+    `margin-left: auto` que, al saltar de línea, lo dejaba colgando en cualquier sitio.
+  -->
+  <div modal-footer class="pie-cita">
+    <button type="button" class="btn btn-ghost pie-cita__salir" (click)="cerrarDetalle()">
+      Cerrar
+    </button>
+
     @if (puedeEditar() && citaDetalle() && (citaDetalle()!.estado === 'pendiente' || citaDetalle()!.estado === 'confirmada')) {
-      @if (puedeConfirmar() && citaDetalle()!.estado === 'pendiente' && citaDetalle()!.pago_estado !== 'pendiente_validacion') {
-        <button type="button" class="btn btn-primary" (click)="confirmar(citaDetalle()!); cerrarDetalle()">Confirmar</button>
-      }
-      @if (puedeValidarPago() && citaDetalle()!.pago_estado === 'pendiente_validacion') {
-        <button type="button" class="btn btn-primary" (click)="abrirValidarPago(citaDetalle()!); cerrarDetalle()">
-          <lucide-icon name="credit-card" [size]="14" /> Validar pago
-        </button>
-      }
-      @if (puedeCompletar()) {
-        <button type="button" class="btn btn-outline" (click)="completar(citaDetalle()!); cerrarDetalle()">
-          <lucide-icon name="wallet" [size]="14" /> Completar y cobrar
-        </button>
-      }
-      @if (puedeNoShow()) {
-        <button type="button" class="btn btn-outline" (click)="noShow(citaDetalle()!); cerrarDetalle()">No-show</button>
-      }
-      @if (puedeCancelar()) {
-        <button type="button" class="btn btn-danger" (click)="pedirCancelar(citaDetalle()!); cerrarDetalle()">Cancelar</button>
-      }
+      <div class="pie-cita__acciones">
+        @if (puedeNoShow() || puedeCancelar()) {
+          <div class="pie-cita__grupo pie-cita__grupo--baja">
+            @if (puedeNoShow()) {
+              <button type="button" class="btn btn-outline" (click)="noShow(citaDetalle()!); cerrarDetalle()">
+                No asistió
+              </button>
+            }
+            @if (puedeCancelar()) {
+              <button type="button" class="btn btn-danger" (click)="pedirCancelar(citaDetalle()!); cerrarDetalle()">
+                Cancelar
+              </button>
+            }
+          </div>
+        }
+
+        <div class="pie-cita__grupo">
+          @if (puedeCompletar()) {
+            <button type="button" class="btn btn-outline" (click)="completar(citaDetalle()!); cerrarDetalle()">
+              <lucide-icon name="wallet" [size]="14" /> Completar y cobrar
+            </button>
+          }
+          @if (puedeValidarPago() && citaDetalle()!.pago_estado === 'pendiente_validacion') {
+            <button type="button" class="btn btn-primary" (click)="abrirValidarPago(citaDetalle()!); cerrarDetalle()">
+              <lucide-icon name="credit-card" [size]="14" /> Validar pago
+            </button>
+          }
+          @if (puedeConfirmar() && citaDetalle()!.estado === 'pendiente' && citaDetalle()!.pago_estado !== 'pendiente_validacion') {
+            <button type="button" class="btn btn-primary" (click)="confirmar(citaDetalle()!); cerrarDetalle()">
+              Confirmar
+            </button>
+          }
+        </div>
+      </div>
     }
-    <button type="button" class="btn btn-ghost" (click)="cerrarDetalle()" style="margin-left: auto;">Cerrar</button>
   </div>
 </reserva-modal>
 
