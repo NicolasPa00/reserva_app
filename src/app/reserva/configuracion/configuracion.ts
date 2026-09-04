@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, effect, inject, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { CommonModule, Location } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
 import { forkJoin } from 'rxjs';
@@ -34,6 +34,7 @@ import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dial
 })
 export class ConfiguracionComponent implements OnInit {
   private readonly auth  = inject(AuthService);
+  private readonly location = inject(Location);
   private readonly api   = inject(ReservaApiService);
   private readonly toast = inject(ToastService);
   private readonly fb    = inject(FormBuilder);
@@ -108,13 +109,21 @@ export class ConfiguracionComponent implements OnInit {
     publico_activo:      [true],
   });
 
-  /** Enlace que el negocio comparte con sus clientes. */
+  /**
+   * Enlace que el negocio comparte con sus clientes.
+   *
+   * Se arma con `Location.prepareExternalUrl`, que antepone el baseHref del build
+   * (`/reserva/`). Antes se concatenaba `origin + /p/:id` a mano, y el enlace
+   * resultante caía en una ruta que el servidor no sirve: el cliente veía una
+   * página en blanco. El baseHref no se escribe a mano para que un cambio de
+   * despliegue no vuelva a romperlo.
+   */
   readonly urlPublica = computed(() => {
     const id = this.auth.negocio()?.id_negocio;
     if (!id) return '';
     // `location` no existe en SSR; se compone sin él y se completa en el navegador.
     const origen = typeof window !== 'undefined' ? window.location.origin : '';
-    return `${origen}/p/${id}`;
+    return `${origen}${this.location.prepareExternalUrl(`/p/${id}`)}`;
   });
 
   readonly form = this.fb.nonNullable.group({
