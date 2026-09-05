@@ -17,8 +17,6 @@ import {
 } from '../../shared/cita-detalle/cita-detalle';
 import { colorDeEntidad } from '../../core/utils/color-entidad';
 
-type Tab = 'todas' | 'pagos';
-
 @Component({
   selector: 'reserva-citas',
   standalone: true,
@@ -40,7 +38,6 @@ export class CitasComponent implements OnInit {
   readonly citas = signal<Cita[]>([]);
   readonly profesionales = signal<Profesional[]>([]);
   readonly cargando = signal(false);
-  readonly tab = signal<Tab>('todas');
 
   // filtros
   readonly desde = signal<string>('');
@@ -65,11 +62,15 @@ export class CitasComponent implements OnInit {
   readonly citaACancelar = signal<Cita | null>(null);
   readonly motivoCancel = signal('');
 
+  // borrado definitivo
+  readonly confirmEliminar = signal(false);
+  readonly citaAEliminar = signal<Cita | null>(null);
+  readonly eliminando = signal(false);
+
   // cobro
   readonly citaACobrar = signal<Cita | null>(null);
   readonly metodosPago = signal<MetodoPago[]>([]);
   readonly permiteMultipago = signal(false);
-  readonly exigeCaja = signal(false);
   readonly cajaAbierta = signal(true);
 
   readonly idNegocio = computed(() => this.auth.negocio()?.id_negocio ?? 0);
@@ -85,6 +86,12 @@ export class CitasComponent implements OnInit {
   readonly puedeNoShow      = computed(() => this.auth.puedeAccion('citas_no_show'));
   readonly puedeValidarPago = computed(() => this.auth.puedeAccion('citas_validar_pago'));
   readonly puedeAgendar     = computed(() => this.puedeCrear() && this.auth.puedeAccion('citas_crear'));
+
+  /**
+   * Borrado definitivo. Comparte acción con la agenda (`agenda_eliminar`): es el mismo registro
+   * y no tendría sentido poder borrarlo desde una pantalla y no desde la otra.
+   */
+  readonly puedeEliminar    = computed(() => this.auth.puedeAccion('agenda_eliminar'));
 
   private permiso() {
     return this.auth.permisosVistaActivos().find(p => p.url === '/citas') ?? null;
@@ -119,7 +126,6 @@ export class CitasComponent implements OnInit {
       next: r => {
         if (r?.success && r.data) {
           this.permiteMultipago.set(!!r.data.permite_multipago);
-          this.exigeCaja.set(!!r.data.exige_caja_abierta);
         }
       },
     });
@@ -136,21 +142,9 @@ export class CitasComponent implements OnInit {
     });
   }
 
-  cambiarTab(t: Tab) {
-    this.tab.set(t);
-    this.recargar();
-  }
-
   recargar() {
     if (!this.idNegocio()) return;
     this.cargando.set(true);
-    if (this.tab() === 'pagos') {
-      this.api.listarCitasPendientesPago(this.idNegocio()).subscribe({
-        next: r => { this.citas.set(r?.data ?? []); this.cargando.set(false); },
-        error: () => { this.toast.error('No se pudieron cargar.'); this.cargando.set(false); },
-      });
-      return;
-    }
     this.api.listarCitas({
       idNegocio: this.idNegocio(),
       desde: this.desde() || undefined,
@@ -198,7 +192,23 @@ export class CitasComponent implements OnInit {
    * El diálogo pide la forma de pago y el backend lo asienta en la caja abierta.
    */
   completar(c: Cita) {
+    this.refrescarCaja();
     this.citaACobrar.set(c);
+  }
+
+  /**
+   * Relee si hay turno abierto justo antes de cobrar.
+   *
+   * El estado se carga al entrar a la vista y puede haber quedado viejo si alguien cerró la
+   * caja mientras tanto. El backend rechaza el cobro igual; esto evita ofrecerlo.
+   */
+  private refrescarCaja() {
+    const id = this.idNegocio();
+    if (!id) return;
+    this.api.getCaja(id).subscribe({
+      next: r => this.cajaAbierta.set(r?.data?.abierta === true),
+      error: () => this.cajaAbierta.set(false),
+    });
   }
 
   onCobrada() {
@@ -229,6 +239,40 @@ export class CitasComponent implements OnInit {
       error: err => {
         this.toast.error(this.motivoRechazo_(err, 'Error al cancelar.'));
         this.confirmAbierto.set(false); this.citaACancelar.set(null); this.recargar();
+      },
+    });
+  }
+
+  // ── Borrado definitivo ──
+
+  pedirEliminar(c: Cita) {
+    this.citaAEliminar.set(c);
+    this.confirmEliminar.set(true);
+  }
+
+  cancelarEliminar() {
+    this.confirmEliminar.set(false);
+    this.citaAEliminar.set(null);
+  }
+
+  eliminarConfirmado() {
+    const c = this.citaAEliminar();
+    if (!c || this.eliminando()) return;
+    this.eliminando.set(true);
+    this.api.eliminarCita(c.id_cita, this.idNegocio()).subscribe({
+      next: r => {
+        this.eliminando.set(false);
+        this.cancelarEliminar();
+        if (r?.success) {
+          this.toast.success('Cita eliminada');
+          this.recargar();
+          this.bus.publish('cita_eliminada', null);
+        } else this.toast.error(r?.message || 'No se pudo eliminar.');
+      },
+      error: e => {
+        this.eliminando.set(false);
+        this.cancelarEliminar();
+        this.toast.error(e?.error?.message || 'Error al eliminar la cita.');
       },
     });
   }

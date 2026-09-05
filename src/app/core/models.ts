@@ -205,8 +205,11 @@ export interface ConfigReserva {
   permite_cobro_profesional: boolean;
   /** Permite saldar una cita con varias formas de pago a la vez. */
   permite_multipago: boolean;
-  /** Impide completar una cita si no hay turno de caja abierto. */
-  exige_caja_abierta: boolean;
+  /**
+   * @deprecated Ya no decide nada: cobrar exige caja abierta siempre. La columna sigue en la
+   * tabla, pero ni la UI la ofrece ni el backend la mira. Ver `cobroService`.
+   */
+  exige_caja_abierta?: boolean;
 }
 
 // ────────────────────── Usuarios y permisos ──────────────────────

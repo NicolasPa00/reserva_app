@@ -171,6 +171,24 @@
   &__monto {
     font-size: .9rem; font-weight: 700; font-variant-numeric: tabular-nums; flex-shrink: 0;
   }
+
+  // Discreto hasta que se pasa el ratón: es un botón de borrado en una lista que se recorre
+  // leyendo cifras, y no debe pedir atención en cada fila.
+  &__borrar {
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    width: 28px; height: 28px; padding: 0; cursor: pointer;
+    border: 1px solid transparent; border-radius: var(--radius-md);
+    background: transparent; color: var(--color-text-muted);
+    transition: color var(--transition-fast), border-color var(--transition-fast),
+                background var(--transition-fast);
+
+    &:hover:not(:disabled) {
+      color: var(--color-error);
+      border-color: var(--color-error);
+      background: color-mix(in srgb, var(--color-error) 8%, transparent);
+    }
+    &:disabled { opacity: .5; cursor: not-allowed; }
+  }
 }
 
 // ── Tabla del historial ──

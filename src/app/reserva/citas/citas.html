@@ -11,55 +11,48 @@
     }
   </header>
 
-  <div class="tabs">
-    <button class="tab" [class.tab--on]="tab() === 'todas'" (click)="cambiarTab('todas')">
-      Todas las citas
-    </button>
-    <button class="tab" [class.tab--on]="tab() === 'pagos'" (click)="cambiarTab('pagos')">
-      <lucide-icon name="credit-card" [size]="14" /> Validar pagos
-    </button>
+  <!--
+    Una sola lista, sin pestañas. «Validar pagos» era la misma lista con otro filtro y un botón
+    extra en la fila; el pago se valida desde el detalle de la cita, que es donde se ve el
+    comprobante. Los pagos por validar se reconocen por su insignia y se acotan con el filtro de
+    estado, sin cambiar de pestaña y perder el rango de fechas.
+  -->
+  <div class="filtros">
+    <label>
+      <span>Desde</span>
+      <input class="input" type="date" [value]="desde()" (change)="desde.set($any($event.target).value); recargar()" />
+    </label>
+    <label>
+      <span>Hasta</span>
+      <input class="input" type="date" [value]="hasta()" (change)="hasta.set($any($event.target).value); recargar()" />
+    </label>
+    <label>
+      <span>Profesional</span>
+      <select class="select"
+              [value]="idProfesionalFiltro() == null ? '' : idProfesionalFiltro()"
+              (change)="setProfesionalFiltro($any($event.target).value); recargar()">
+        <option value="">Todos</option>
+        @for (p of profesionales(); track p.id_profesional) {
+          <option [value]="p.id_profesional">{{ p.nombre }}</option>
+        }
+      </select>
+    </label>
+    <label>
+      <span>Estado</span>
+      <select class="select" [value]="estadoFiltro()" (change)="estadoFiltro.set($any($event.target).value); recargar()">
+        <option value="">Todos</option>
+        <option value="pendiente">Pendiente</option>
+        <option value="confirmada">Confirmada</option>
+        <option value="completada">Completada</option>
+        <option value="cancelada">Cancelada</option>
+        <option value="no_show">No asistió</option>
+      </select>
+    </label>
   </div>
-
-  @if (tab() === 'todas') {
-    <div class="filtros">
-      <label>
-        <span>Desde</span>
-        <input class="input" type="date" [value]="desde()" (change)="desde.set($any($event.target).value); recargar()" />
-      </label>
-      <label>
-        <span>Hasta</span>
-        <input class="input" type="date" [value]="hasta()" (change)="hasta.set($any($event.target).value); recargar()" />
-      </label>
-      <label>
-        <span>Profesional</span>
-        <select class="select"
-                [value]="idProfesionalFiltro() == null ? '' : idProfesionalFiltro()"
-                (change)="setProfesionalFiltro($any($event.target).value); recargar()">
-          <option value="">Todos</option>
-          @for (p of profesionales(); track p.id_profesional) {
-            <option [value]="p.id_profesional">{{ p.nombre }}</option>
-          }
-        </select>
-      </label>
-      <label>
-        <span>Estado</span>
-        <select class="select" [value]="estadoFiltro()" (change)="estadoFiltro.set($any($event.target).value); recargar()">
-          <option value="">Todos</option>
-          <option value="pendiente">Pendiente</option>
-          <option value="confirmada">Confirmada</option>
-          <option value="completada">Completada</option>
-          <option value="cancelada">Cancelada</option>
-          <option value="no_show">No asistió</option>
-        </select>
-      </label>
-    </div>
-  }
 
   @if (cargando()) { <p class="hint">Cargando…</p> }
   @else if (citas().length === 0) {
-    <p class="hint">
-      @if (tab() === 'pagos') { No hay pagos por validar. } @else { Sin citas en este rango. }
-    </p>
+    <p class="hint">Sin citas en este rango.</p>
   } @else {
     <div class="card list">
       @for (c of citas(); track c.id_cita) {
@@ -92,10 +85,10 @@
             }
             <span class="row__monto">{{ c.monto_total | currency:'COP':'symbol':'1.0-0' }}</span>
           </div>
-          @if (tab() === 'pagos') {
+          @if (puedeValidarPago() && c.pago_estado === 'pendiente_validacion') {
             <div class="row__actions" (click)="$event.stopPropagation()">
-              <button type="button" class="btn btn-outline" (click)="abrirValidarPago(c)" [disabled]="!puedeValidarPago()">
-                <lucide-icon name="eye" [size]="14" /> Validar
+              <button type="button" class="btn btn-outline" (click)="abrirValidarPago(c)">
+                <lucide-icon name="eye" [size]="14" /> Validar pago
               </button>
             </div>
           }
@@ -120,6 +113,14 @@
     <button type="button" class="btn btn-ghost pie-cita__salir" (click)="cerrarDetalle()">
       Cerrar
     </button>
+
+    <!-- Borrar va con «salir», lejos de las acciones que avanzan la cita: no es una de ellas. -->
+    @if (puedeEliminar() && citaDetalle()) {
+      <button type="button" class="btn btn-danger pie-cita__eliminar"
+              (click)="pedirEliminar(citaDetalle()!); cerrarDetalle()">
+        <lucide-icon name="trash-2" [size]="14" /> Eliminar
+      </button>
+    }
 
     @if (puedeEditar() && citaDetalle() && (citaDetalle()!.estado === 'pendiente' || citaDetalle()!.estado === 'confirmada')) {
       <div class="pie-cita__acciones">
@@ -203,6 +204,15 @@
   (cancel)="confirmAbierto.set(false); citaACancelar.set(null)"
   (confirm)="cancelarConfirmado()" />
 
+<reserva-confirm
+  [open]="confirmEliminar()"
+  title="Eliminar la cita"
+  [message]="'La cita de ' + (citaAEliminar()?.cliente_nombre || '') + ' desaparecerá del histórico y de los informes. Esto no se puede deshacer; si solo quieres liberar el hueco, cancélala. Los movimientos de caja ya registrados se conservan.'"
+  confirmText="Eliminar"
+  kind="danger"
+  (cancel)="cancelarEliminar()"
+  (confirm)="eliminarConfirmado()" />
+
 <reserva-cita-form
   [idNegocio]="idNegocio()"
   [open]="modalNuevaCita()"
@@ -215,6 +225,5 @@
   [metodos]="metodosPago()"
   [permiteMultipago]="permiteMultipago()"
   [cajaAbierta]="cajaAbierta()"
-  [exigeCaja]="exigeCaja()"
   (close)="citaACobrar.set(null)"
   (cobrada)="onCobrada()" />

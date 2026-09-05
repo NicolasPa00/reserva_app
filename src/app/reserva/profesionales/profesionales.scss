@@ -24,8 +24,16 @@
   &:hover { box-shadow: var(--shadow-md); }
   &--inactivo { opacity: .62; }
 
-  // Franja superior: la identidad de la persona, sin robarle sitio al contenido.
-  &__franja { display: block; height: 4px; background: var(--tono); flex-shrink: 0; }
+  // Franja superior: **marca del negocio**, no identidad de la persona.
+  //
+  // Salía del color derivado del id, así que la rejilla era un arcoíris de doce tonos que no
+  // pega con ninguna paleta de inquilino y compite con ella. La identidad de la persona la
+  // sigue dando el avatar, que es donde se busca; la franja es cromo de la tarjeta y va con el
+  // primario. El degradado al acento evita que doce tarjetas seguidas parezcan una sola barra.
+  &__franja {
+    display: block; height: 4px; flex-shrink: 0;
+    background: linear-gradient(90deg, var(--color-primary), var(--color-accent));
+  }
 
   &__head {
     display: flex; align-items: center; gap: .75rem;
@@ -108,7 +116,12 @@
 }
 
 .form { display: flex; flex-direction: column; gap: 1rem; }
-.form__row label, .form__grid-2 label {
+// El :not(.mini) no es cosmético. El botón de subir imagen es un <label> (envuelve el input
+// file), y esta regla —una clase más un elemento— gana en especificidad a .mini, que es solo
+// una clase: le imponía flex-direction: column y dejaba el icono encima del texto en vez de a
+// su lado. Se excluye aquí en vez de subir la especificidad de .mini, que arrastraría el
+// problema a cualquier <label class="mini"> futuro.
+.form__row label:not(.mini), .form__grid-2 label:not(.mini) {
   display: flex; flex-direction: column; gap: .35rem;
   span { font-size: .8rem; color: var(--color-text-secondary); font-weight: 500; }
 }

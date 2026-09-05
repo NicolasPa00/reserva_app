@@ -135,7 +135,6 @@ export class ConfiguracionComponent implements OnInit {
     instrucciones_pago:        [''],
     permite_cobro_profesional: [false],
     permite_multipago:         [false],
-    exige_caja_abierta:        [false],
   });
 
   constructor() {
@@ -195,7 +194,6 @@ export class ConfiguracionComponent implements OnInit {
             instrucciones_pago:        cfg.data.instrucciones_pago ?? '',
             permite_cobro_profesional: cfg.data.permite_cobro_profesional ?? false,
             permite_multipago:         cfg.data.permite_multipago ?? false,
-            exige_caja_abierta:        cfg.data.exige_caja_abierta ?? false,
           });
         }
         if (metodos?.success && metodos.data) this.metodos.set(metodos.data);
@@ -224,7 +222,6 @@ export class ConfiguracionComponent implements OnInit {
       // Guardar multipago activo sin formas suficientes dejaría una opción que no se puede
       // usar; se corrige en el envío en vez de dejar que el usuario lo descubra al cobrar.
       permite_multipago:         v.permite_multipago && this.puedeMultipago(),
-      exige_caja_abierta:        v.exige_caja_abierta,
     }).subscribe({
       next: r => {
         this.guardando.set(false);

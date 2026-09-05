@@ -24,7 +24,12 @@
 .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
 @media (max-width: 600px) { .grid { grid-template-columns: 1fr; } }
 
-.cfg label {
+// El :not(.mini) no es cosmético. El botón de subir imagen es un <label> (envuelve el input
+// file), y esta regla —una clase más un elemento— gana en especificidad a .mini, que es solo
+// una clase: le imponía flex-direction: column y dejaba el icono encima del texto en vez de a
+// su lado. Se excluye aquí en vez de subir la especificidad de .mini, que arrastraría el
+// problema a cualquier <label class="mini"> futuro.
+.cfg label:not(.mini) {
   display: flex; flex-direction: column; gap: .35rem;
   span { font-size: .8rem; color: var(--color-text-secondary); font-weight: 500; }
   small { color: var(--color-text-muted); font-size: .72rem; }
@@ -33,6 +38,16 @@
 // ── Interruptores ──
 // Cada uno lleva su explicación debajo: «Los profesionales pueden cobrar» no dice por sí solo
 // qué cambia en la caja, y es justo la decisión que hay que entender antes de marcarla.
+// Una regla que no se puede desactivar, con la misma caja que los interruptores de al lado para
+// que se lea como parte del mismo bloque de ajustes y no como una nota suelta al pie.
+.hint--fijo {
+  display: flex; align-items: flex-start; gap: .55rem; margin: 0;
+  padding: .75rem .85rem; border-radius: var(--radius-md);
+  border: 1px solid var(--color-border); background: var(--color-bg-muted);
+  color: var(--color-text-secondary); font-size: .82rem; line-height: 1.45;
+  lucide-icon { flex-shrink: 0; margin-top: .1rem; color: var(--color-text-muted); }
+}
+
 .toggle {
   flex-direction: row; align-items: flex-start; gap: .65rem; cursor: pointer;
   padding: .75rem .85rem; border-radius: var(--radius-md);

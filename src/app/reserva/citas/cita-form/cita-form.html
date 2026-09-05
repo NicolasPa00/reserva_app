@@ -113,8 +113,17 @@
           @if (buscandoSlots()) { <em class="paso__cargando">buscando disponibilidad…</em> }
         </h4>
 
+        <!--
+          Decir *qué* falta, no que «falta algo». El caso frecuente es tener profesional y día y
+          no haber marcado servicio: sin él no se puede calcular ni un hueco, porque la duración
+          de la cita sale de los servicios. El mensaje genérico dejaba la sección en blanco y a
+          la persona sin saber a dónde volver.
+        -->
         @if (!listoParaSlots()) {
-          <p class="hint">Elige profesional, servicios y día: las horas libres aparecerán aquí solas.</p>
+          <p class="hint hint--warn">
+            <lucide-icon name="info" [size]="14" />
+            {{ queFaltaParaSlots() }}
+          </p>
         } @else if (buscandoSlots()) {
           <div class="slots">
             @for (i of [1,2,3,4,5,6,7,8]; track i) { <span class="slot slot--skeleton"></span> }

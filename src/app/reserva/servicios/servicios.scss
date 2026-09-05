@@ -134,7 +134,12 @@
 }
 
 .form { display: flex; flex-direction: column; gap: 1rem; }
-.form__row label, .form__grid label {
+// El :not(.mini) no es cosmético. El botón de subir imagen es un <label> (envuelve el input
+// file), y esta regla —una clase más un elemento— gana en especificidad a .mini, que es solo
+// una clase: le imponía flex-direction: column y dejaba el icono encima del texto en vez de a
+// su lado. Se excluye aquí en vez de subir la especificidad de .mini, que arrastraría el
+// problema a cualquier <label class="mini"> futuro.
+.form__row label:not(.mini), .form__grid label:not(.mini) {
   display: flex; flex-direction: column; gap: .35rem;
   span { font-size: .8rem; color: var(--color-text-secondary); font-weight: 500; }
 }

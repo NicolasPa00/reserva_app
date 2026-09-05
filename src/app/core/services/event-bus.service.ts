@@ -11,6 +11,9 @@ export type ReservaEventName =
   | 'cita_creada'
   | 'cita_actualizada'
   | 'cita_cancelada'
+  // Borrado definitivo (acción `agenda_eliminar`). Es distinto de cancelar: la cita ya no está,
+  // así que quien la tuviera en pantalla tiene que soltarla, no repintarla en otro estado.
+  | 'cita_eliminada'
   // Una cita completada mueve dinero: la vista de Caja escucha esto para refrescar el turno
   // cuando el cobro se hizo desde Citas o desde la Agenda.
   | 'cita_cobrada'

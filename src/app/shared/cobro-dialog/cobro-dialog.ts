@@ -1,6 +1,6 @@
 import {
   ChangeDetectionStrategy, Component, EventEmitter, Input, Output,
-  computed, inject, signal,
+  computed, inject, input, signal,
 } from '@angular/core';
 import { CommonModule, CurrencyPipe } from '@angular/common';
 import { LucideAngularModule } from 'lucide-angular';
@@ -37,9 +37,12 @@ export class CobroDialogComponent {
   @Input({ required: true }) idNegocio!: number;
   @Input() metodos: MetodoPago[] = [];
   @Input() permiteMultipago = false;
-  /** Solo informativo: el backend decide si exige caja según su propia configuración. */
-  @Input() cajaAbierta = true;
-  @Input() exigeCaja = false;
+
+  /**
+   * Estado del turno. Señal, no `@Input` plano: el padre lo refresca justo antes de abrir el
+   * diálogo, y un `@Input` normal no despertaría al `computed` que apaga el botón.
+   */
+  readonly cajaAbierta = input(true);
 
   @Input() set cita(v: Cita | null) {
     this.citaSig.set(v);
@@ -58,7 +61,15 @@ export class CobroDialogComponent {
   /** Una cita de importe cero no necesita forma de pago: no hay nada que cobrar. */
   readonly requierePago = computed(() => this.total() > 0);
 
-  readonly bloqueadoPorCaja = computed(() => this.exigeCaja && !this.cajaAbierta);
+  /**
+   * Sin turno abierto no se cobra, y no hay ajuste que lo permita.
+   *
+   * Antes dependía de `exige_caja_abierta`: con el flag apagado la cita se completaba y el
+   * dinero quedaba fuera de toda caja, avisado solo al cerrar el día. El backend ya lo rechaza
+   * con `CAJA_CERRADA` pase lo que pase; esto es la mitad amable, para que el botón esté apagado
+   * antes de intentarlo. Una cita de importe cero no mueve dinero, así que sí se puede completar.
+   */
+  readonly bloqueadoPorCaja = computed(() => this.requierePago() && !this.cajaAbierta());
 
   readonly puedeCobrar = computed(() => {
     if (this.enviando() || this.bloqueadoPorCaja()) return false;

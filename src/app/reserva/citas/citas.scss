@@ -1,10 +1,3 @@
-.tabs { display: inline-flex; background: var(--color-bg-muted); padding: 4px; border-radius: var(--radius-md); gap: 4px; }
-.tab {
-  padding: .4rem .85rem; border: 0; background: transparent; cursor: pointer;
-  border-radius: var(--radius-sm); font-size: .85rem; font-weight: 500; color: var(--color-text-secondary);
-  display: inline-flex; align-items: center; gap: .35rem;
-  &--on { background: var(--color-surface); color: var(--color-text-primary); box-shadow: 0 1px 3px rgba(0,0,0,.06); }
-}
 
 .filtros {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: .75rem;
@@ -61,6 +54,10 @@
   display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; width: 100%;
 
   &__salir { flex-shrink: 0; }
+
+  // Borrar se queda a la izquierda, con «Cerrar»: no forma parte del flujo de la cita y no
+  // debería competir con «Completar y cobrar» por el mismo rincón de la pantalla.
+  &__eliminar { flex-shrink: 0; }
 
   // `margin-left: auto` va en el contenedor de las acciones, no en «Cerrar»: así al envolver
   // el bloque entero baja de línea junto, en vez de repartirse por el hueco que quede.

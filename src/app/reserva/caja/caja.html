@@ -255,6 +255,12 @@
               <strong class="movs__monto" [class.pos]="m.tipo === 'INGRESO'" [class.neg]="m.tipo === 'EGRESO'">
                 {{ m.tipo === 'EGRESO' ? '−' : '+' }}{{ m.monto | currency:'COP':'symbol':'1.0-0' }}
               </strong>
+              @if (permiteEliminar()) {
+                <button type="button" class="movs__borrar" (click)="pedirEliminarMovimiento(m)"
+                        [disabled]="guardando()" title="Eliminar este movimiento">
+                  <lucide-icon name="trash-2" [size]="14" />
+                </button>
+              }
             </li>
           }
         </ul>
@@ -394,3 +400,16 @@
   kind="primary"
   (cancel)="confirmCierre.set(false)"
   (confirm)="cerrarCaja()" />
+
+<!--
+  Se dice el importe: el cuadre del turno cambia justo en esa cifra, y es lo único que permite
+  a quien confirma darse cuenta de que iba a borrar el movimiento equivocado.
+-->
+<reserva-confirm
+  [open]="confirmEliminar()"
+  title="Eliminar el movimiento"
+  [message]="'Se borrará el ' + descripcionMovimiento(movAEliminar()) + '. El turno se recalcula sin él y la acción queda registrada en auditoría. No se puede deshacer.'"
+  confirmText="Eliminar"
+  kind="danger"
+  (cancel)="cancelarEliminarMovimiento()"
+  (confirm)="eliminarMovimientoConfirmado()" />

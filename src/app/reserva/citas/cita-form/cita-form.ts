@@ -147,6 +147,30 @@ export class CitaFormComponent implements OnInit {
     this.listoParaSlots() && !!this.slotElegido() && !!this.cliente().nombre.trim(),
   );
 
+  /**
+   * Qué falta para poder buscar horas, nombrado.
+   *
+   * Los pasos no se completan en orden: es normal elegir profesional y día y saltarse los
+   * servicios, y entonces el paso «Hora» se quedaba con un aviso genérico —«elige profesional,
+   * servicios y día»— que no dice cuál de los tres es el que falta. Sin servicios no hay
+   * duración, y sin duración no hay huecos que calcular; por eso se menciona primero.
+   */
+  readonly queFaltaParaSlots = computed(() => {
+    const faltan: string[] = [];
+    if (this.idProfesional() == null) faltan.push('un profesional');
+    if (this.idServicios().size === 0) faltan.push('al menos un servicio');
+    if (!this.fecha()) faltan.push('el día');
+
+    if (faltan.length === 0) return '';
+    if (faltan.length === 1) {
+      return faltan[0] === 'al menos un servicio'
+        ? 'Falta elegir el servicio (paso 2): la duración de la cita sale de ahí, y sin ella no se pueden calcular las horas libres.'
+        : `Falta elegir ${faltan[0]} para ver las horas libres.`;
+    }
+    const ultimo = faltan.pop()!;
+    return `Falta elegir ${faltan.join(', ')} y ${ultimo} para ver las horas libres.`;
+  });
+
   constructor() {
     // Los días dependen del profesional y de la ventana; los slots, además, de la fecha y los
     // servicios. Dos efectos con clave propia en vez de encadenar callbacks por cada control.

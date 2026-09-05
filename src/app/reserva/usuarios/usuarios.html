@@ -154,67 +154,73 @@
             </p>
           }
 
-          <ul class="modulos">
+          <!--
+            Una tarjeta por módulo, como en `negocio_app`. La lista vertical obligaba a leer
+            veinte filas seguidas para encontrar un módulo, y sus subpermisos —sangrados bajo
+            cada una— se confundían con el módulo siguiente. En rejilla cada módulo es un bloque
+            cerrado: se ve de un vistazo cuáles están concedidos (los teñidos) y los subpermisos
+            no pueden pertenecer a otro.
+          -->
+          <div class="modulos-grid">
             @for (m of p.modulos; track m.id_nivel) {
-              <li [class.modulos--sin-plantilla]="!m.plantilla.puede_ver">
-                <div class="modulos__cabecera">
-                  <label class="modulos__fila">
+              <article class="mod" [class.mod--on]="m.puede_ver"
+                       [class.mod--sin-plantilla]="!m.plantilla.puede_ver">
+                <header class="mod__head">
+                  <div class="mod__titulo">
+                    <h4>{{ m.modulo | titlecase }}</h4>
+                    <em>{{ m.url }}</em>
+                  </div>
+                  <label class="mod__toggle">
                     <input type="checkbox" [checked]="m.puede_ver"
                            (change)="alternarPermiso(m.id_nivel)" />
-                    <span class="modulos__txt">
-                      <strong>{{ m.modulo }}</strong>
-                      <em>{{ m.url }}</em>
-                    </span>
+                    <span>{{ m.puede_ver ? 'Activo' : 'Sin acceso' }}</span>
                   </label>
-                  <span class="modulos__crud">
-                    @if (m.plantilla.puede_ver) {
-                      <span class="acc" [class.acc--on]="m.plantilla.puede_crear">Crear</span>
-                      <span class="acc" [class.acc--on]="m.plantilla.puede_editar">Editar</span>
-                      <span class="acc" [class.acc--on]="m.plantilla.puede_eliminar">Eliminar</span>
-                    } @else {
-                      <span class="acc acc--nota">El rol no tiene acciones aquí</span>
-                    }
-                  </span>
+                </header>
+
+                <div class="mod__crud">
+                  @if (m.plantilla.puede_ver) {
+                    <span class="acc" [class.acc--on]="m.plantilla.puede_crear">Crear</span>
+                    <span class="acc" [class.acc--on]="m.plantilla.puede_editar">Editar</span>
+                    <span class="acc" [class.acc--on]="m.plantilla.puede_eliminar">Eliminar</span>
+                  } @else {
+                    <span class="acc acc--nota">El rol no tiene acciones aquí</span>
+                  }
                 </div>
 
-                <!-- Operaciones dentro de la vista -->
+                <!-- Subpermisos: operaciones concretas dentro de la vista -->
                 @if (m.acciones.length > 0) {
-                  <ul class="acciones" [class.acciones--off]="!m.puede_ver">
+                  <div class="mod__sub" [class.mod__sub--off]="!m.puede_ver">
+                    <h5>Subpermisos</h5>
                     @for (a of m.acciones; track a.id_nivel) {
-                      <li>
-                        <label class="acciones__fila"
-                               [class.acciones__fila--bloqueada]="!m.puede_ver">
-                          <input type="checkbox" [checked]="a.puede_ver"
-                                 [disabled]="!m.puede_ver"
-                                 (change)="alternarAccion(m.id_nivel, a.id_nivel)" />
-                          <span class="acciones__txt">
-                            <strong>{{ a.accion }}</strong>
-                            <em>{{ a.codigo }}</em>
-                          </span>
-                        </label>
+                      <label class="sub" [class.sub--bloqueada]="!m.puede_ver">
+                        <input type="checkbox" [checked]="a.puede_ver"
+                               [disabled]="!m.puede_ver"
+                               (change)="alternarAccion(m.id_nivel, a.id_nivel)" />
+                        <span class="sub__txt">
+                          <strong>{{ a.accion }}</strong>
+                          <em>{{ a.codigo }}</em>
+                        </span>
                         @if (!a.en_plantilla) {
-                          <span class="acciones__nota" title="Puedes concederla igualmente para este negocio">
+                          <span class="sub__nota" title="Puedes concederla igualmente para este negocio">
                             No viene por defecto
                           </span>
                         }
-                      </li>
+                      </label>
                     }
-                  </ul>
-                  @if (!m.puede_ver) {
-                    <p class="acciones__aviso">
-                      Concede la vista para poder repartir sus acciones.
-                    </p>
-                  }
+                    @if (!m.puede_ver) {
+                      <p class="mod__aviso">Concede la vista para poder repartir sus subpermisos.</p>
+                    }
+                  </div>
                 }
-              </li>
+              </article>
             }
-          </ul>
+          </div>
 
           <p class="hint hint--pie">
-            La casilla de la vista decide si el rol <strong>entra</strong>; las de dentro, qué
-            puede <strong>hacer</strong> una vez ahí. «Crear / Editar / Eliminar» vienen de la
-            plantilla del rol y son iguales en todos los negocios: una acción que el rol no tiene
-            aparece bloqueada y no se puede conceder desde aquí.
+            El interruptor de la tarjeta decide si el rol <strong>entra</strong> a la vista; los
+            subpermisos, qué puede <strong>hacer</strong> una vez ahí. «Crear / Editar / Eliminar»
+            vienen de la plantilla del rol y son iguales en todos los negocios: una acción que el
+            rol no tiene aparece apagada y no se puede conceder desde aquí.
           </p>
 
           @if (vistasConcedidas() === 0) {

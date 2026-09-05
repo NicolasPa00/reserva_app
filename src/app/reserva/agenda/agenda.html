@@ -150,6 +150,11 @@
                size="lg" (close)="cerrarDetalle()">
   <reserva-cita-detalle [cita]="citaDetalle()" />
   <div modal-footer>
+    @if (puedeEliminarCita() && citaDetalle()) {
+      <button type="button" class="btn btn-danger" (click)="pedirEliminar(citaDetalle()!)">
+        <lucide-icon name="trash-2" [size]="14" /> Eliminar
+      </button>
+    }
     @if (puedeCobrar(citaDetalle())) {
       <button type="button" class="btn btn-primary" (click)="cobrar(citaDetalle()!)">
         <lucide-icon name="wallet" [size]="14" /> Completar y cobrar
@@ -159,13 +164,26 @@
   </div>
 </reserva-modal>
 
+<!--
+  Borrado definitivo. El mensaje dice lo que de verdad pasa —desaparece del histórico— porque
+  «¿seguro?» a secas no distingue esto de cancelar, que es lo que la gente espera al pulsar en
+  una cita.
+-->
+<reserva-confirm
+  [open]="confirmEliminar()"
+  title="Eliminar la cita"
+  [message]="'La cita de ' + (citaAEliminar()?.cliente_nombre || '') + ' desaparecerá del histórico y de los informes. Esto no se puede deshacer; si solo quieres liberar el hueco, cancélala. Los movimientos de caja ya registrados se conservan.'"
+  confirmText="Eliminar"
+  kind="danger"
+  (cancel)="cancelarEliminar()"
+  (confirm)="eliminarConfirmado()" />
+
 <reserva-cobro-dialog
   [idNegocio]="idNegocio()"
   [cita]="citaACobrar()"
   [metodos]="metodosPago()"
   [permiteMultipago]="permiteMultipago()"
   [cajaAbierta]="cajaAbierta()"
-  [exigeCaja]="exigeCaja()"
   (close)="citaACobrar.set(null)"
   (cobrada)="onCobrada()" />
 

@@ -159,38 +159,97 @@
   }
 }
 
-.modulos {
-  list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column;
+// ── Módulos como tarjetas ──
+//
+// Misma forma que en `negocio_app`: rejilla de tarjetas, con el interruptor de la vista en la
+// cabecera y sus subpermisos dentro. Sustituye a la lista vertical, donde los subpermisos
+// sangrados de un módulo se leían como si fueran del siguiente.
+//
+// `auto-fit` con un mínimo de 260 px: en el ancho que deja la columna de roles caben dos
+// tarjetas, y en una tablet cae a una sola sin que haya que decidir nada.
+.modulos-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: .75rem;
+}
 
-  > li {
-    display: flex; flex-direction: column; gap: .5rem;
-    padding: .7rem 0; border-top: 1px solid var(--color-border);
-    &:first-child { border-top: 0; }
-  }
+.mod {
+  display: flex; flex-direction: column; gap: .6rem; min-width: 0;
+  padding: .85rem .9rem;
+  border: 1px solid var(--color-border); border-radius: var(--radius-md);
+  background: var(--color-surface);
+  transition: border-color var(--transition-fast), background var(--transition-fast);
 
-  &__cabecera {
-    display: flex; align-items: center; justify-content: space-between;
-    gap: .85rem; flex-wrap: wrap;
+  // Concedido: se tiñe con el primario. Es la señal que permite contar de un vistazo cuántas
+  // vistas tiene el rol sin leer un solo interruptor.
+  &--on {
+    border-color: color-mix(in srgb, var(--color-primary) 46%, var(--color-border));
+    background: color-mix(in srgb, var(--color-primary) 7%, transparent);
   }
-  &__crud { display: flex; gap: .3rem; flex-wrap: wrap; flex-shrink: 0; }
 
   // Sin plantilla de rol la vista se puede conceder, pero quedará en solo lectura: se atenúa
   // para que la diferencia sea visible antes de marcarla, no después.
   &--sin-plantilla { opacity: .72; }
 
-  &__fila {
-    display: flex; align-items: center; gap: .6rem; cursor: pointer; min-width: 0; flex: 1;
-    input { width: 17px; height: 17px; flex-shrink: 0; accent-color: var(--color-primary); cursor: pointer; }
+  &__head {
+    display: flex; align-items: flex-start; justify-content: space-between; gap: .6rem;
   }
-  &__txt {
+
+  &__titulo {
     display: flex; flex-direction: column; min-width: 0;
-    strong { font-size: .9rem; color: var(--color-text-primary); font-weight: 600; }
+    h4 { margin: 0; font-size: .95rem; font-weight: 700; color: var(--color-text-primary); line-height: 1.2; }
     em {
-      font-style: normal; font-size: .74rem; color: var(--color-text-muted);
+      font-style: normal; font-size: .72rem; color: var(--color-text-muted);
+      font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+  }
+
+  &__toggle {
+    display: inline-flex; align-items: center; gap: .4rem; flex-shrink: 0; cursor: pointer;
+    font-size: .72rem; font-weight: 700; color: var(--color-text-secondary);
+    input { width: 16px; height: 16px; accent-color: var(--color-primary); cursor: pointer; }
+  }
+
+  &__crud { display: flex; gap: .3rem; flex-wrap: wrap; }
+
+  &__sub {
+    display: flex; flex-direction: column; gap: .35rem;
+    border-top: 1px solid var(--color-border); padding-top: .55rem;
+
+    h5 {
+      margin: 0 0 .1rem; font-size: .68rem; font-weight: 700; letter-spacing: .03em;
+      text-transform: uppercase; color: var(--color-text-muted);
+    }
+
+    // Vista sin conceder: sus subpermisos no se pueden repartir todavía.
+    &--off { opacity: .5; }
+  }
+
+  &__aviso {
+    margin: .2rem 0 0; font-size: .72rem; color: var(--color-text-muted); font-style: italic;
+  }
+}
+
+.sub {
+  display: flex; align-items: center; gap: .5rem; min-width: 0; cursor: pointer;
+
+  input {
+    width: 15px; height: 15px; flex-shrink: 0;
+    accent-color: var(--color-primary); cursor: pointer;
+  }
+  &--bloqueada { cursor: not-allowed; input { cursor: not-allowed; } }
+
+  &__txt {
+    display: flex; flex-direction: column; min-width: 0; flex: 1;
+    strong { font-size: .82rem; font-weight: 500; color: var(--color-text-primary); }
+    em {
+      font-style: normal; font-size: .66rem; color: var(--color-text-muted);
       font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
     }
   }
-  &__acciones { display: flex; gap: .3rem; flex-wrap: wrap; flex-shrink: 0; }
+
+  &__nota {
+    font-size: .66rem; color: var(--color-text-muted); font-style: italic; flex-shrink: 0;
+  }
 }
 
 .acc {
@@ -202,47 +261,6 @@
     color: var(--color-success);
   }
   &--nota { background: transparent; font-style: italic; }
-}
-
-// ── Acciones dentro de una vista ──
-// Sangradas y con una guía a la izquierda: se lee de un vistazo que dependen de la vista de
-// arriba y no son otro módulo suelto.
-.acciones {
-  list-style: none; margin: 0 0 0 1.65rem; padding: 0 0 0 .85rem;
-  display: flex; flex-direction: column; gap: .3rem;
-  border-left: 2px solid var(--color-border);
-
-  li { display: flex; align-items: center; justify-content: space-between; gap: .6rem; }
-
-  // Vista sin conceder: sus acciones no se pueden repartir todavía.
-  &--off { opacity: .45; }
-
-  &__fila {
-    display: flex; align-items: center; gap: .55rem; cursor: pointer; min-width: 0; flex: 1;
-    input {
-      width: 15px; height: 15px; flex-shrink: 0;
-      accent-color: var(--color-primary); cursor: pointer;
-    }
-    &--bloqueada { cursor: not-allowed; input { cursor: not-allowed; } }
-  }
-
-  &__txt {
-    display: flex; flex-direction: column; min-width: 0;
-    strong { font-size: .84rem; font-weight: 500; color: var(--color-text-primary); }
-    em {
-      font-style: normal; font-size: .68rem; color: var(--color-text-muted);
-      font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
-    }
-  }
-
-  &__nota {
-    font-size: .68rem; color: var(--color-text-muted); font-style: italic; flex-shrink: 0;
-  }
-
-  &__aviso {
-    margin: .25rem 0 0 2.5rem;
-    font-size: .72rem; color: var(--color-text-muted); font-style: italic;
-  }
 }
 
 // ── Formulario ──

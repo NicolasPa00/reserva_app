@@ -350,16 +350,16 @@
           </span>
         </label>
 
-        <label class="toggle">
-          <input type="checkbox" formControlName="exige_caja_abierta" />
-          <span class="toggle__txt">
-            <strong>Exigir caja abierta para cobrar</strong>
-            <em>
-              Sin turno abierto no se podrá completar una cita. Evita que se cobre dinero que
-              luego no aparece en ninguna caja.
-            </em>
-          </span>
-        </label>
+        <!--
+          «Exigir caja abierta» ya no es un ajuste: cobrar sin turno abierto deja dinero fuera
+          de todo cuadre, así que se rechaza siempre. Se deja dicho aquí para que no parezca que
+          la opción se perdió.
+        -->
+        <p class="hint hint--fijo">
+          <lucide-icon name="wallet" [size]="14" />
+          Para cobrar una cita hace falta tener la caja abierta. No es configurable: un cobro
+          que no entra en ningún turno no se puede cuadrar después.
+        </p>
       </div>
 
       <!-- Formas de pago -->

@@ -223,6 +223,15 @@ export class ReservaApiService {
       `${this.base}/citas/${id}/cancelar`, { id_negocio: idNegocio, motivo },
     );
   }
+  /**
+   * Borrado definitivo de una cita. No es `cancelarCita`: aquella la deja en el histórico con
+   * su motivo, ésta la quita del todo. Exige la acción `agenda_eliminar` y queda auditada.
+   */
+  eliminarCita(id: number, idNegocio: number) {
+    return this.http.delete<ApiResponse<{ id_cita: number }>>(
+      `${this.base}/citas/${id}?id_negocio=${idNegocio}`,
+    );
+  }
   aprobarPago(id: number, idNegocio: number) {
     return this.http.post<ApiResponse<Cita>>(
       `${this.base}/citas/${id}/pago/aprobar`, { id_negocio: idNegocio },
@@ -490,6 +499,16 @@ export class ReservaApiService {
         id_negocio: idNegocio, tipo: datos.tipo, monto: datos.monto,
         concepto: datos.concepto, id_metodo_pago: datos.idMetodoPago,
       },
+    );
+  }
+
+  /**
+   * Borra un movimiento del turno **abierto**. Exige la acción `caja_eliminar` y queda
+   * auditado; sobre un turno ya cerrado el backend responde `CAJA_CERRADA`.
+   */
+  eliminarMovimientoCaja(idMovimiento: number, idNegocio: number) {
+    return this.http.delete<ApiResponse<{ id_movimiento: number }>>(
+      `${this.base}/caja/movimiento/${idMovimiento}?id_negocio=${idNegocio}`,
     );
   }
 

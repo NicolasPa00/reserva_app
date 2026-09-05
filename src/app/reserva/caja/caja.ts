@@ -72,6 +72,10 @@ export class CajaComponent implements OnInit {
 
   readonly confirmCierre = signal(false);
 
+  // Borrado de un movimiento del turno
+  readonly confirmEliminar = signal(false);
+  readonly movAEliminar = signal<MovimientoCaja | null>(null);
+
   readonly idNegocio = computed(() => this.auth.negocio()?.id_negocio ?? 0);
 
   // Permisos del rol. Abrir, cerrar y mover dinero son tres decisiones distintas: quien atiende
@@ -80,6 +84,13 @@ export class CajaComponent implements OnInit {
   readonly permiteAbrir      = computed(() => this.auth.puedeAccion('caja_abrir'));
   readonly permiteCerrar     = computed(() => this.auth.puedeAccion('caja_cerrar'));
   readonly permiteMovimiento = computed(() => this.auth.puedeAccion('caja_movimiento'));
+
+  /**
+   * Borrar un movimiento cambia el cuadre del turno y no tiene deshacer, así que va aparte de
+   * «registrar»: quien apunta un gasto no tiene por qué poder hacerlo desaparecer. De fábrica
+   * solo la tiene el administrador, y el backend la vuelve a comprobar.
+   */
+  readonly permiteEliminar   = computed(() => this.auth.puedeAccion('caja_eliminar'));
 
   readonly abierta = computed(() => this.estado()?.abierta === true);
   readonly caja = computed(() => this.estado()?.caja ?? null);
@@ -251,6 +262,46 @@ export class CajaComponent implements OnInit {
         this.toast.error(e?.error?.message || 'Error al registrar el movimiento.');
       },
     });
+  }
+
+  // ── Borrar un movimiento del turno ──
+
+  pedirEliminarMovimiento(m: MovimientoCaja) {
+    this.movAEliminar.set(m);
+    this.confirmEliminar.set(true);
+  }
+
+  cancelarEliminarMovimiento() {
+    this.confirmEliminar.set(false);
+    this.movAEliminar.set(null);
+  }
+
+  eliminarMovimientoConfirmado() {
+    const m = this.movAEliminar();
+    if (!m || this.guardando()) return;
+    this.guardando.set(true);
+    this.api.eliminarMovimientoCaja(m.id_movimiento, this.idNegocio()).subscribe({
+      next: r => {
+        this.guardando.set(false);
+        this.cancelarEliminarMovimiento();
+        if (r?.success) { this.toast.success('Movimiento eliminado'); this.cargar(); }
+        else this.toast.error(r?.message || 'No se pudo eliminar.');
+      },
+      error: e => {
+        this.guardando.set(false);
+        this.cancelarEliminarMovimiento();
+        this.toast.error(e?.error?.message || 'Error al eliminar el movimiento.');
+      },
+    });
+  }
+
+  /** Texto del confirm: se nombra el importe, que es lo que cambia en el cuadre. */
+  descripcionMovimiento(m: MovimientoCaja | null): string {
+    if (!m) return '';
+    const signo = m.tipo === 'EGRESO' ? 'egreso' : 'ingreso';
+    return `${signo} de ${new Intl.NumberFormat('es-CO', {
+      style: 'currency', currency: 'COP', maximumFractionDigits: 0,
+    }).format(Number(m.monto ?? 0))}${m.concepto ? ` · ${m.concepto}` : ''}`;
   }
 
   setMovMetodo(raw: string) { this.movMetodo.set(raw === '' ? null : Number(raw)); }

@@ -14,6 +14,7 @@ import { Cita, DiaDisponible, EstadoCita, MetodoPago, Profesional } from '../../
 import { CitaFormComponent } from '../citas/cita-form/cita-form';
 import { ModalComponent } from '../../shared/modal/modal';
 import { CobroDialogComponent } from '../../shared/cobro-dialog/cobro-dialog';
+import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dialog';
 import {
   CitaDetalleComponent, ESTADO_LABELS, badgeEstado,
 } from '../../shared/cita-detalle/cita-detalle';
@@ -53,6 +54,7 @@ interface FranjaAbierta { topPx: number; heightPx: number; }
   imports: [
     CommonModule, LucideAngularModule, DatePipe,
     CitaFormComponent, ModalComponent, CitaDetalleComponent, CobroDialogComponent,
+    ConfirmDialogComponent,
   ],
   templateUrl: './agenda.html',
   styleUrl: './agenda.scss',
@@ -84,14 +86,24 @@ export class AgendaComponent implements OnInit, OnDestroy {
   readonly citaACobrar = signal<Cita | null>(null);
   readonly metodosPago = signal<MetodoPago[]>([]);
   readonly permiteMultipago = signal(false);
-  readonly exigeCaja = signal(false);
   readonly cajaAbierta = signal(true);
 
   readonly idNegocio = computed(() => this.auth.negocio()?.id_negocio ?? 0);
 
+  // Borrado definitivo
+  readonly confirmEliminar = signal(false);
+  readonly citaAEliminar = signal<Cita | null>(null);
+  readonly eliminando = signal(false);
+
   // Permisos por acción dentro de la agenda.
   readonly puedeAgendar = computed(() => this.auth.puedeAccion('agenda_crear_cita'));
   readonly puedeCobrarCita = computed(() => this.auth.puedeAccion('agenda_cobrar'));
+
+  /**
+   * Borrar no es cancelar: quita la cita del histórico para siempre. Por eso va en su propia
+   * acción, que de fábrica solo tiene el administrador, y el backend la vuelve a comprobar.
+   */
+  readonly puedeEliminarCita = computed(() => this.auth.puedeAccion('agenda_eliminar'));
 
   /**
    * Rango horario de la rejilla.
@@ -202,6 +214,7 @@ export class AgendaComponent implements OnInit, OnDestroy {
     this.cargarContextoCobro();
     this.bus.on<Cita>('cita_creada').subscribe(() => this.cargar());
     this.bus.on<Cita>('cita_cancelada').subscribe(() => this.cargar());
+    this.bus.on<Cita>('cita_eliminada').subscribe(() => this.cargar());
     this.bus.on<Cita>('cita_pago_aprobado').subscribe(() => this.cargar());
     // La línea de «ahora» se mueve sola; cada minuto es suficiente para un píxel y medio.
     this.relojId = setInterval(() => this.ahora.set(new Date()), 60_000);
@@ -304,7 +317,59 @@ export class AgendaComponent implements OnInit, OnDestroy {
 
   cobrar(c: Cita) {
     this.citaDetalle.set(null);
+    this.refrescarCaja();
     this.citaACobrar.set(c);
+  }
+
+  // ── Borrado definitivo ──
+
+  pedirEliminar(c: Cita) {
+    this.citaDetalle.set(null);
+    this.citaAEliminar.set(c);
+    this.confirmEliminar.set(true);
+  }
+
+  cancelarEliminar() {
+    this.confirmEliminar.set(false);
+    this.citaAEliminar.set(null);
+  }
+
+  eliminarConfirmado() {
+    const c = this.citaAEliminar();
+    if (!c || this.eliminando()) return;
+    this.eliminando.set(true);
+    this.api.eliminarCita(c.id_cita, this.idNegocio()).subscribe({
+      next: r => {
+        this.eliminando.set(false);
+        this.cancelarEliminar();
+        if (r?.success) {
+          this.toast.success('Cita eliminada');
+          this.cargar();
+          this.bus.publish('cita_eliminada', null);
+        } else this.toast.error(r?.message || 'No se pudo eliminar.');
+      },
+      error: e => {
+        this.eliminando.set(false);
+        this.cancelarEliminar();
+        this.toast.error(e?.error?.message || 'Error al eliminar la cita.');
+      },
+    });
+  }
+
+  /**
+   * Relee si hay turno abierto justo antes de cobrar.
+   *
+   * El estado se carga al entrar a la agenda, y entre eso y el cobro puede haber pasado media
+   * mañana: alguien cerró la caja desde otra pantalla y aquí seguiría diciendo que está
+   * abierta. El backend lo rechazaría igual, pero es mejor apagar el botón que enseñar un error.
+   */
+  private refrescarCaja() {
+    const id = this.idNegocio();
+    if (!id) return;
+    this.api.getCaja(id).subscribe({
+      next: r => this.cajaAbierta.set(r?.data?.abierta === true),
+      error: () => this.cajaAbierta.set(false),
+    });
   }
 
   onCobrada() {
@@ -325,7 +390,6 @@ export class AgendaComponent implements OnInit, OnDestroy {
       next: r => {
         if (r?.success && r.data) {
           this.permiteMultipago.set(!!r.data.permite_multipago);
-          this.exigeCaja.set(!!r.data.exige_caja_abierta);
         }
       },
     });

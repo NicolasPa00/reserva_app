@@ -23,14 +23,8 @@
       @if (bloqueadoPorCaja()) {
         <p class="cb__aviso cb__aviso--error">
           <lucide-icon name="wallet" [size]="15" />
-          Este negocio exige tener la caja abierta para cobrar. Abre el turno en
-          <strong>Caja</strong> y vuelve a intentarlo.
-        </p>
-      } @else if (!cajaAbierta && requierePago()) {
-        <p class="cb__aviso">
-          <lucide-icon name="circle-alert" [size]="15" />
-          No hay una caja abierta: la cita se completará, pero este cobro no entrará en ningún
-          turno. Aparecerá como pendiente en <strong>Caja</strong>.
+          No hay ninguna caja abierta. Un cobro que no entra en un turno no se puede cuadrar,
+          así que abre la caja en <strong>Caja</strong> y vuelve a intentarlo.
         </p>
       }
 
