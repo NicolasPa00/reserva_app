@@ -24,56 +24,64 @@ const TIPOS: Record<string, string> = {
  * así que el icono no cuesta ni una petición extra ni un solo byte de JS de procesado de
  * imagen. Reescalar 200 KB de logo a 32 px en el hilo principal sí se notaría; esto no.
  */
+/**
+ * ## Por qué se retiran TODOS los `<link rel="icon">` y no se edita uno
+ *
+ * `index.html` declara varios: el `.ico` multi-tamaño y los PNG de 16 y 32 con su atributo
+ * `sizes`. Cambiarle el `href` solo al primero no sirve de nada: los otros siguen apuntando
+ * al icono de EscalApp, y el navegador **prefiere** el que declara el tamaño exacto que
+ * necesita. El resultado era el logo de EscalApp en la pestaña del portal de un cliente,
+ * que es justo lo contrario de lo que este servicio existe para hacer.
+ *
+ * Así que mientras el portal está abierto se apartan todos y queda uno solo, el del negocio.
+ * Al salir se devuelven tal cual estaban.
+ */
 @Injectable({ providedIn: 'root' })
 export class FaviconService {
   private readonly document = inject(DOCUMENT);
   private readonly navegador = isPlatformBrowser(inject(PLATFORM_ID));
 
-  /** El de `index.html`, para devolverlo al salir del portal. */
-  private original: { href: string; type: string | null } | null = null;
+  /** Los de `index.html`, apartados mientras dura el portal. */
+  private originales: HTMLLinkElement[] | null = null;
+  /** El que se inyecta con el logo del inquilino. */
+  private propio: HTMLLinkElement | null = null;
 
   aplicar(url: string | null | undefined): void {
     if (!this.navegador) return;
 
-    const enlace = this.enlace();
-    if (!enlace) return;
-
-    if (!this.original) {
-      this.original = { href: enlace.getAttribute('href') ?? '', type: enlace.getAttribute('type') };
-    }
+    const head = this.document.head;
+    if (!head) return;
 
     if (!url) { this.restaurar(); return; }
-    if (enlace.getAttribute('href') === url) return;   // ya es el suyo: no tocar el DOM
+    if (this.propio?.getAttribute('href') === url) return;  // ya es el suyo: no tocar el DOM
+
+    if (!this.originales) {
+      this.originales = Array.from(head.querySelectorAll<HTMLLinkElement>('link[rel~="icon"]'));
+      this.originales.forEach((el) => el.remove());
+    }
+
+    if (!this.propio) {
+      this.propio = this.document.createElement('link');
+      this.propio.setAttribute('rel', 'icon');
+      head.appendChild(this.propio);
+    }
 
     const ext = (url.split('?')[0].split('.').pop() ?? '').toLowerCase();
     const tipo = TIPOS[ext];
-    if (tipo) enlace.setAttribute('type', tipo);
-    else enlace.removeAttribute('type');
-    enlace.setAttribute('href', url);
+    if (tipo) this.propio.setAttribute('type', tipo);
+    else this.propio.removeAttribute('type');
+    this.propio.setAttribute('href', url);
   }
 
   restaurar(): void {
-    if (!this.navegador || !this.original) return;
+    if (!this.navegador || !this.originales) return;
 
-    const enlace = this.enlace();
-    if (!enlace) return;
-
-    enlace.setAttribute('href', this.original.href);
-    if (this.original.type) enlace.setAttribute('type', this.original.type);
-    else enlace.removeAttribute('type');
-  }
-
-  /** El `<link rel="icon">` de `index.html`; si faltara, se crea uno. */
-  private enlace(): HTMLLinkElement | null {
     const head = this.document.head;
-    if (!head) return null;
+    if (!head) return;
 
-    let el = head.querySelector<HTMLLinkElement>('link[rel~="icon"]');
-    if (!el) {
-      el = this.document.createElement('link');
-      el.setAttribute('rel', 'icon');
-      head.appendChild(el);
-    }
-    return el;
+    this.propio?.remove();
+    this.propio = null;
+    this.originales.forEach((el) => head.appendChild(el));
+    this.originales = null;
   }
 }
