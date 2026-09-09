@@ -182,3 +182,22 @@
   font-size: .82rem; color: var(--color-text-secondary);
   strong { color: var(--color-primary); font-variant-numeric: tabular-nums; }
 }
+
+// Ficha del cliente en modo edición: se lee, no se toca. Los datos personales se
+// cambian donde corresponde; aquí solo sirven para saber de quién es la cita.
+.cliente-fijo {
+  display: flex;
+  flex-direction: column;
+  gap: .2rem;
+  padding: .7rem .85rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-muted);
+
+  strong { font-size: .92rem; color: var(--color-text-primary); }
+  span   { font-size: .8rem; color: var(--color-text-secondary); }
+  em {
+    font-style: normal; font-size: .78rem; color: var(--color-text-muted);
+    margin-top: .15rem; white-space: pre-wrap; overflow-wrap: anywhere;
+  }
+}

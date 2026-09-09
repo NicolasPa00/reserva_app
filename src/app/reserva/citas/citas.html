@@ -140,6 +140,13 @@
         }
 
         <div class="pie-cita__grupo">
+          <!-- Editar va con las acciones que hacen avanzar la cita, antes de cobrarla: es lo
+               que se hace cuando el cliente cambia de idea al llegar. -->
+          @if (puedeEditarCita()) {
+            <button type="button" class="btn btn-outline" (click)="editarCita(citaDetalle()!)">
+              <lucide-icon name="pencil" [size]="14" /> Editar
+            </button>
+          }
           @if (puedeCompletar()) {
             <button type="button" class="btn btn-outline" (click)="completar(citaDetalle()!); cerrarDetalle()">
               <lucide-icon name="wallet" [size]="14" /> Completar y cobrar
@@ -216,8 +223,9 @@
 <reserva-cita-form
   [idNegocio]="idNegocio()"
   [open]="modalNuevaCita()"
-  (close)="modalNuevaCita.set(false)"
-  (created)="recargar()" />
+  [citaEditar]="citaEditando()"
+  (close)="cerrarFormulario()"
+  (saved)="recargar()" />
 
 <reserva-cobro-dialog
   [idNegocio]="idNegocio()"

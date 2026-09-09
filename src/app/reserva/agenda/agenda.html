@@ -155,6 +155,11 @@
         <lucide-icon name="trash-2" [size]="14" /> Eliminar
       </button>
     }
+    @if (puedeEditarCita(citaDetalle())) {
+      <button type="button" class="btn btn-outline" (click)="editarCita(citaDetalle()!)">
+        <lucide-icon name="pencil" [size]="14" /> Editar
+      </button>
+    }
     @if (puedeCobrar(citaDetalle())) {
       <button type="button" class="btn btn-primary" (click)="cobrar(citaDetalle()!)">
         <lucide-icon name="wallet" [size]="14" /> Completar y cobrar
@@ -190,5 +195,6 @@
 <reserva-cita-form
   [idNegocio]="idNegocio()"
   [open]="modalNuevaCita()"
-  (close)="modalNuevaCita.set(false)"
-  (created)="cargar()" />
+  [citaEditar]="citaEditando()"
+  (close)="cerrarFormulario()"
+  (saved)="cargar()" />

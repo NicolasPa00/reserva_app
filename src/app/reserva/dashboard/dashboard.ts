@@ -7,7 +7,7 @@ import { environment } from '../../../environments/environment';
 import { AuthService } from '../../core/services/auth.service';
 import { ReservaApiService } from '../../core/services/reserva-api.service';
 import { EventBusService } from '../../core/services/event-bus.service';
-import { CitaResumen, EstadoCita, ResumenDashboard } from '../../core/models';
+import { Cita, CitaResumen, EstadoCita, ResumenDashboard } from '../../core/models';
 import { CitaFormComponent } from '../citas/cita-form/cita-form';
 import { ESTADO_LABELS, badgeEstado } from '../../shared/cita-detalle/cita-detalle';
 import { colorDeEntidad } from '../../core/utils/color-entidad';
@@ -52,6 +52,49 @@ export class DashboardComponent implements OnInit {
   readonly cargando = signal(false);
   readonly error = signal<string | null>(null);
   readonly modalNuevaCita = signal(false);
+  /** Cita que está editando el formulario; `null` = está creando una nueva. */
+  readonly citaEditando = signal<Cita | null>(null);
+  readonly abriendoEdicion = signal<number | null>(null);
+
+  private readonly tieneAccionEditar = computed(() => this.auth.puedeAccion('citas_editar'));
+
+  /**
+   * Una cita cerrada no se edita: la completada ya pasó por caja con su monto, y moverlo
+   * descuadraría el turno.
+   */
+  puedeEditarCita(c: CitaResumen): boolean {
+    return this.tieneAccionEditar() && (c.estado === 'pendiente' || c.estado === 'confirmada');
+  }
+
+  /**
+   * Abre el formulario sobre una cita de la agenda del día.
+   *
+   * La fila del dashboard es un `CitaResumen` —lo justo para pintar la línea de tiempo, con
+   * los servicios como texto— así que hay que traerse la cita completa antes de editarla: el
+   * formulario necesita los ids de los servicios, no sus nombres.
+   */
+  editarCita(c: CitaResumen) {
+    if (!this.puedeEditarCita(c) || this.abriendoEdicion() !== null) return;
+    const idNegocio = this.idNegocio();
+    if (!idNegocio) return;
+
+    this.abriendoEdicion.set(c.id_cita);
+    this.api.getCita(c.id_cita, idNegocio).subscribe({
+      next: r => {
+        this.abriendoEdicion.set(null);
+        if (r?.success && r.data) {
+          this.citaEditando.set(r.data);
+          this.modalNuevaCita.set(true);
+        }
+      },
+      error: () => this.abriendoEdicion.set(null),
+    });
+  }
+
+  cerrarFormulario() {
+    this.modalNuevaCita.set(false);
+    this.citaEditando.set(null);
+  }
 
   readonly idNegocio = computed(() => this.auth.negocio()?.id_negocio ?? 0);
 
@@ -171,6 +214,7 @@ export class DashboardComponent implements OnInit {
   ngOnInit(): void {
     this.cargar();
     this.bus.on('cita_creada').subscribe(() => this.cargar());
+    this.bus.on('cita_actualizada').subscribe(() => this.cargar());
     this.bus.on('cita_cancelada').subscribe(() => this.cargar());
     this.bus.on('cita_pago_aprobado').subscribe(() => this.cargar());
   }

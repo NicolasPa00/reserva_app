@@ -81,6 +81,8 @@ export class AgendaComponent implements OnInit, OnDestroy {
 
   readonly modalNuevaCita = signal(false);
   readonly citaDetalle = signal<Cita | null>(null);
+  /** Cita que está editando el formulario; `null` = está creando una nueva. */
+  readonly citaEditando = signal<Cita | null>(null);
 
   // Cobro
   readonly citaACobrar = signal<Cita | null>(null);
@@ -104,6 +106,7 @@ export class AgendaComponent implements OnInit, OnDestroy {
    * acción, que de fábrica solo tiene el administrador, y el backend la vuelve a comprobar.
    */
   readonly puedeEliminarCita = computed(() => this.auth.puedeAccion('agenda_eliminar'));
+  private readonly tieneAccionEditar = computed(() => this.auth.puedeAccion('citas_editar'));
 
   /**
    * Rango horario de la rejilla.
@@ -313,6 +316,27 @@ export class AgendaComponent implements OnInit, OnDestroy {
   puedeCobrar(c: Cita | null): boolean {
     if (!this.puedeCobrarCita()) return false;
     return !!c && (c.estado === 'pendiente' || c.estado === 'confirmada');
+  }
+
+  /**
+   * Una cita cerrada (completada, cancelada, no asistió) no se edita: la completada ya pasó
+   * por caja con su monto, y cambiarlo descuadraría el turno. El backend lo rechaza igual;
+   * esto solo evita ofrecer un botón que va a fallar.
+   */
+  puedeEditarCita(c: Cita | null): boolean {
+    if (!this.tieneAccionEditar()) return false;
+    return !!c && (c.estado === 'pendiente' || c.estado === 'confirmada');
+  }
+
+  editarCita(c: Cita) {
+    this.citaDetalle.set(null);
+    this.citaEditando.set(c);
+    this.modalNuevaCita.set(true);
+  }
+
+  cerrarFormulario() {
+    this.modalNuevaCita.set(false);
+    this.citaEditando.set(null);
   }
 
   cobrar(c: Cita) {

@@ -295,3 +295,33 @@
     &:hover { border-color: var(--color-primary); background: var(--color-surface-hover); }
   }
 }
+
+// Botón de editar de cada fila de la línea de tiempo. Discreto de base y con color
+// al pasar por encima: la fila es informativa y no debe parecer una barra de acciones.
+.tl__editar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: color var(--transition-fast), border-color var(--transition-fast),
+              background var(--transition-fast);
+
+  &:hover:not(:disabled) {
+    color: var(--color-primary);
+    border-color: var(--color-border);
+    background: var(--color-surface);
+  }
+
+  &:disabled { opacity: .5; cursor: progress; }
+
+  .girando { animation: tl-girar .9s linear infinite; }
+}
+
+@keyframes tl-girar { to { transform: rotate(360deg); } }

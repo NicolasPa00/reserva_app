@@ -1,5 +1,8 @@
-<reserva-modal [open]="abierto()" title="Nueva cita"
-               subtitle="Los días y horas salen del horario de atención configurado."
+<reserva-modal [open]="abierto()"
+               [title]="modoEdicion() ? 'Editar cita' : 'Nueva cita'"
+               [subtitle]="modoEdicion()
+                 ? 'Cambia los servicios, el profesional o la hora. La duración y el total se recalculan solos.'
+                 : 'Los días y horas salen del horario de atención configurado.'"
                size="lg" (close)="cerrar()">
   @if (cargandoCatalogo()) {
     <p class="hint">Cargando catálogo…</p>
@@ -173,35 +176,49 @@
         }
       </section>
 
-      <!-- Paso 5: cliente -->
+      <!-- Paso 5: cliente.
+           Al editar se muestra pero no se toca: esta pantalla decide qué se presta y cuándo,
+           que es lo que compite por la agenda. -->
       <section class="paso">
-        <h4><span class="paso__n">5</span> Datos del cliente</h4>
-        <div class="grid-2">
+        @if (modoEdicion()) {
+          <h4><span class="paso__n">5</span> Cliente</h4>
+          <div class="cliente-fijo">
+            <strong>{{ cliente().nombre || 'Sin nombre' }}</strong>
+            <span>
+              {{ cliente().telefono || 'Sin teléfono' }}
+              @if (cliente().email) { · {{ cliente().email }} }
+            </span>
+            @if (cliente().notas) { <em>{{ cliente().notas }}</em> }
+          </div>
+        } @else {
+          <h4><span class="paso__n">5</span> Datos del cliente</h4>
+          <div class="grid-2">
+            <label class="campo">
+              <span>Nombre *</span>
+              <input class="input" type="text" placeholder="Nombre y apellido"
+                     [value]="cliente().nombre"
+                     (input)="setCliente('nombre', $any($event.target).value)" />
+            </label>
+            <label class="campo">
+              <span>Teléfono</span>
+              <input class="input" type="tel" placeholder="300 000 0000"
+                     [value]="cliente().telefono"
+                     (input)="setCliente('telefono', $any($event.target).value)" />
+            </label>
+          </div>
           <label class="campo">
-            <span>Nombre *</span>
-            <input class="input" type="text" placeholder="Nombre y apellido"
-                   [value]="cliente().nombre"
-                   (input)="setCliente('nombre', $any($event.target).value)" />
+            <span>Email</span>
+            <input class="input" type="email" placeholder="cliente@correo.com"
+                   [value]="cliente().email"
+                   (input)="setCliente('email', $any($event.target).value)" />
           </label>
           <label class="campo">
-            <span>Teléfono</span>
-            <input class="input" type="tel" placeholder="300 000 0000"
-                   [value]="cliente().telefono"
-                   (input)="setCliente('telefono', $any($event.target).value)" />
+            <span>Notas</span>
+            <textarea class="textarea" rows="2" placeholder="Preferencias, alergias, observaciones…"
+                      [value]="cliente().notas"
+                      (input)="setCliente('notas', $any($event.target).value)"></textarea>
           </label>
-        </div>
-        <label class="campo">
-          <span>Email</span>
-          <input class="input" type="email" placeholder="cliente@correo.com"
-                 [value]="cliente().email"
-                 (input)="setCliente('email', $any($event.target).value)" />
-        </label>
-        <label class="campo">
-          <span>Notas</span>
-          <textarea class="textarea" rows="2" placeholder="Preferencias, alergias, observaciones…"
-                    [value]="cliente().notas"
-                    (input)="setCliente('notas', $any($event.target).value)"></textarea>
-        </label>
+        }
       </section>
     </div>
   }
@@ -214,8 +231,12 @@
       </span>
     }
     <button type="button" class="btn btn-outline" (click)="cerrar()" [disabled]="enviando()">Cancelar</button>
-    <button type="button" class="btn btn-primary" (click)="crear()" [disabled]="!listoParaCrear() || enviando()">
-      @if (enviando()) { Creando… } @else { Crear cita }
+    <button type="button" class="btn btn-primary" (click)="guardar()" [disabled]="!listoParaGuardar() || enviando()">
+      @if (enviando()) {
+        {{ modoEdicion() ? 'Guardando…' : 'Creando…' }}
+      } @else {
+        {{ modoEdicion() ? 'Guardar cambios' : 'Crear cita' }}
+      }
     </button>
   </div>
 </reserva-modal>

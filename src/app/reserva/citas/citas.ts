@@ -51,6 +51,8 @@ export class CitasComponent implements OnInit {
   // modal detalle
   readonly modalDetalle = signal(false);
   readonly citaDetalle = signal<Cita | null>(null);
+  /** Cita que está editando el formulario; `null` = está creando una nueva. */
+  readonly citaEditando = signal<Cita | null>(null);
 
   // modal validar pago
   readonly modalPago = signal(false);
@@ -82,6 +84,7 @@ export class CitasComponent implements OnInit {
   // es cortesía; el backend lo vuelve a comprobar en las rutas que mueven dinero.
   readonly puedeConfirmar   = computed(() => this.auth.puedeAccion('citas_confirmar'));
   readonly puedeCompletar   = computed(() => this.auth.puedeAccion('citas_completar'));
+  readonly puedeEditarCita  = computed(() => this.auth.puedeAccion('citas_editar'));
   readonly puedeCancelar    = computed(() => this.auth.puedeAccion('citas_cancelar'));
   readonly puedeNoShow      = computed(() => this.auth.puedeAccion('citas_no_show'));
   readonly puedeValidarPago = computed(() => this.auth.puedeAccion('citas_validar_pago'));
@@ -162,6 +165,24 @@ export class CitasComponent implements OnInit {
   }
 
   // ── Detalle ──
+  /**
+   * Abre el formulario sobre una cita existente.
+   *
+   * Se cierra el detalle antes: son dos modales y dejarlos apilados deja el de atrás
+   * visible por los bordes.
+   */
+  editarCita(c: Cita) {
+    this.cerrarDetalle();
+    this.citaEditando.set(c);
+    this.modalNuevaCita.set(true);
+  }
+
+  /** Cierra el formulario y lo devuelve a modo creación. */
+  cerrarFormulario() {
+    this.modalNuevaCita.set(false);
+    this.citaEditando.set(null);
+  }
+
   abrirDetalle(c: Cita) { this.citaDetalle.set(c); this.modalDetalle.set(true); }
   cerrarDetalle() { this.modalDetalle.set(false); this.citaDetalle.set(null); }
 

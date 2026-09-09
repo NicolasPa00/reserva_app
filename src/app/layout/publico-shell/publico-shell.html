@@ -91,29 +91,19 @@
     </main>
 
     <!-- ═══════════ Pie de EscalApp ═══════════
-         El portal es del negocio, pero la plataforma que lo sirve es nuestra: mismo bloque de
-         marca que el menú digital del vertical restaurante, para que un cliente que ve los dos
-         reconozca de dónde salen. -->
+         Una sola línea: la llamada a crear un portal propio y la nota legal. Lo que había antes
+         —logo, «powered by», lema— repetía tres veces la misma marca en la página de OTRO
+         negocio; el pie de su portal no es nuestro escaparate, es su cierre. -->
     <footer class="pie">
       <div class="pie__interior">
-        <span class="pie__raya"></span>
-
-        <img class="pie__logo" [src]="escalappLogo" alt="Escalapp" width="130" height="40" />
-
-        <p class="pie__powered">Reservas en línea <em>powered by Escalapp</em></p>
-
-        <p class="pie__lema">La plataforma integral que impulsa negocios.</p>
-
-        <!-- Un solo destino. El sitio y el correo estaban repetidos justo debajo del botón que
-             ya lleva ahí: tres enlaces al mismo sitio no dan a elegir, dan a dudar. -->
         <a class="pie__cta" [href]="escalappSitio" target="_blank" rel="noopener">
-          <span>¿Quieres tu propio portal de reservas?</span>
+          <span>Crea tu propio portal web</span>
           <span class="pie__cta-icono"><lucide-icon name="arrow-right" [size]="16" /></span>
         </a>
 
-        <div class="pie__copy">
-          © {{ anio }} Escalapp. Todos los derechos reservados.
-        </div>
+        <span class="pie__sep" aria-hidden="true"></span>
+
+        <span class="pie__copy">© {{ anio }} Escalapp. Todos los derechos reservados.</span>
       </div>
     </footer>
   </div>

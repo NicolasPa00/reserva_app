@@ -1,6 +1,6 @@
 import {
-  ChangeDetectionStrategy, Component, EventEmitter, Input, OnInit, Output,
-  computed, effect, inject, signal,
+  ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, OnInit, Output,
+  SimpleChanges, computed, effect, inject, signal,
 } from '@angular/core';
 import { CommonModule, CurrencyPipe } from '@angular/common';
 import { LucideAngularModule } from 'lucide-angular';
@@ -9,8 +9,8 @@ import { forkJoin } from 'rxjs';
 import { ReservaApiService } from '../../../core/services/reserva-api.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { EventBusService } from '../../../core/services/event-bus.service';
-import { DiaDisponible, Profesional, Servicio, Slot } from '../../../core/models';
-import { aHora12, rangoHora12 } from '../../../core/utils/hora';
+import { Cita, DiaDisponible, Profesional, Servicio, Slot } from '../../../core/models';
+import { aHora12, fechaBogota, horaBogota, rangoHora12 } from '../../../core/utils/hora';
 import { ModalComponent } from '../../../shared/modal/modal';
 
 /** Días que muestra la tira del selector de fecha de una vez. */
@@ -46,6 +46,20 @@ interface DiaChip extends DiaDisponible {
  * admitía. Pero `crearCita` reserva la **suma** de las duraciones, así que en un combo de corte
  * (30 min) + barba (20 min) se ofrecían slots de 30 y la creación rechazaba los últimos con un
  * 409. Ahora se envían todos los ids y el backend suma.
+ *
+ * ## También edita
+ *
+ * Con `citaEditar` el mismo modal sirve para corregir una cita ya agendada: cambiar el
+ * servicio, añadir otro, moverla de profesional o de hora. Se reutiliza en vez de escribir un
+ * segundo formulario porque los pasos son idénticos y las reglas también — la disponibilidad,
+ * la suma de duraciones y qué ofrece cada profesional no cambian por estar editando.
+ *
+ * Dos diferencias, ambas necesarias:
+ *
+ *  - Los **datos del cliente no se editan aquí**. Esta pantalla decide qué se presta y cuándo,
+ *    que es lo que compite por la agenda; el nombre y el teléfono se muestran, sin tocar.
+ *  - La búsqueda de horas **excluye la propia cita** (`excluir_cita`). Sin eso, su hora actual
+ *    aparecería ocupada por ella misma y no se podría dejar donde está.
  */
 @Component({
   selector: 'reserva-cita-form',
@@ -55,17 +69,43 @@ interface DiaChip extends DiaDisponible {
   styleUrl: './cita-form.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class CitaFormComponent implements OnInit {
+export class CitaFormComponent implements OnInit, OnChanges {
   @Input({ required: true }) idNegocio!: number;
+
+  /**
+   * Cita a editar. `null` (lo normal) = crear una nueva.
+   *
+   * El prellenado se hace al ABRIR y no aquí, porque el padre puede asignar esta entrada
+   * antes de que el catálogo esté cargado y el orden de las dos asignaciones no está
+   * garantizado.
+   */
+  @Input() set citaEditar(v: Cita | null) { this.citaSig.set(v ?? null); }
+
+  /**
+   * El prellenado NO se dispara aquí.
+   *
+   * Angular asigna las entradas en el orden en que están escritas en la plantilla, y en las
+   * tres pantallas `[open]` va antes que `[citaEditar]`. Hacerlo en este setter significaba
+   * preparar el formulario cuando la cita todavía era `null`, es decir vaciarlo siempre: la
+   * edición se abría en blanco. Lo hace `ngOnChanges`, que corre una vez por ciclo con todas
+   * las entradas ya puestas y no depende de cómo estén ordenadas.
+   */
   @Input() set open(v: boolean) { this.abierto.set(v); }
+
   @Output() close = new EventEmitter<void>();
-  @Output() created = new EventEmitter<void>();
+  /** Se emite tanto al crear como al editar: la pantalla que escucha solo quiere recargar. */
+  @Output() saved = new EventEmitter<void>();
 
   private readonly api = inject(ReservaApiService);
   private readonly toast = inject(ToastService);
   private readonly bus = inject(EventBusService);
 
   readonly abierto = signal(false);
+  private readonly citaSig = signal<Cita | null>(null);
+
+  /** ¿Este modal está editando una cita existente en vez de crear una? */
+  readonly modoEdicion = computed(() => this.citaSig() !== null);
+  readonly citaEnEdicion = computed(() => this.citaSig());
 
   readonly profesionales = signal<Profesional[]>([]);
   readonly servicios = signal<Servicio[]>([]);
@@ -143,8 +183,14 @@ export class CitaFormComponent implements OnInit {
     this.idProfesional() != null && this.idServicios().size > 0 && !!this.fecha(),
   );
 
-  readonly listoParaCrear = computed(() =>
-    this.listoParaSlots() && !!this.slotElegido() && !!this.cliente().nombre.trim(),
+  /**
+   * Al editar no se pide el nombre del cliente: ya lo tiene la cita y este formulario no lo
+   * toca. Exigirlo obligaría a rellenar un campo que ni siquiera se muestra.
+   */
+  readonly listoParaGuardar = computed(() =>
+    this.listoParaSlots()
+    && !!this.slotElegido()
+    && (this.modoEdicion() || !!this.cliente().nombre.trim()),
   );
 
   /**
@@ -194,9 +240,64 @@ export class CitaFormComponent implements OnInit {
   }
 
   ngOnInit() {
+    // El catálogo se pide una vez y se queda; el prellenado no lo necesita para nada porque
+    // guarda ids, no objetos. Las fechas por defecto las pone `prepararApertura()` al abrir,
+    // y ponerlas también aquí borraría el prellenado: en el primer ciclo `ngOnChanges` corre
+    // ANTES que `ngOnInit`.
+    this.cargarCatalogo();
+  }
+
+  ngOnChanges(cambios: SimpleChanges) {
+    const open = cambios['open'];
+    if (!open) return;
+    const seAbre = open.currentValue === true && open.previousValue !== true;
+    if (seAbre) this.prepararApertura();
+  }
+
+  /**
+   * Deja el formulario listo para lo que toque: en blanco si es una cita nueva, o con lo que
+   * ya tiene la cita si se está editando.
+   *
+   * Se vacían las claves de caché de días y slots para forzar su recarga: la cita editada
+   * puede caer en otro profesional y otra fecha que las de la última apertura, y sin esto los
+   * `effect` verían la misma clave y no pedirían nada.
+   */
+  private prepararApertura() {
+    const cita = this.citaSig();
+    this.ultimaClaveSlots = '';
+    this.ultimaClaveDias = '';
+
+    if (!cita) {
+      this.limpiarCampos();
+      return;
+    }
+
+    const fechaCita = fechaBogota(cita.fecha_hora_inicio);
+    this.idProfesional.set(cita.id_profesional ?? null);
+    this.idServicios.set(new Set((cita.servicios || []).map(s => s.id_servicio)));
+    this.fecha.set(fechaCita);
+    // La tira de días arranca en la fecha de la cita, tanto si es futura como pasada. Anclarla
+    // a hoy dejaba fuera de la ventana el día de una cita antigua, y `cargarDias` —que salta
+    // al primer día abierto cuando el elegido no está en la lista— la movía sola: editar una
+    // cita de la semana pasada mostraba la fecha de hoy, no la suya.
+    this.ventanaInicio.set(fechaCita);
+    this.slotElegido.set(horaBogota(cita.fecha_hora_inicio));
+    this.cliente.set({
+      nombre: cita.cliente_nombre || '',
+      telefono: cita.cliente_telefono || '',
+      email: cita.cliente_email || '',
+      notas: cita.notas || '',
+    });
+  }
+
+  private limpiarCampos() {
+    this.idProfesional.set(null);
+    this.idServicios.set(new Set());
     this.fecha.set(this.hoyISO());
     this.ventanaInicio.set(this.hoyISO());
-    this.cargarCatalogo();
+    this.slots.set([]);
+    this.slotElegido.set(null);
+    this.cliente.set({ nombre: '', telefono: '', email: '', notas: '' });
   }
 
   private cargarCatalogo() {
@@ -246,15 +347,33 @@ export class CitaFormComponent implements OnInit {
 
   private cargarSlots() {
     this.buscandoSlots.set(true);
+    // Al editar se conserva la hora actual como preselección mientras llega la lista.
+    const horaPrevia = this.modoEdicion() ? this.slotElegido() : null;
+    // La hora que la cita YA ocupa se acepta aunque la lista la marque no disponible: para una
+    // cita pasada todos sus slots incumplen la anticipación mínima, y descartarla dejaría el
+    // formulario sin la hora guardada, que es justo lo que se viene a consultar.
+    const horaPropia = this.modoEdicion() && this.citaSig()
+      ? horaBogota(this.citaSig()!.fecha_hora_inicio)
+      : null;
     this.slotElegido.set(null);
     this.api.disponibilidad({
       idNegocio:     this.idNegocio,
       idProfesional: this.idProfesional()!,
       idServicios:   Array.from(this.idServicios()),
       fecha:         this.fecha(),
+      // La cita que se edita no se estorba a sí misma.
+      excluirCita:   this.citaSig()?.id_cita ?? null,
     }).subscribe({
       next: r => {
-        this.slots.set(r?.data?.slots ?? []);
+        const slots = r?.data?.slots ?? [];
+        this.slots.set(slots);
+        const sirve = (h: string | null) =>
+          !!h && slots.some(s => s.hora === h && (s.disponible || h === horaPropia));
+        if (sirve(horaPrevia)) {
+          this.slotElegido.set(horaPrevia);
+        } else if (sirve(horaPropia)) {
+          this.slotElegido.set(horaPropia);
+        }
         this.buscandoSlots.set(false);
       },
       error: () => {
@@ -323,8 +442,47 @@ export class CitaFormComponent implements OnInit {
     return `Atiende ${rangoHora12(primero.inicio, ultimo.fin)}`;
   }
 
-  crear() {
-    if (!this.listoParaCrear()) return;
+  /** Un solo botón para las dos operaciones; la que toque la decide `modoEdicion()`. */
+  guardar() {
+    if (!this.listoParaGuardar()) return;
+    if (this.modoEdicion()) this.editar(); else this.crear();
+  }
+
+  private editar() {
+    const cita = this.citaSig();
+    if (!cita) return;
+    const fechaHora = `${this.fecha()}T${this.slotElegido()}:00`;
+    this.enviando.set(true);
+
+    this.api.actualizarCita(cita.id_cita, {
+      id_negocio:        this.idNegocio,
+      id_servicios:      Array.from(this.idServicios()),
+      id_profesional:    this.idProfesional(),
+      fecha_hora_inicio: fechaHora,
+    }).subscribe({
+      next: r => {
+        this.enviando.set(false);
+        if (r?.success) {
+          this.toast.success('Cita actualizada');
+          this.bus.publish('cita_actualizada', r.data);
+          this.saved.emit();
+          this.cerrar();
+        } else {
+          this.toast.error(r?.message || 'No se pudo editar la cita.');
+        }
+      },
+      error: e => {
+        this.enviando.set(false);
+        // Mismo trato que al crear: el backend dice por qué (FUERA_DE_HORARIO, SOBRE_BLOQUEO,
+        // SLOT_NO_DISPONIBLE, TRANSICION_INVALIDA) y eso es lo que se muestra.
+        this.toast.error(e?.error?.message || 'Error al editar la cita.');
+        this.ultimaClaveSlots = '';
+        if (this.listoParaSlots()) this.cargarSlots();
+      },
+    });
+  }
+
+  private crear() {
     const fechaHora = `${this.fecha()}T${this.slotElegido()}:00`;
     this.enviando.set(true);
     const c = this.cliente();
@@ -343,7 +501,7 @@ export class CitaFormComponent implements OnInit {
         if (r?.success) {
           this.toast.success('Cita creada');
           this.bus.publish('cita_creada', r.data);
-          this.created.emit();
+          this.saved.emit();
           this.cerrar();
         } else {
           this.toast.error(r?.message || 'No se pudo crear la cita.');
@@ -362,13 +520,8 @@ export class CitaFormComponent implements OnInit {
   }
 
   cerrar() {
-    this.idProfesional.set(null);
-    this.idServicios.set(new Set());
-    this.fecha.set(this.hoyISO());
-    this.ventanaInicio.set(this.hoyISO());
-    this.slots.set([]);
-    this.slotElegido.set(null);
-    this.cliente.set({ nombre: '', telefono: '', email: '', notas: '' });
+    this.limpiarCampos();
+    this.citaSig.set(null);
     this.ultimaClaveSlots = '';
     this.ultimaClaveDias = '';
     this.close.emit();

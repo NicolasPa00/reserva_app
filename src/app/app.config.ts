@@ -1,5 +1,5 @@
 import { ApplicationConfig, LOCALE_ID, provideBrowserGlobalErrorListeners } from '@angular/core';
-import { provideRouter, withInMemoryScrolling } from '@angular/router';
+import { TitleStrategy, provideRouter, withInMemoryScrolling } from '@angular/router';
 import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
 import { provideClientHydration, withEventReplay } from '@angular/platform-browser';
 import { registerLocaleData } from '@angular/common';
@@ -7,6 +7,7 @@ import localeEsCO from '@angular/common/locales/es-CO';
 
 import { routes } from './app.routes';
 import { authInterceptor } from './core/interceptors/auth.interceptor';
+import { TituloVitrinaStrategy } from './core/services/titulo-vitrina.strategy';
 
 import {
   LUCIDE_ICONS, LucideIconProvider,
@@ -29,7 +30,12 @@ import {
 
 registerLocaleData(localeEsCO);
 
-const icons = {
+/**
+ * Se exporta para que las pruebas registren el MISMO juego de iconos que la app. Duplicar la
+ * lista en un spec haría que un icono nuevo pasara el test y reventara en runtime, que es
+ * justo lo que el comentario de arriba advierte.
+ */
+export const icons = {
   LayoutDashboard, CalendarDays, CalendarCheck, CalendarClock, Clock, Scissors,
   Users, Settings, LogOut, Sun, Moon, Plus, Minus, Search, Trash2, Pencil,
   X, Check, TriangleAlert, ChevronDown, ChevronUp, ChevronRight, ChevronLeft, ArrowLeft,
@@ -60,6 +66,8 @@ export const appConfig: ApplicationConfig = {
     provideHttpClient(withFetch(), withInterceptors([authInterceptor])),
     provideClientHydration(withEventReplay()),
     { provide: LOCALE_ID, useValue: 'es-CO' },
+    // El título de la pestaña antepone el nombre del negocio en el portal público.
+    { provide: TitleStrategy, useExisting: TituloVitrinaStrategy },
     { provide: LUCIDE_ICONS, multi: true, useValue: new LucideIconProvider(icons) },
   ],
 };

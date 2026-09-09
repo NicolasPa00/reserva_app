@@ -116,14 +116,21 @@ export class ReservaApiService {
    * Slots reservables. `idServicios` va completo, no solo el primero: el backend calcula la
    * duración sumando todos, que es lo que la cita ocupa de verdad en la agenda.
    */
+  /**
+   * `excluirCita` deja fuera del cálculo a una cita concreta. Hace falta al EDITAR: la hora
+   * que ya ocupa esa cita es suya, y sin excluirla el formulario mostraría como tomado justo
+   * el hueco en el que está.
+   */
   disponibilidad(opts: {
     idNegocio: number; idProfesional: number; idServicios: number[]; fecha: string;
+    excluirCita?: number | null;
   }) {
-    const p = new HttpParams()
+    let p = new HttpParams()
       .set('id_negocio', String(opts.idNegocio))
       .set('id_profesional', String(opts.idProfesional))
       .set('id_servicios', opts.idServicios.join(','))
       .set('fecha', opts.fecha);
+    if (opts.excluirCita) p = p.set('excluir_cita', String(opts.excluirCita));
     return this.http.get<ApiResponse<DisponibilidadResponse>>(
       `${this.base}/disponibilidad`, { params: p },
     );
@@ -193,6 +200,19 @@ export class ReservaApiService {
     cliente_telefono?: string | null; cliente_email?: string | null; notas?: string | null;
   }) {
     return this.http.post<ApiResponse<Cita>>(`${this.base}/citas`, data);
+  }
+
+  /**
+   * Edita una cita agendada: servicios, profesional y hora.
+   *
+   * `id_servicios` es la lista COMPLETA que debe quedar, no un delta — quitar uno es
+   * mandarla sin el. Profesional y hora son opcionales: omitirlos conserva los actuales.
+   */
+  actualizarCita(id: number, data: {
+    id_negocio: number; id_servicios: number[];
+    id_profesional?: number | null; fecha_hora_inicio?: string | null;
+  }) {
+    return this.http.put<ApiResponse<Cita>>(`${this.base}/citas/${id}`, data);
   }
 
   confirmarCita(id: number, idNegocio: number) {

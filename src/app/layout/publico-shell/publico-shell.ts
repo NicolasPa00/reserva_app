@@ -6,6 +6,7 @@ import { CurrencyPipe, DOCUMENT } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
 
+import { FaviconService } from '../../core/services/favicon.service';
 import { VitrinaStore } from '../../reserva/publico/vitrina.store';
 import { UrlArchivoPipe } from '../../shared/url-archivo.pipe';
 import { ServicioPublico } from '../../core/models';
@@ -24,6 +25,9 @@ import { ServicioPublico } from '../../core/models';
   selector: 'reserva-publico-shell',
   standalone: true,
   imports: [RouterOutlet, RouterLink, RouterLinkActive, LucideAngularModule, UrlArchivoPipe, CurrencyPipe],
+  // El pipe se provee además de importarse: la clase se inyecta abajo para resolver la URL del
+  // logo con la MISMA regla que usa la plantilla, sin duplicar el prefijo de la API.
+  providers: [UrlArchivoPipe],
   templateUrl: './publico-shell.html',
   styleUrl: './publico-shell.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -32,6 +36,8 @@ export class PublicoShellComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly document = inject(DOCUMENT);
   private readonly router = inject(Router);
+  private readonly favicon = inject(FaviconService);
+  private readonly urlArchivo = inject(UrlArchivoPipe);
   readonly store = inject(VitrinaStore);
 
   readonly negocio = this.store.negocio;
@@ -43,7 +49,6 @@ export class PublicoShellComponent implements OnInit, OnDestroy {
   readonly anio = new Date().getFullYear();
 
   // ── Datos de EscalApp para el pie ──
-  readonly escalappLogo = 'images/escalapplogo.png';
   readonly escalappSitio = 'https://escalapp.cloud/admin/';
 
   // ── Buscador ──
@@ -124,6 +129,10 @@ export class PublicoShellComponent implements OnInit, OnDestroy {
   private observador?: ResizeObserver;
 
   constructor() {
+    // Icono de la pestaña = logo del inquilino. La URL es la misma que pinta el <img> de la
+    // cabecera, así que sale de la caché del navegador: ni petición extra ni trabajo de CPU.
+    effect(() => this.favicon.aplicar(this.urlArchivo.transform(this.negocio()?.logo_url)));
+
     // Va en un `effect` sobre la señal del `viewChild`, no en `ngAfterViewInit`: la cabecera
     // vive dentro de un `@if` que espera a la vitrina, así que cuando ese gancho se dispara el
     // elemento todavía no existe y no se llegaría a medir nunca.
@@ -144,6 +153,8 @@ export class PublicoShellComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.observador?.disconnect();
+    // Fuera del portal el icono vuelve a ser el de EscalApp (la consola vive en la misma app).
+    this.favicon.restaurar();
     // La variable es global: dejarla puesta descuadraría cualquier otra pantalla.
     this.document.documentElement.style.removeProperty('--alto-cabecera');
   }

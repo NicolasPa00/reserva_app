@@ -177,37 +177,25 @@
   margin-top: 3rem;
   // El pie es lo último del documento, así que es quien tiene que dejar sitio a la barra fija
   // de «Agendar». Sin esto, al llegar abajo del todo la barra se comía el copyright.
-  padding: 2.25rem clamp(12px, 4vw, 24px) calc(1.25rem + var(--hueco-barra-inferior, 0px));
+  padding: 1.25rem clamp(12px, 4vw, 24px) calc(1.25rem + var(--hueco-barra-inferior, 0px));
   background: var(--color-surface);
   border-top: 1px solid var(--color-border);
 
+  // Una sola fila centrada. En móvil se parte y el separador desaparece: dos elementos en
+  // columna con una raya vertical en medio se leen como una tabla rota.
   &__interior {
-    max-width: 520px; margin: 0 auto; text-align: center;
-    display: flex; flex-direction: column; align-items: center; gap: .85rem;
+    max-width: 720px; margin: 0 auto;
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
+    gap: .6rem 1rem; text-align: center;
   }
 
-  &__raya {
-    width: 48px; height: 3px; border-radius: var(--radius-full);
-    background: linear-gradient(90deg,
-      var(--color-primary) 0%,
-      color-mix(in srgb, var(--color-primary) 45%, transparent) 100%);
-  }
-
-  &__logo { height: 34px; width: auto; opacity: .85; }
-
-  &__powered {
-    margin: 0; font-size: .92rem; color: var(--color-text-secondary);
-    em { font-style: italic; font-weight: 700; color: var(--color-text-primary); }
-  }
-
-  &__lema {
-    margin: 0; max-width: 44ch;
-    font-size: .82rem; line-height: 1.55; color: var(--color-text-muted);
+  &__sep {
+    width: 1px; height: 20px; background: var(--color-border);
   }
 
   &__cta {
     display: inline-flex; align-items: center; gap: .65rem;
-    padding: .6rem .7rem .6rem 1.2rem; margin-top: .25rem;
+    padding: .5rem .55rem .5rem 1.1rem;
     border-radius: var(--radius-full);
     border: 1.5px solid var(--color-primary);
     color: var(--color-primary); text-decoration: none;
@@ -222,7 +210,7 @@
 
   &__cta-icono {
     display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-    width: 28px; height: 28px; border-radius: var(--radius-full);
+    width: 26px; height: 26px; border-radius: var(--radius-full);
     background: var(--color-primary); color: var(--color-on-primary);
     transition: background var(--transition-fast), color var(--transition-fast);
 
@@ -232,10 +220,12 @@
   }
 
   &__copy {
-    width: 100%; margin-top: .5rem; padding-top: .9rem;
-    border-top: 1px solid var(--color-border);
     font-size: .75rem; color: var(--color-text-muted);
   }
+}
+
+@media (max-width: 480px) {
+  .pie__sep { display: none; }
 }
 
 // ═══════════════════════════ Botón flotante de WhatsApp ═══════════════════════════
