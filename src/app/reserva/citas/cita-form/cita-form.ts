@@ -9,7 +9,7 @@ import { forkJoin } from 'rxjs';
 import { ReservaApiService } from '../../../core/services/reserva-api.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { EventBusService } from '../../../core/services/event-bus.service';
-import { Cita, DiaDisponible, Profesional, Servicio, Slot } from '../../../core/models';
+import { Cita, ClienteNegocio, DiaDisponible, Profesional, Servicio, Slot } from '../../../core/models';
 import { aHora12, fechaBogota, horaBogota, rangoHora12 } from '../../../core/utils/hora';
 import { ModalComponent } from '../../../shared/modal/modal';
 
@@ -124,6 +124,20 @@ export class CitaFormComponent implements OnInit, OnChanges {
   readonly ventanaInicio = signal<string>('');
 
   readonly cliente = signal({ nombre: '', telefono: '', email: '', notas: '' });
+
+  /**
+   * El cliente que ya está en la cartera con ese teléfono, si lo hay. `null` = no se le
+   * conoce (o todavía no se ha preguntado), que es lo normal para alguien nuevo.
+   */
+  readonly clienteConocido = signal<ClienteNegocio | null>(null);
+  private buscaCliente: ReturnType<typeof setTimeout> | null = null;
+
+  /** El nombre escrito difiere del que ya teníamos: se ofrece usar el conocido, no se impone. */
+  readonly nombreDifiere = computed(() => {
+    const conocido = this.clienteConocido()?.nombre?.trim();
+    const escrito = this.cliente().nombre.trim();
+    return !!conocido && !!escrito && conocido.toLowerCase() !== escrito.toLowerCase();
+  });
   readonly enviando = signal(false);
 
   /** Última combinación por la que se pidieron slots; evita repetir la misma consulta. */
@@ -298,6 +312,10 @@ export class CitaFormComponent implements OnInit, OnChanges {
     this.slots.set([]);
     this.slotElegido.set(null);
     this.cliente.set({ nombre: '', telefono: '', email: '', notas: '' });
+    // Y el reconocimiento: si no se borra, el aviso del cliente anterior sigue en pantalla
+    // sobre un formulario vacío.
+    this.clienteConocido.set(null);
+    if (this.buscaCliente) { clearTimeout(this.buscaCliente); this.buscaCliente = null; }
   }
 
   private cargarCatalogo() {
@@ -420,6 +438,54 @@ export class CitaFormComponent implements OnInit, OnChanges {
 
   setCliente<K extends 'nombre' | 'telefono' | 'email' | 'notas'>(campo: K, valor: string) {
     this.cliente.update(c => ({ ...c, [campo]: valor }));
+    if (campo === 'telefono') this.reconocerCliente(valor);
+  }
+
+  /**
+   * Reconoce al cliente por su teléfono y rellena lo que sepamos de él.
+   *
+   * El teléfono es la llave de la cartera, así que en cuanto está completo se puede saber si
+   * quien llama ya ha venido. Se consulta con el número **tal cual lo escriben** —el servidor
+   * lo normaliza a E.164— pero solo cuando ya parece un móvil de diez dígitos: preguntar en
+   * cada tecla serían diez peticiones para tirar nueve.
+   *
+   * **Nunca pisa lo que el usuario ya escribió.** Solo rellena los campos vacíos; si alguien
+   * corrigió el nombre a propósito, esa corrección manda y lo que se ve es el aviso de que ya
+   * estaba registrado con otro. Machacar un campo escrito a mano es la forma más rápida de que
+   * nadie vuelva a fiarse del formulario.
+   */
+  private reconocerCliente(telefono: string) {
+    if (this.buscaCliente) clearTimeout(this.buscaCliente);
+    const digitos = (telefono || '').replace(/\D/g, '');
+    if (digitos.length < 10) {
+      this.clienteConocido.set(null);
+      return;
+    }
+
+    this.buscaCliente = setTimeout(() => {
+      this.api.buscarClientePorTelefono(this.idNegocio, telefono).subscribe({
+        next: (r) => {
+          const encontrado = r?.data ?? null;
+          this.clienteConocido.set(encontrado);
+          if (!encontrado) return;
+          this.cliente.update(c => ({
+            ...c,
+            nombre: c.nombre.trim() ? c.nombre : (encontrado.nombre ?? ''),
+            email:  c.email.trim()  ? c.email  : (encontrado.email  ?? ''),
+          }));
+        },
+        // Un rol sin acceso a Clientes recibe 403 aquí: el formulario sigue funcionando
+        // exactamente igual, solo que sin reconocer a nadie.
+        error: () => this.clienteConocido.set(null),
+      });
+    }, 400);
+  }
+
+  /** Copia el nombre de la ficha sobre lo escrito. Solo se ofrece cuando difieren. */
+  usarNombreConocido() {
+    const conocido = this.clienteConocido();
+    if (!conocido?.nombre) return;
+    this.cliente.update(c => ({ ...c, nombre: conocido.nombre! }));
   }
 
   // Presentación en 12 h. El valor que se guarda y se envía sigue siendo el "HH:MM" de 24 h

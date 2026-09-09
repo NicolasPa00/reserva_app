@@ -71,6 +71,13 @@ export const routes: Routes = [
           import('./reserva/citas/citas').then(m => m.CitasComponent),
       },
       {
+        path: 'clientes',
+        title: 'Clientes',
+        canActivate: [planGuard],
+        loadComponent: () =>
+          import('./reserva/clientes/clientes').then(m => m.ClientesComponent),
+      },
+      {
         path: 'servicios',
         title: 'Servicios',
         canActivate: [planGuard],

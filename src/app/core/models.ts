@@ -706,3 +706,45 @@ export interface SlotsServicio {
     slots: string[];
   }[];
 }
+
+/**
+ * Un cliente del negocio.
+ *
+ * No es una tabla del vertical: son `platform.persona_negocio`, la entidad de identidad
+ * compartida cuya llave es `(negocio, teléfono)` y que nunca cruza inquilinos. El teléfono
+ * llega siempre normalizado a E.164 ("+573001112233"), pase como pase por el formulario.
+ */
+export interface ClienteNegocio {
+  id_persona_negocio: string;
+  nombre: string | null;
+  telefono: string;
+  /** No vive con el cliente: es el de su cita más reciente que traía uno. */
+  email: string | null;
+  notas: string | null;
+  etiquetas: string[];
+  total_citas: number;
+  citas_completadas: number;
+  citas_canceladas: number;
+  inasistencias: number;
+  total_gastado: number;
+  primera_cita: string | null;
+  ultima_cita: string | null;
+  creado_en: string;
+}
+
+export interface ClienteCita {
+  id_cita: number;
+  fecha_hora_inicio: string;
+  fecha_hora_fin: string;
+  estado: EstadoCita;
+  monto_total: number | string;
+  notas: string | null;
+  profesional: string | null;
+  servicios: string;
+}
+
+export interface ClientesPagina {
+  total: number;
+  clientes: ClienteNegocio[];
+  puede_editar: boolean;
+}

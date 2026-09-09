@@ -25,7 +25,7 @@ import {
   // Navegación responsive del admin: hamburguesa y barra inferior.
   Menu,
   CalendarPlus, MessageCircle, Facebook, Instagram, ExternalLink,
-  CircleCheckBig, Globe,
+  CircleCheckBig, Globe, Contact,
 } from 'lucide-angular';
 
 registerLocaleData(localeEsCO);
@@ -50,7 +50,7 @@ export const icons = {
   // Navegación responsive del admin: hamburguesa y barra inferior.
   Menu,
   CalendarPlus, MessageCircle, Facebook, Instagram, ExternalLink,
-  CircleCheckBig, Globe,
+  CircleCheckBig, Globe, Contact,
 };
 
 export const appConfig: ApplicationConfig = {

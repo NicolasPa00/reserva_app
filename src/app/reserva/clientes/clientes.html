@@ -1,0 +1,180 @@
+<section class="page clientes">
+  <header class="page__head">
+    <div>
+      <h1>Clientes</h1>
+      <p>
+        Quién ha pasado por aquí. Se crean solos al agendar —desde la página pública o desde
+        el mostrador— y el teléfono es lo que identifica a cada uno.
+      </p>
+    </div>
+    @if (total() > 0) {
+      <span class="conteo">{{ total() }} {{ total() === 1 ? 'cliente' : 'clientes' }}</span>
+    }
+  </header>
+
+  <div class="filtros">
+    <label class="buscador">
+      <lucide-icon name="search" [size]="15" />
+      <input class="input" type="search" placeholder="Buscar por nombre o teléfono…"
+             [value]="busqueda()" (input)="buscar($any($event.target).value)" />
+    </label>
+  </div>
+
+  @if (cargando() && clientes().length === 0) {
+    <p class="hint">Cargando…</p>
+  } @else if (clientes().length === 0) {
+    <div class="card vacio">
+      <lucide-icon name="user-round" [size]="26" />
+      <strong>{{ busqueda() ? 'Ningún cliente coincide' : 'Todavía no hay clientes' }}</strong>
+      <p>
+        @if (busqueda()) {
+          Prueba con otro nombre o con el número de teléfono.
+        } @else {
+          En cuanto alguien reserve una cita con su teléfono, aparecerá aquí.
+        }
+      </p>
+    </div>
+  } @else {
+    <div class="lista">
+      @for (c of clientes(); track c.id_persona_negocio) {
+        <article class="cliente" (click)="abrirFicha(c)" tabindex="0"
+                 (keydown.enter)="abrirFicha(c)">
+          <div class="cliente__id">
+            <strong>{{ c.nombre || 'Sin nombre' }}</strong>
+            <span class="cliente__tel">
+              <lucide-icon name="phone" [size]="12" />
+              {{ telefonoLegible(c.telefono) }}
+            </span>
+            @if (c.email) {
+              <span class="cliente__mail">
+                <lucide-icon name="mail" [size]="12" />
+                {{ c.email }}
+              </span>
+            }
+          </div>
+
+          <div class="cliente__datos">
+            <div class="dato">
+              <span>Citas</span>
+              <strong>{{ c.total_citas }}</strong>
+            </div>
+            <div class="dato">
+              <span>Última</span>
+              <strong>{{ c.ultima_cita ? (c.ultima_cita | date:'dd/MM/yy') : '—' }}</strong>
+            </div>
+            <div class="dato">
+              <span>Gastado</span>
+              <strong>{{ c.total_gastado | currency:'COP':'symbol-narrow':'1.0-0' }}</strong>
+            </div>
+            @if (c.inasistencias > 0) {
+              <div class="dato dato--alerta" [title]="c.inasistencias + ' inasistencia(s)'">
+                <span>No asistió</span>
+                <strong>{{ c.inasistencias }}</strong>
+              </div>
+            }
+          </div>
+
+          <lucide-icon class="cliente__chevron" name="chevron-right" [size]="18" />
+        </article>
+      }
+    </div>
+
+    @if (hayMas()) {
+      <button type="button" class="btn btn-outline mas" (click)="cargar()" [disabled]="cargando()">
+        {{ cargando() ? 'Cargando…' : 'Cargar más' }}
+      </button>
+    }
+    <p class="hint hint--pie">
+      Mostrando {{ clientes().length }} de {{ total() }}.
+    </p>
+  }
+
+  <!-- ───────── Ficha del cliente ───────── -->
+  @if (seleccionado(); as c) {
+    <reserva-modal [open]="true" size="lg"
+                   [title]="c.nombre || 'Cliente'"
+                   [subtitle]="telefonoLegible(c.telefono)"
+                   (close)="cerrarFicha()">
+
+      <div class="ficha__kpis">
+        <div><span>Citas</span><strong>{{ c.total_citas }}</strong></div>
+        <div><span>Completadas</span><strong>{{ c.citas_completadas }}</strong></div>
+        <div><span>Canceladas</span><strong>{{ c.citas_canceladas }}</strong></div>
+        <div><span>No asistió</span><strong>{{ c.inasistencias }}</strong></div>
+        <div><span>Gastado</span><strong>{{ c.total_gastado | currency:'COP':'symbol-narrow':'1.0-0' }}</strong></div>
+        <div><span>Cliente desde</span><strong>{{ c.primera_cita ? (c.primera_cita | date:'dd/MM/yy') : (c.creado_en | date:'dd/MM/yy') }}</strong></div>
+      </div>
+
+      @if (puedeEditar()) {
+        <div class="ficha__form">
+          <label>
+            Nombre
+            <input class="input" type="text" maxlength="150"
+                   [value]="formNombre()" (input)="formNombre.set($any($event.target).value)" />
+          </label>
+          <label>
+            Notas internas
+            <textarea class="input" rows="3" maxlength="2000"
+                      placeholder="Alergias, preferencias, lo que convenga recordar…"
+                      [value]="formNotas()" (input)="formNotas.set($any($event.target).value)"></textarea>
+          </label>
+          <p class="ficha__aviso">
+            <lucide-icon name="info" [size]="13" />
+            El teléfono no se edita: es lo que identifica al cliente. Si cambió de número,
+            agéndale con el nuevo y quedará como una ficha aparte.
+          </p>
+        </div>
+      } @else {
+        @if (c.notas) {
+          <p class="ficha__notas">{{ c.notas }}</p>
+        }
+      }
+
+      <h4 class="ficha__sub">Historial de citas</h4>
+      @if (cargandoFicha()) {
+        <p class="hint">Cargando…</p>
+      } @else if (citas().length === 0) {
+        <p class="hint">Sin citas registradas.</p>
+      } @else {
+        <div class="ficha__tabla">
+          <table>
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Servicios</th>
+                <th>Profesional</th>
+                <th>Estado</th>
+                <th class="num">Valor</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (cita of citas(); track cita.id_cita) {
+                <tr>
+                  <td>{{ cita.fecha_hora_inicio | date:'dd/MM/yy HH:mm' }}</td>
+                  <td>{{ cita.servicios || '—' }}</td>
+                  <td>{{ cita.profesional || '—' }}</td>
+                  <td>
+                    <span class="badge" [class.badge--ok]="cita.estado === 'completada'"
+                          [class.badge--mal]="cita.estado === 'cancelada' || cita.estado === 'no_show'">
+                      {{ etiquetaEstado(cita.estado) }}
+                    </span>
+                  </td>
+                  <td class="num">{{ cita.monto_total | currency:'COP':'symbol-narrow':'1.0-0' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+
+      <ng-container modal-footer>
+        <button type="button" class="btn btn-ghost" (click)="cerrarFicha()">Cerrar</button>
+        @if (puedeEditar()) {
+          <button type="button" class="btn btn-primary" (click)="guardar()" [disabled]="guardando()">
+            {{ guardando() ? 'Guardando…' : 'Guardar' }}
+          </button>
+        }
+      </ng-container>
+    </reserva-modal>
+  }
+</section>

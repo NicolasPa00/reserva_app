@@ -50,6 +50,7 @@ export class SidebarComponent {
     { icon: 'layout-dashboard',  label: 'Dashboard',     route: '/dashboard' },
     { icon: 'calendar-days',     label: 'Agenda',        route: '/agenda' },
     { icon: 'calendar-check',    label: 'Citas',         route: '/citas' },
+    { icon: 'contact',           label: 'Clientes',      route: '/clientes' },
     { icon: 'scissors',          label: 'Servicios',     route: '/servicios' },
     { icon: 'users',             label: 'Profesionales', route: '/profesionales' },
     { icon: 'clock',             label: 'Horarios',      route: '/horarios' },

@@ -5,6 +5,7 @@ import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import {
   ApiResponse, Servicio, Profesional, Horario, Bloqueo, Cita,
+  ClienteNegocio, ClienteCita, ClientesPagina,
   ConfigReserva, DisponibilidadResponse, DiaDisponible, Informe, InfoNegocioPublico,
   ResumenDashboard, MetodoPago, PagoLinea, EstadoCaja, CajaHistorial, MovimientoCaja,
   UsuarioNegocio, RolReserva, PermisosRol, UsuarioPayload, MarcaNegocio, ColoresNegocio,
@@ -680,6 +681,40 @@ export class ReservaApiService {
     }
     const { comprobante: _omit, ...body } = payload;
     return this.http.post<ApiResponse<CitaPublica>>(`${this.base}/publico/${idNegocio}/cita`, body);
+  }
+
+  // ── Clientes ──
+  //
+  // La cartera del negocio. El backend exige la vista `/clientes` en todas, así que un rol
+  // sin ese permiso recibe 403 aunque llegue a la ruta: esconder el menú no cierra la puerta.
+
+  listarClientes(opts: { idNegocio: number; buscar?: string; limite?: number; offset?: number }) {
+    let p = new HttpParams().set('id_negocio', String(opts.idNegocio));
+    if (opts.buscar) p = p.set('buscar', opts.buscar);
+    if (opts.limite != null) p = p.set('limite', String(opts.limite));
+    if (opts.offset != null) p = p.set('offset', String(opts.offset));
+    return this.http.get<ApiResponse<ClientesPagina>>(`${this.base}/clientes`, { params: p });
+  }
+
+  /**
+   * Reconoce a un cliente por su teléfono. `data` llega en `null` cuando no se le conoce —
+   * que es la respuesta normal para alguien nuevo, no un error.
+   */
+  buscarClientePorTelefono(idNegocio: number, telefono: string) {
+    const p = new HttpParams().set('id_negocio', String(idNegocio)).set('telefono', telefono);
+    return this.http.get<ApiResponse<ClienteNegocio | null>>(`${this.base}/clientes/buscar`, { params: p });
+  }
+
+  getCliente(id: string, idNegocio: number) {
+    return this.http.get<ApiResponse<ClienteNegocio & { citas: ClienteCita[] }>>(
+      `${this.base}/clientes/${id}`,
+      { params: new HttpParams().set('id_negocio', String(idNegocio)) },
+    );
+  }
+
+  /** Nombre y notas. El teléfono es la llave: no se edita. */
+  actualizarCliente(id: string, data: { id_negocio: number; nombre?: string; notas?: string | null }) {
+    return this.http.put<ApiResponse<ClienteNegocio>>(`${this.base}/clientes/${id}`, data);
   }
 
   publicoConsultarCita(codigoPublico: string) {

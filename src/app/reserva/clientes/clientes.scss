@@ -1,0 +1,153 @@
+.clientes { max-width: 1100px; }
+
+.hint {
+  color: var(--color-text-muted); font-size: .86rem; margin: 0;
+  &--pie { margin-top: .75rem; font-size: .78rem; }
+}
+
+.conteo {
+  align-self: center;
+  font-size: .82rem; font-weight: 600;
+  color: var(--color-text-secondary);
+  background: var(--color-surface-alt, var(--color-surface));
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  padding: .3rem .75rem;
+}
+
+.filtros { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+
+.buscador {
+  position: relative; display: flex; align-items: center;
+  flex: 1; min-width: 240px; max-width: 420px;
+  lucide-icon { position: absolute; left: .65rem; color: var(--color-text-muted); pointer-events: none; }
+  .input { padding-left: 2.1rem; }
+}
+
+.vacio {
+  display: flex; flex-direction: column; align-items: center; gap: .45rem;
+  padding: 2.5rem 1rem; text-align: center; color: var(--color-text-muted);
+  strong { color: var(--color-text-primary); font-size: 1rem; }
+  p { margin: 0; font-size: .86rem; max-width: 44ch; }
+}
+
+// ── Listado ──
+//
+// Tarjetas y no tabla: en el teléfono una tabla de seis columnas obliga a scroll horizontal
+// para leer un nombre, y esta vista se consulta sobre todo con el cliente delante.
+.lista { display: flex; flex-direction: column; gap: .5rem; margin-top: .9rem; }
+
+.cliente {
+  display: flex; align-items: center; flex-wrap: wrap; gap: .5rem 1rem;
+  padding: .75rem .9rem; cursor: pointer;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+
+  &:hover, &:focus-visible {
+    border-color: var(--color-primary);
+    background: color-mix(in srgb, var(--color-primary) 4%, var(--color-surface));
+    outline: none;
+  }
+
+  &__id {
+    flex: 1 1 220px; min-width: 0;
+    display: flex; flex-direction: column; gap: .15rem;
+
+    strong { font-size: .95rem; }
+  }
+
+  &__tel, &__mail {
+    display: inline-flex; align-items: center; gap: .3rem;
+    font-size: .8rem; color: var(--color-text-muted);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+
+  &__datos { display: flex; gap: 1.1rem; flex-wrap: wrap; }
+
+  &__chevron { color: var(--color-text-muted); flex: 0 0 auto; }
+}
+
+.dato {
+  display: flex; flex-direction: column; align-items: flex-end; min-width: 62px;
+  span { font-size: .68rem; text-transform: uppercase; letter-spacing: .03em; color: var(--color-text-muted); }
+  strong { font-size: .88rem; }
+
+  &--alerta strong { color: var(--color-danger, #dc2626); }
+}
+
+.mas { margin-top: .75rem; width: 100%; }
+
+// ── Ficha ──
+.ficha {
+  &__kpis {
+    display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .6rem;
+    margin-bottom: 1rem;
+
+    div {
+      display: flex; flex-direction: column; gap: .1rem;
+      padding: .5rem .65rem;
+      border: 1px solid var(--color-border); border-radius: var(--radius-md);
+      background: var(--color-surface);
+    }
+    span { font-size: .68rem; text-transform: uppercase; letter-spacing: .03em; color: var(--color-text-muted); }
+    strong { font-size: .95rem; }
+  }
+
+  &__form {
+    display: flex; flex-direction: column; gap: .7rem; margin-bottom: 1rem;
+    label { display: flex; flex-direction: column; gap: .25rem; font-size: .82rem; font-weight: 600; }
+    textarea { resize: vertical; font-family: inherit; }
+  }
+
+  &__aviso {
+    display: flex; align-items: flex-start; gap: .35rem;
+    margin: 0; font-size: .76rem; font-weight: 400; color: var(--color-text-muted);
+    lucide-icon { flex: 0 0 auto; margin-top: .1rem; }
+  }
+
+  &__notas {
+    margin: 0 0 1rem; padding: .6rem .75rem; font-size: .85rem;
+    border-left: 3px solid var(--color-border); color: var(--color-text-secondary);
+  }
+
+  &__sub { margin: 0 0 .5rem; font-size: .9rem; }
+
+  // La tabla sí necesita scroll horizontal propio: cinco columnas no caben en un teléfono.
+  // `flex-shrink: 0` es deliberado — sin él, un contenedor con overflow pasa a min-height 0
+  // dentro de un flex column y se convierte en una franja con scroll vertical propio.
+  &__tabla {
+    overflow-x: auto;
+    flex-shrink: 0;
+
+    table { width: 100%; border-collapse: collapse; font-size: .84rem; min-width: 520px; }
+    th, td { padding: .5rem .4rem; text-align: left; border-bottom: 1px solid var(--color-border); }
+    th {
+      font-weight: 600; font-size: .7rem; text-transform: uppercase;
+      letter-spacing: .03em; color: var(--color-text-muted);
+    }
+    td.num, th.num { text-align: right; }
+  }
+}
+
+.badge {
+  display: inline-block; padding: .12rem .45rem; border-radius: 999px;
+  font-size: .7rem; font-weight: 600;
+  background: color-mix(in srgb, var(--color-text-muted) 15%, transparent);
+  color: var(--color-text-secondary);
+
+  &--ok {
+    background: color-mix(in srgb, var(--color-success, #16a34a) 15%, transparent);
+    color: var(--color-success, #16a34a);
+  }
+  &--mal {
+    background: color-mix(in srgb, var(--color-danger, #dc2626) 15%, transparent);
+    color: var(--color-danger, #dc2626);
+  }
+}
+
+@media (max-width: 620px) {
+  .ficha__kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cliente__datos { gap: .8rem; }
+}

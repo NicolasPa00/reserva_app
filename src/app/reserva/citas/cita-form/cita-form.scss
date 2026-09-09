@@ -201,3 +201,33 @@
     margin-top: .15rem; white-space: pre-wrap; overflow-wrap: anywhere;
   }
 }
+
+/**
+ * Aviso de cliente reconocido.
+ *
+ * Va debajo del par nombre/teléfono, no encima: aparece cuando el teléfono ya está completo,
+ * y un aviso que se cuela ENTRE dos campos empuja el que estás rellenando fuera del pulgar.
+ */
+.cliente-conocido {
+  display: flex; align-items: center; flex-wrap: wrap; gap: .4rem;
+  margin: -.25rem 0 .25rem;
+  padding: .45rem .6rem;
+  font-size: .8rem;
+  color: var(--color-text-secondary);
+  background: color-mix(in srgb, var(--color-primary) 7%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+  border-radius: var(--radius-md);
+
+  lucide-icon { color: var(--color-primary); flex: 0 0 auto; }
+  strong { color: var(--color-text-primary); }
+  em { font-style: normal; color: var(--color-danger, #dc2626); }
+
+  &__usar {
+    margin-left: auto;
+    border: 0; background: transparent; cursor: pointer; font-family: inherit;
+    font-size: .78rem; font-weight: 600; color: var(--color-primary);
+    padding: .15rem .3rem; border-radius: var(--radius-sm);
+
+    &:hover { background: color-mix(in srgb, var(--color-primary) 12%, transparent); }
+  }
+}

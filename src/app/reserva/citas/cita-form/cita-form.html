@@ -206,6 +206,27 @@
                      (input)="setCliente('telefono', $any($event.target).value)" />
             </label>
           </div>
+
+          <!-- El teléfono es la llave de la cartera: en cuanto está completo se sabe si
+               quien pide la cita ya ha venido antes. -->
+          @if (clienteConocido(); as conocido) {
+            <p class="cliente-conocido">
+              <lucide-icon name="user-round" [size]="14" />
+              <span>
+                Ya es cliente:
+                <strong>{{ conocido.nombre || 'sin nombre' }}</strong>
+                · {{ conocido.total_citas }} {{ conocido.total_citas === 1 ? 'cita' : 'citas' }}
+                @if (conocido.inasistencias > 0) {
+                  · <em>{{ conocido.inasistencias }} inasistencia(s)</em>
+                }
+              </span>
+              @if (nombreDifiere()) {
+                <button type="button" class="cliente-conocido__usar" (click)="usarNombreConocido()">
+                  Usar «{{ conocido.nombre }}»
+                </button>
+              }
+            </p>
+          }
           <label class="campo">
             <span>Email</span>
             <input class="input" type="email" placeholder="cliente@correo.com"
