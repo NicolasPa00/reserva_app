@@ -3,6 +3,8 @@ import {
 } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 
+import { esHojaMovil } from '../../core/utils/pantalla';
+
 /**
  * Modal base del módulo.
  *
@@ -119,7 +121,9 @@ export class ModalComponent {
   @Output() close = new EventEmitter<void>();
 
   onBackdropClick(ev: MouseEvent) {
-    if (!this.closeOnBackdrop) return;
+    // El fondo solo descarta en móvil, donde el modal es una hoja y tocar fuera es el gesto
+    // esperado. En escritorio se cierra con la «X» o con el botón del pie: ver pantalla.ts.
+    if (!this.closeOnBackdrop || !esHojaMovil()) return;
     if (ev.target === ev.currentTarget) this.close.emit();
   }
 

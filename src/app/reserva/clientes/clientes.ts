@@ -2,7 +2,9 @@ import {
   ChangeDetectionStrategy, Component, OnInit, computed, effect, inject, signal,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { HttpResponse } from '@angular/common/http';
 import { LucideAngularModule } from 'lucide-angular';
+import { finalize } from 'rxjs';
 
 import { AuthService } from '../../core/services/auth.service';
 import { ReservaApiService } from '../../core/services/reserva-api.service';
@@ -52,6 +54,9 @@ export class ClientesComponent implements OnInit {
   readonly busqueda = signal('');
   private temporizador: ReturnType<typeof setTimeout> | null = null;
 
+  /** Qué archivo se está generando; `null` si ninguno. Bloquea ambos botones mientras tanto. */
+  readonly exportando = signal<'xlsx' | 'pdf' | null>(null);
+
   // Ficha de un cliente
   readonly seleccionado = signal<ClienteNegocio | null>(null);
   readonly citas = signal<ClienteCita[]>([]);
@@ -100,6 +105,46 @@ export class ClientesComponent implements OnInit {
           this.toast.error(err?.error?.message || 'No se pudo cargar la lista de clientes.');
         },
       });
+  }
+
+  /**
+   * Descarga la cartera en Excel o PDF. Respeta la búsqueda escrita: si hay un filtro, el
+   * archivo trae lo mismo que la pantalla —todas las páginas, no solo lo ya cargado—.
+   */
+  exportar(formato: 'xlsx' | 'pdf'): void {
+    const id = this.idNegocio();
+    if (!id || this.exportando()) return;
+
+    this.exportando.set(formato);
+    this.api
+      .exportarClientes({ idNegocio: id, formato, buscar: this.busqueda().trim() || undefined })
+      .pipe(finalize(() => this.exportando.set(null)))
+      .subscribe({
+        next: (res) => {
+          if (!res.body || res.body.size === 0) {
+            this.toast.error('El archivo generado está vacío.');
+            return;
+          }
+          this.descargar(res.body, this.nombreArchivo(res, formato));
+        },
+        // El cuerpo del error llega como Blob, así que no hay mensaje del servidor que leer.
+        error: () => this.toast.error('No se pudo generar el archivo de clientes.'),
+      });
+  }
+
+  private nombreArchivo(res: HttpResponse<Blob>, formato: 'xlsx' | 'pdf'): string {
+    const cabecera = res.headers.get('content-disposition') || '';
+    const m = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(cabecera);
+    return m?.[1] ? decodeURIComponent(m[1]) : `clientes.${formato}`;
+  }
+
+  private descargar(blob: Blob, nombre: string): void {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = nombre;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   abrirFicha(cliente: ClienteNegocio): void {

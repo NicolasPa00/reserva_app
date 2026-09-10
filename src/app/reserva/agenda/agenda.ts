@@ -10,6 +10,7 @@ import { AuthService } from '../../core/services/auth.service';
 import { ReservaApiService } from '../../core/services/reserva-api.service';
 import { ToastService } from '../../core/services/toast.service';
 import { EventBusService } from '../../core/services/event-bus.service';
+import { environment } from '../../../environments/environment';
 import { Cita, DiaDisponible, EstadoCita, MetodoPago, Profesional } from '../../core/models';
 import { CitaFormComponent } from '../citas/cita-form/cita-form';
 import { ModalComponent } from '../../shared/modal/modal';
@@ -100,6 +101,23 @@ export class AgendaComponent implements OnInit, OnDestroy {
   // Permisos por acción dentro de la agenda.
   readonly puedeAgendar = computed(() => this.auth.puedeAccion('agenda_crear_cita'));
   readonly puedeCobrarCita = computed(() => this.auth.puedeAccion('agenda_cobrar'));
+
+  // Mismas acciones y mismos permisos que en Citas (`citas_*`): es el mismo ciclo de vida de la
+  // cita, así que da igual desde qué pantalla se toque.
+  readonly puedeConfirmar   = computed(() => this.auth.puedeAccion('citas_confirmar'));
+  readonly puedeCancelar    = computed(() => this.auth.puedeAccion('citas_cancelar'));
+  readonly puedeNoShow      = computed(() => this.auth.puedeAccion('citas_no_show'));
+  readonly puedeValidarPago = computed(() => this.auth.puedeAccion('citas_validar_pago'));
+
+  // Validar pago
+  readonly modalPago = signal(false);
+  readonly citaPago = signal<Cita | null>(null);
+  readonly motivoRechazo = signal('');
+
+  // Cancelar
+  readonly confirmCancelar = signal(false);
+  readonly citaACancelar = signal<Cita | null>(null);
+  readonly motivoCancel = signal('');
 
   /**
    * Borrar no es cancelar: quita la cita del histórico para siempre. Por eso va en su propia
@@ -343,6 +361,93 @@ export class AgendaComponent implements OnInit, OnDestroy {
     this.citaDetalle.set(null);
     this.refrescarCaja();
     this.citaACobrar.set(c);
+  }
+
+  /**
+   * Mensaje de un rechazo del backend. Igual que en Citas: si el dominio rechaza la transición
+   * con una explicación concreta, se muestra esa y no un texto fijo que oculta el motivo.
+   */
+  private motivoRechazo_(err: unknown, porDefecto: string): string {
+    const e = err as { error?: { message?: string } };
+    return e?.error?.message || porDefecto;
+  }
+
+  confirmar(c: Cita) {
+    this.citaDetalle.set(null);
+    this.api.confirmarCita(c.id_cita, this.idNegocio()).subscribe({
+      next: r => { if (r?.success) { this.toast.success('Cita confirmada'); this.cargar(); }
+                   else this.toast.error(r?.message || 'Error.'); },
+      error: err => { this.toast.error(this.motivoRechazo_(err, 'Error al confirmar.')); this.cargar(); },
+    });
+  }
+
+  noShow(c: Cita) {
+    this.citaDetalle.set(null);
+    this.api.noShowCita(c.id_cita, this.idNegocio()).subscribe({
+      next: r => { if (r?.success) { this.toast.warning('Marcada como no-show'); this.cargar(); }
+                   else this.toast.error(r?.message || 'Error.'); },
+      error: err => { this.toast.error(this.motivoRechazo_(err, 'Error al marcar.')); this.cargar(); },
+    });
+  }
+
+  pedirCancelar(c: Cita) {
+    this.citaDetalle.set(null);
+    this.citaACancelar.set(c);
+    this.motivoCancel.set('');
+    this.confirmCancelar.set(true);
+  }
+
+  cancelarConfirmado() {
+    const c = this.citaACancelar(); if (!c) return;
+    this.api.cancelarCita(c.id_cita, this.idNegocio(), this.motivoCancel()).subscribe({
+      next: r => {
+        if (r?.success) { this.toast.success('Cita cancelada'); this.cargar(); this.bus.publish('cita_cancelada', r.data); }
+        else this.toast.error(r?.message || 'Error.');
+        this.confirmCancelar.set(false); this.citaACancelar.set(null);
+      },
+      error: err => {
+        this.toast.error(this.motivoRechazo_(err, 'Error al cancelar.'));
+        this.confirmCancelar.set(false); this.citaACancelar.set(null); this.cargar();
+      },
+    });
+  }
+
+  // ── Validar pago ──
+  abrirValidarPago(c: Cita) {
+    this.citaDetalle.set(null);
+    this.citaPago.set(c);
+    this.motivoRechazo.set('');
+    this.modalPago.set(true);
+  }
+  cerrarValidarPago() { this.modalPago.set(false); this.citaPago.set(null); }
+
+  comprobanteUrl(c: Cita): string {
+    return `${environment.apiUrl}/citas/${c.id_cita}/comprobante?id_negocio=${this.idNegocio()}`;
+  }
+
+  aprobarPago() {
+    const c = this.citaPago(); if (!c) return;
+    this.api.aprobarPago(c.id_cita, this.idNegocio()).subscribe({
+      next: r => {
+        if (r?.success) { this.toast.success('Pago aprobado'); this.cargar(); this.bus.publish('cita_pago_aprobado', r.data); }
+        else this.toast.error(r?.message || 'Error.');
+        this.cerrarValidarPago();
+      },
+      error: () => { this.toast.error('Error al aprobar.'); this.cerrarValidarPago(); },
+    });
+  }
+
+  rechazarPago() {
+    const c = this.citaPago(); if (!c) return;
+    if (!this.motivoRechazo().trim()) { this.toast.error('Debes indicar un motivo.'); return; }
+    this.api.rechazarPago(c.id_cita, this.idNegocio(), this.motivoRechazo()).subscribe({
+      next: r => {
+        if (r?.success) { this.toast.warning('Pago rechazado'); this.cargar(); this.bus.publish('cita_pago_rechazado', r.data); }
+        else this.toast.error(r?.message || 'Error.');
+        this.cerrarValidarPago();
+      },
+      error: () => { this.toast.error('Error al rechazar.'); this.cerrarValidarPago(); },
+    });
   }
 
   // ── Borrado definitivo ──

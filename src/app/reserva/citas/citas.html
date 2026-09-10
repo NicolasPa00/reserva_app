@@ -118,7 +118,7 @@
     @if (puedeEliminar() && citaDetalle()) {
       <button type="button" class="btn btn-danger pie-cita__eliminar"
               (click)="pedirEliminar(citaDetalle()!); cerrarDetalle()">
-        <lucide-icon name="trash-2" [size]="14" /> Eliminar
+        <lucide-icon name="trash-2" [size]="14" /> <span class="btn__label">Eliminar</span>
       </button>
     }
 

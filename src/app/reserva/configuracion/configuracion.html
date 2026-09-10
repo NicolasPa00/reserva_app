@@ -438,11 +438,13 @@
       }
 
       <!--
-        El botón vive fuera de los paneles: guarda la configuración entera, se esté en la
-        pestaña que se esté. En Identidad no aparece porque allí cada bloque tiene su propio
-        guardado (los colores se aplican en vivo y el logo se sube al recortarlo).
+        El botón vive fuera de los paneles: guarda la configuración entera, se esté en Reservas
+        o en Cobros. En Identidad no aparece porque allí cada bloque tiene su propio guardado
+        (los colores se aplican en vivo y el logo se sube al recortarlo), y en Página pública
+        tampoco: ese formulario es otro (`vitrinaForm`) y ya trae el suyo — mostrar los dos a
+        la vez es justo la duplicidad que no debe verse.
       -->
-      @if (tab() !== 'identidad') {
+      @if (tab() === 'reservas' || tab() === 'cobros') {
         <div class="actions">
           @if (form.invalid) {
             <span class="actions__error">

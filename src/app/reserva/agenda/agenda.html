@@ -149,25 +149,109 @@
                [subtitle]="citaDetalle()?.profesional?.nombre || ''"
                size="lg" (close)="cerrarDetalle()">
   <reserva-cita-detalle [cita]="citaDetalle()" />
-  <div modal-footer>
+  <!--
+    Mismo pie que en Citas (mismo ciclo de vida de la cita, ver `pie-cita` en citas.scss):
+    salir a la izquierda, borrar aparte, y las acciones que cierran en mal estado antes que las
+    que la hacen avanzar. En móvil se quita «Cerrar» —la «X» y tocar fuera ya cierran, ver
+    shared/modal— y «Eliminar» se reduce a su icono.
+  -->
+  <div modal-footer class="pie-cita">
+    <button type="button" class="btn btn-ghost pie-cita__salir" (click)="cerrarDetalle()">
+      Cerrar
+    </button>
+
     @if (puedeEliminarCita() && citaDetalle()) {
-      <button type="button" class="btn btn-danger" (click)="pedirEliminar(citaDetalle()!)">
-        <lucide-icon name="trash-2" [size]="14" /> Eliminar
+      <button type="button" class="btn btn-danger pie-cita__eliminar" (click)="pedirEliminar(citaDetalle()!)">
+        <lucide-icon name="trash-2" [size]="14" /> <span class="btn__label">Eliminar</span>
       </button>
     }
-    @if (puedeEditarCita(citaDetalle())) {
-      <button type="button" class="btn btn-outline" (click)="editarCita(citaDetalle()!)">
-        <lucide-icon name="pencil" [size]="14" /> Editar
-      </button>
+
+    @if (citaDetalle() && (citaDetalle()!.estado === 'pendiente' || citaDetalle()!.estado === 'confirmada')) {
+      <div class="pie-cita__acciones">
+        @if (puedeNoShow() || puedeCancelar()) {
+          <div class="pie-cita__grupo pie-cita__grupo--baja">
+            @if (puedeNoShow()) {
+              <button type="button" class="btn btn-outline" (click)="noShow(citaDetalle()!)">
+                No asistió
+              </button>
+            }
+            @if (puedeCancelar()) {
+              <button type="button" class="btn btn-danger" (click)="pedirCancelar(citaDetalle()!)">
+                Cancelar
+              </button>
+            }
+          </div>
+        }
+
+        <div class="pie-cita__grupo">
+          @if (puedeEditarCita(citaDetalle())) {
+            <button type="button" class="btn btn-outline" (click)="editarCita(citaDetalle()!)">
+              <lucide-icon name="pencil" [size]="14" /> Editar
+            </button>
+          }
+          @if (puedeCobrar(citaDetalle())) {
+            <button type="button" class="btn btn-outline" (click)="cobrar(citaDetalle()!)">
+              <lucide-icon name="wallet" [size]="14" /> Completar y cobrar
+            </button>
+          }
+          @if (puedeValidarPago() && citaDetalle()!.pago_estado === 'pendiente_validacion') {
+            <button type="button" class="btn btn-primary" (click)="abrirValidarPago(citaDetalle()!)">
+              <lucide-icon name="credit-card" [size]="14" /> Validar pago
+            </button>
+          }
+          @if (puedeConfirmar() && citaDetalle()!.estado === 'pendiente' && citaDetalle()!.pago_estado !== 'pendiente_validacion') {
+            <button type="button" class="btn btn-primary" (click)="confirmar(citaDetalle()!)">
+              Confirmar
+            </button>
+          }
+        </div>
+      </div>
     }
-    @if (puedeCobrar(citaDetalle())) {
-      <button type="button" class="btn btn-primary" (click)="cobrar(citaDetalle()!)">
-        <lucide-icon name="wallet" [size]="14" /> Completar y cobrar
-      </button>
-    }
-    <button type="button" class="btn btn-outline" (click)="cerrarDetalle()">Cerrar</button>
   </div>
 </reserva-modal>
+
+<!-- Validar pago: ver comprobante y aprobar/rechazar -->
+<reserva-modal [open]="modalPago()" title="Validar pago adelantado" size="lg" (close)="cerrarValidarPago()">
+  @if (citaPago()) {
+    <div class="pago">
+      <div class="pago__info">
+        <p><strong>{{ citaPago()!.cliente_nombre }}</strong></p>
+        <p class="hint">
+          {{ citaPago()!.fecha_hora_inicio | date:'EEEE dd MMM, HH:mm':'':'es-CO' }} ·
+          {{ citaPago()!.profesional?.nombre }}
+        </p>
+        <p class="pago__monto">{{ citaPago()!.monto_total | currency:'COP':'symbol':'1.0-0' }}</p>
+      </div>
+      @if (citaPago()!.comprobante_pago_url) {
+        <div class="pago__img">
+          <img [src]="comprobanteUrl(citaPago()!)" alt="Comprobante de pago" />
+        </div>
+      } @else {
+        <p class="hint">El cliente no adjuntó comprobante.</p>
+      }
+      <label class="block">
+        <span>Motivo de rechazo (requerido si rechazas)</span>
+        <input class="input" type="text"
+               [value]="motivoRechazo()"
+               (input)="motivoRechazo.set($any($event.target).value)" />
+      </label>
+    </div>
+  }
+  <div modal-footer style="display:flex; gap:.5rem;">
+    <button type="button" class="btn btn-outline" (click)="cerrarValidarPago()">Cancelar</button>
+    <button type="button" class="btn btn-danger" (click)="rechazarPago()">Rechazar</button>
+    <button type="button" class="btn btn-primary" (click)="aprobarPago()">Aprobar</button>
+  </div>
+</reserva-modal>
+
+<reserva-confirm
+  [open]="confirmCancelar()"
+  title="Cancelar cita"
+  message="¿Cancelar esta cita? Se notificará al cliente y el slot quedará libre."
+  confirmText="Cancelar cita"
+  kind="danger"
+  (cancel)="confirmCancelar.set(false); citaACancelar.set(null)"
+  (confirm)="cancelarConfirmado()" />
 
 <!--
   Borrado definitivo. El mensaje dice lo que de verdad pasa —desaparece del histórico— porque

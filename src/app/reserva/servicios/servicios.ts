@@ -9,7 +9,6 @@ import { ReservaApiService } from '../../core/services/reserva-api.service';
 import { ToastService } from '../../core/services/toast.service';
 import { CategoriaReserva, Servicio } from '../../core/models';
 import { ImageCropperComponent } from '../../shared/image-cropper/image-cropper';
-import { MayusculasDirective } from '../../shared/mayusculas.directive';
 import { ModalComponent } from '../../shared/modal/modal';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dialog';
 
@@ -18,7 +17,7 @@ import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dial
   standalone: true,
   imports: [
     CommonModule, ReactiveFormsModule, LucideAngularModule, CurrencyPipe,
-    ModalComponent, ConfirmDialogComponent, ImageCropperComponent, MayusculasDirective,
+    ModalComponent, ConfirmDialogComponent, ImageCropperComponent,
   ],
   templateUrl: './servicios.html',
   styleUrl: './servicios.scss',

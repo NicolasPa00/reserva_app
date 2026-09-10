@@ -10,13 +10,34 @@
 }
 
 // ── Filtros ──
+//
+// Por debajo de 900px los campos van en rejilla (`grid-template-columns: repeat(auto-fit, ...)`)
+// y no en fila con wrap: una fila que envuelve reparte cada control por su ancho mínimo y dejaba
+// la última línea con un solo control estrecho y el resto de la fila en blanco — se veía mal
+// tanto en tablet como en móvil, cada uno con su propio patrón de huecos según cuántos campos
+// cupieran. La rejilla, en cambio, siempre reparte el ancho disponible entre columnas de `1fr`.
 .filtros {
-  display: flex; align-items: flex-end; justify-content: space-between;
-  gap: 1rem; flex-wrap: wrap; padding: .9rem 1.1rem;
+  display: flex; flex-direction: column; gap: 1rem; padding: .9rem 1.1rem;
 
   &__presets { display: flex; gap: .35rem; flex-wrap: wrap; }
-  &__campos { display: flex; align-items: flex-end; gap: .6rem; flex-wrap: wrap; }
-  &__refrescar { padding: .5rem .6rem; }
+
+  &__campos {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: .6rem; align-items: end;
+  }
+
+  &__refrescar { width: 100%; justify-content: center; }
+}
+
+// A partir de tablet grande / escritorio ya sobra ancho de sobra: presets y campos vuelven a
+// convivir en una sola fila, y los campos a su tamaño natural en vez de estirarse en rejilla.
+@media (min-width: 900px) {
+  .filtros {
+    flex-direction: row; align-items: flex-end; justify-content: space-between; flex-wrap: wrap;
+  }
+  .filtros__campos { display: flex; flex-wrap: wrap; }
+  .filtros__refrescar { width: auto; padding: .5rem .6rem; }
 }
 
 .pill {
@@ -38,7 +59,15 @@
 .campo {
   display: flex; flex-direction: column; gap: .25rem; min-width: 0;
   span { font-size: .75rem; font-weight: 600; color: var(--color-text-secondary); }
-  .input, .select { min-width: 140px; padding: .45rem .6rem; font-size: .85rem; }
+  .input, .select { min-width: 0; padding: .45rem .6rem; font-size: .85rem; }
+}
+
+// Por debajo de 900px el ancho lo decide la celda de la rejilla (`.filtros__campos`), no el
+// campo: un `min-width` propio competiría con ella y volvería a desbordar en las columnas más
+// estrechas. A partir de escritorio, con los campos en fila natural, sí necesitan un mínimo
+// para no encogerse hasta ilegibles.
+@media (min-width: 900px) {
+  .campo .input, .campo .select { min-width: 140px; }
 }
 
 .contexto {

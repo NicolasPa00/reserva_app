@@ -34,6 +34,10 @@
 }
 @media (max-width: 720px) { .row { grid-template-columns: 1fr; } .row__meta { align-items: flex-start; } }
 
+@media (max-width: 767px) {
+  .page__head .btn { width: 100%; }
+}
+
 // El bloque `.detalle` vivía aquí junto a su copia del marcado. Ahora el detalle lo pinta
 // `shared/cita-detalle`, que trae sus propios estilos, y la Agenda reutiliza el mismo.
 
@@ -78,15 +82,33 @@
   .btn { white-space: nowrap; }
 }
 
-// En un móvil no caben cinco botones en fila: cada grupo ocupa el ancho y «Cerrar» baja al
-// final, que es donde menos estorba cuando lo que se quiere es actuar.
+// En un móvil no caben cinco botones en fila. «Cerrar» sobra —la «X» y tocar fuera ya cierran,
+// ver shared/modal— y «Eliminar» se reduce a su icono. Lo que quedaba mal era el reparto en
+// filas: `.pie-cita__acciones` viajaba como UN solo item del `.pie-cita` de fuera, así que si no
+// cabía entera junto al icono de eliminar se envolvía entera a una línea propia, dejando ese
+// icono solo en la primera fila y el grupo «No asistió/Cancelar» sin estirarse en la segunda.
+//
+// `display: contents` en `.pie-cita__acciones` la saca de la caja: sus dos hijos (el grupo que
+// cierra en mal estado y el que hace avanzar la cita) pasan a ser items directos de `.pie-cita`,
+// pudiendo repartirse en líneas por su cuenta. El primero se coloca junto al icono de eliminar
+// —los dos caben de sobra— y se estira para ocupar lo que quede de esa fila; el segundo, con más
+// botones y más texto, se fuerza a su propia fila completa.
 @media (max-width: 600px) {
-  .pie-cita {
-    flex-direction: column-reverse; align-items: stretch; gap: .6rem;
+  .pie-cita { flex-wrap: wrap; }
 
-    &__acciones { margin-left: 0; flex-direction: column; align-items: stretch; }
-    &__grupo { justify-content: stretch; }
-    &__grupo .btn { flex: 1; justify-content: center; }
-    &__grupo--baja { padding-right: 0; border-right: 0; }
+  .pie-cita__salir { display: none; }
+
+  .pie-cita__eliminar {
+    flex: 0 0 auto; padding-left: .65rem; padding-right: .65rem;
+    .btn__label { display: none; }
   }
+
+  .pie-cita__acciones { display: contents; }
+
+  .pie-cita__grupo--baja {
+    flex: 1 1 auto; padding-right: 0; border-right: 0;
+    .btn { flex: 1; justify-content: center; }
+  }
+
+  .pie-cita__grupo:not(.pie-cita__grupo--baja) { flex: 1 1 100%; }
 }

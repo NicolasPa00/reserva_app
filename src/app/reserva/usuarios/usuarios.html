@@ -28,10 +28,12 @@
         <input class="input" type="search" placeholder="Buscar por nombre, email o cédula…"
                [value]="busqueda()" (input)="busqueda.set($any($event.target).value)" />
       </label>
-      <label class="check">
-        <input type="checkbox" [checked]="incluirInactivos()" (change)="alternarInactivos()" />
-        <span>Incluir desactivados</span>
-      </label>
+      @if (hayInactivos()) {
+        <label class="check">
+          <input type="checkbox" [checked]="incluirInactivos()" (change)="alternarInactivos()" />
+          <span>Incluir desactivados</span>
+        </label>
+      }
     </div>
 
     @if (cargando()) {
@@ -61,8 +63,10 @@
                 {{ u.nombre_completo }}
                 @if (esUsuarioActual(u)) { <em class="us__yo">tú</em> }
               </strong>
-              <span>{{ u.email }}</span>
+              <!-- El documento va primero: es con lo que esta persona inicia sesión. El correo
+                   es opcional y solo aparece si lo tiene. -->
               <span class="us__ced">CC {{ u.num_identificacion }}</span>
+              @if (u.email) { <span>{{ u.email }}</span> }
             </div>
 
             <div class="us__meta">
@@ -247,11 +251,13 @@
         <lucide-icon name="check" [size]="16" />
         Comparte estos datos con la persona. Se le pedirá cambiar la contraseña al entrar.
       </p>
+      <!-- Decía «Usuario (email)» y era falso: el login pide el documento. Dictar el correo
+           dejaba a la persona intentando entrar con algo que no es su usuario. -->
       <div class="cred__campo">
-        <span>Usuario (email)</span>
+        <span>Usuario (documento de identidad)</span>
         <div>
-          <strong>{{ cred.email }}</strong>
-          <button type="button" class="mini" (click)="copiar(cred.email)">
+          <strong>{{ cred.usuario }}</strong>
+          <button type="button" class="mini" (click)="copiar(cred.usuario)">
             <lucide-icon name="copy" [size]="13" /> Copiar
           </button>
         </div>
@@ -271,22 +277,22 @@
       <div class="form__grid">
         <label class="campo">
           <span>Primer nombre *</span>
-          <input class="input" type="text" reservaMayusculas [value]="form().primer_nombre"
+          <input class="input" type="text" [value]="form().primer_nombre"
                  (input)="setCampo('primer_nombre', $any($event.target).value)" />
         </label>
         <label class="campo">
           <span>Segundo nombre</span>
-          <input class="input" type="text" reservaMayusculas [value]="form().segundo_nombre"
+          <input class="input" type="text" [value]="form().segundo_nombre"
                  (input)="setCampo('segundo_nombre', $any($event.target).value)" />
         </label>
         <label class="campo">
           <span>Primer apellido *</span>
-          <input class="input" type="text" reservaMayusculas [value]="form().primer_apellido"
+          <input class="input" type="text" [value]="form().primer_apellido"
                  (input)="setCampo('primer_apellido', $any($event.target).value)" />
         </label>
         <label class="campo">
           <span>Segundo apellido</span>
-          <input class="input" type="text" reservaMayusculas [value]="form().segundo_apellido"
+          <input class="input" type="text" [value]="form().segundo_apellido"
                  (input)="setCampo('segundo_apellido', $any($event.target).value)" />
         </label>
       </div>
@@ -298,7 +304,7 @@
                  [disabled]="!!usuarioEditando()"
                  (input)="setCampo('num_identificacion', $any($event.target).value)" />
           @if (!usuarioEditando()) {
-            <small>Será su contraseña inicial si no defines otra.</small>
+            <small>Con este documento inicia sesión, y será su contraseña inicial si no defines otra.</small>
           } @else {
             <small>La identificación no se puede cambiar.</small>
           }
@@ -311,10 +317,10 @@
       </div>
 
       <label class="campo">
-        <span>Email *</span>
+        <span>Email <small>(opcional)</small></span>
         <input class="input" type="email" placeholder="persona@correo.com" [value]="form().email"
                (input)="setCampo('email', $any($event.target).value)" />
-        <small>Con este email inicia sesión.</small>
+        <small>Solo para avisos y contacto: no se usa para iniciar sesión.</small>
       </label>
 
       <label class="campo">
@@ -354,7 +360,7 @@
           @if (!form().id_profesional) {
             <label class="campo">
               <span>Especialidad</span>
-              <input class="input" type="text" reservaMayusculas placeholder="BARBERÍA, COLORIMETRÍA…"
+              <input class="input" type="text" placeholder="Barbería, colorimetría…"
                      [value]="form().especialidad"
                      (input)="setCampo('especialidad', $any($event.target).value)" />
             </label>

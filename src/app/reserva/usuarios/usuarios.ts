@@ -84,7 +84,8 @@ export class UsuariosComponent implements OnInit {
   readonly form = signal<FormUsuario>({ ...FORM_VACIO });
 
   // Credenciales recién creadas
-  readonly credenciales = signal<{ email: string; password: string } | null>(null);
+  /** Lo que se le dicta a la persona para entrar. `usuario` es su documento, no su correo. */
+  readonly credenciales = signal<{ usuario: string; password: string } | null>(null);
 
   // Estado / reset
   readonly confirmEstado = signal(false);
@@ -107,19 +108,26 @@ export class UsuariosComponent implements OnInit {
 
   readonly esProfesional = computed(() => this.rolElegido()?.descripcion === 'PROFESIONAL');
 
+  readonly hayInactivos = computed(() => this.usuarios().some(u => u.estado === 'I'));
+
   readonly usuariosFiltrados = computed(() => {
+    const base = this.incluirInactivos()
+      ? this.usuarios()
+      : this.usuarios().filter(u => u.estado === 'A');
+
     const q = this.busqueda().trim().toLowerCase();
-    if (!q) return this.usuarios();
-    return this.usuarios().filter(u =>
+    if (!q) return base;
+    return base.filter(u =>
       u.nombre_completo.toLowerCase().includes(q) ||
-      u.email.toLowerCase().includes(q) ||
+      (u.email ?? '').toLowerCase().includes(q) ||
       u.num_identificacion.includes(q),
     );
   });
 
   readonly formValido = computed(() => {
     const f = this.form();
-    const base = !!f.primer_nombre.trim() && !!f.primer_apellido.trim() && !!f.email.trim() && f.id_rol != null;
+    // Sin el email: es opcional desde que quedó claro que la credencial es el documento.
+    const base = !!f.primer_nombre.trim() && !!f.primer_apellido.trim() && f.id_rol != null;
     if (this.usuarioEditando()) {
       // Al editar, la contraseña es opcional; si se escribe, debe ser válida.
       return base && (!f.password.trim() || f.password.trim().length >= 8);
@@ -135,7 +143,7 @@ export class UsuariosComponent implements OnInit {
     if (!id) return;
     this.cargando.set(true);
     forkJoin({
-      usuarios: this.api.listarUsuarios(id, { incluirInactivos: this.incluirInactivos() }),
+      usuarios: this.api.listarUsuarios(id, { incluirInactivos: true }),
       roles: this.api.listarRolesReserva(id),
       libres: this.api.profesionalesSinUsuario(id),
     }).subscribe({
@@ -161,7 +169,6 @@ export class UsuariosComponent implements OnInit {
 
   alternarInactivos() {
     this.incluirInactivos.update(v => !v);
-    this.cargar();
   }
 
   // ── Alta y edición ──
@@ -230,7 +237,7 @@ export class UsuariosComponent implements OnInit {
       primer_apellido: f.primer_apellido.trim(),
       segundo_apellido: f.segundo_apellido.trim() || null,
       num_identificacion: f.num_identificacion.trim(),
-      email: f.email.trim(),
+      email: f.email.trim() || null,
       telefono: f.telefono.trim() || null,
       id_rol: f.id_rol!,
       password: f.password.trim() || null,
@@ -257,7 +264,7 @@ export class UsuariosComponent implements OnInit {
           if (temporal) {
             // Se muestran las credenciales en pantalla en vez de cerrar sin más: el admin tiene
             // que poder dictárselas al empleado, y no se vuelven a mostrar.
-            this.credenciales.set({ email: payload.email, password: temporal });
+            this.credenciales.set({ usuario: payload.num_identificacion, password: temporal });
           } else {
             this.modalUsuario.set(false);
           }
@@ -316,7 +323,7 @@ export class UsuariosComponent implements OnInit {
       next: r => {
         this.confirmReset.set(false);
         if (r?.success && r.data) {
-          this.credenciales.set({ email: u.email, password: r.data.password_temporal });
+          this.credenciales.set({ usuario: u.num_identificacion, password: r.data.password_temporal });
           this.modalUsuario.set(true);
           this.usuarioEditando.set(null);
           this.toast.success('Contraseña restablecida');

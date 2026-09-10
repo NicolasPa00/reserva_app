@@ -18,6 +18,21 @@
       <input class="input" type="search" placeholder="Buscar por nombre o teléfono…"
              [value]="busqueda()" (input)="buscar($any($event.target).value)" />
     </label>
+
+    <div class="exportar">
+      <button type="button" class="btn btn-outline" (click)="exportar('xlsx')"
+              [disabled]="total() === 0 || exportando() !== null"
+              [title]="busqueda() ? 'Exportar a Excel los clientes que coinciden con la búsqueda' : 'Exportar todos los clientes a Excel'">
+        <lucide-icon name="file-spreadsheet" [size]="15" />
+        {{ exportando() === 'xlsx' ? 'Generando…' : 'Excel' }}
+      </button>
+      <button type="button" class="btn btn-outline" (click)="exportar('pdf')"
+              [disabled]="total() === 0 || exportando() !== null"
+              [title]="busqueda() ? 'Exportar a PDF los clientes que coinciden con la búsqueda' : 'Exportar todos los clientes a PDF'">
+        <lucide-icon name="file-text" [size]="15" />
+        {{ exportando() === 'pdf' ? 'Generando…' : 'PDF' }}
+      </button>
+    </div>
   </div>
 
   @if (cargando() && clientes().length === 0) {

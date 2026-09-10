@@ -203,7 +203,7 @@
 
 <!-- ═════════ Datos del cliente ═════════ -->
 @if (modalAbierto()) {
-  <div class="lienzo" (click)="modalAbierto.set(false)">
+  <div class="lienzo" (click)="cerrarHojaPorFuera($event)">
     <div class="hoja" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
       <header class="hoja__head">
         <h2>Confirma tu reserva</h2>
@@ -286,7 +286,7 @@
 
       <div class="codigo">
         <span>Tu código</span>
-        <strong>{{ cita.codigo_publico }}</strong>
+        <strong>{{ codigoBonito(cita.codigo_publico) }}</strong>
         <em>Guárdalo: con él puedes consultar o cancelar tu cita.</em>
       </div>
 

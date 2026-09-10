@@ -10,6 +10,8 @@ import { CitaPublica, DiaServicio, SlotsServicio } from '../../../core/models';
 import { aHora12 } from '../../../core/utils/hora';
 import { ProfesionalModalComponent } from '../profesional-modal/profesional-modal';
 import { colorDeEntidad } from '../../../core/utils/color-entidad';
+import { esHojaMovil } from '../../../core/utils/pantalla';
+import { formatearCodigoCita } from '../../../core/utils/codigo-cita';
 
 /** Cuántas horas se muestran antes de plegar el resto. */
 const SLOTS_VISIBLES = 12;
@@ -86,7 +88,23 @@ export class PublicoServicioComponent implements OnInit {
   readonly idProfesional = signal<number | null>(null);
 
   // ── Formulario final ──
+  /** `K3M79QXP` → `K3M7-9QXP`, solo para mostrarlo. */
+  readonly codigoBonito = formatearCodigoCita;
+
   readonly modalAbierto = signal(false);
+
+  /**
+   * Descartar la hoja de datos tocando fuera: solo en móvil.
+   *
+   * Aquí dentro el cliente ya escribió su nombre, su teléfono y a veces adjuntó el
+   * comprobante de pago. Un clic fuera en escritorio lo borraba todo sin aviso, justo en el
+   * último paso de la reserva. Mismo criterio que el modal del panel (`pantalla.ts`).
+   */
+  cerrarHojaPorFuera(ev: MouseEvent): void {
+    if (ev.target !== ev.currentTarget || !esHojaMovil()) return;
+    this.modalAbierto.set(false);
+  }
+
   readonly nombre = signal('');
   readonly telefono = signal('');
   readonly email = signal('');

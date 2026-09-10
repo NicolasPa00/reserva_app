@@ -24,6 +24,11 @@
   .input { padding-left: 2.1rem; }
 }
 
+.exportar {
+  display: flex; gap: .5rem; margin-left: auto;
+  .btn { display: inline-flex; align-items: center; gap: .4rem; }
+}
+
 .vacio {
   display: flex; flex-direction: column; align-items: center; gap: .45rem;
   padding: 2.5rem 1rem; text-align: center; color: var(--color-text-muted);
@@ -149,5 +154,14 @@
 
 @media (max-width: 620px) {
   .ficha__kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .cliente__datos { gap: .8rem; }
+
+  // A este ancho, el nombre (220px de base) y los datos no caben en la misma línea: los datos
+  // caían en su propia fila pero sin estirarse, agrupados a la izquierda con la tarjeta vacía
+  // a la derecha. Forzarlos a una fila propia de ancho completo y repartirlos con
+  // `space-between` es lo que ocupa ese espacio en vez de dejarlo en blanco.
+  .cliente__chevron { order: 2; }
+  .cliente__datos {
+    order: 3; flex-basis: 100%; width: 100%;
+    justify-content: space-between; gap: .5rem;
+  }
 }

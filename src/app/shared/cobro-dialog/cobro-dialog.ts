@@ -5,6 +5,7 @@ import {
 import { CommonModule, CurrencyPipe } from '@angular/common';
 import { LucideAngularModule } from 'lucide-angular';
 
+import { AuthService } from '../../core/services/auth.service';
 import { ReservaApiService } from '../../core/services/reserva-api.service';
 import { ToastService } from '../../core/services/toast.service';
 import { Cita, MetodoPago } from '../../core/models';
@@ -32,6 +33,7 @@ import { MultipagoSelectorComponent, PagoSeleccion } from '../multipago-selector
 })
 export class CobroDialogComponent {
   private readonly api = inject(ReservaApiService);
+  private readonly auth = inject(AuthService);
   private readonly toast = inject(ToastService);
 
   @Input({ required: true }) idNegocio!: number;
@@ -70,6 +72,17 @@ export class CobroDialogComponent {
    * antes de intentarlo. Una cita de importe cero no mueve dinero, así que sí se puede completar.
    */
   readonly bloqueadoPorCaja = computed(() => this.requierePago() && !this.cajaAbierta());
+
+  /**
+   * ¿Puede ESTE usuario abrir el turno, o tiene que pedírselo a alguien?
+   *
+   * El aviso decía «abre la caja en Caja» a todo el mundo, y quien no tiene ese módulo se
+   * quedaba mirando un menú donde Caja no aparece. Abrir turno pide las dos cosas: ver la
+   * vista y tener la acción `caja_abrir`; con una sola el usuario llegaría a una pantalla
+   * sin botón. Cuando no las tiene, el aviso le dice a quién acudir en vez de a dónde ir.
+   */
+  readonly puedeAbrirCaja = computed(() =>
+    this.auth.canAccessRoute('/caja') && this.auth.puedeAccion('caja_abrir'));
 
   readonly puedeCobrar = computed(() => {
     if (this.enviando() || this.bloqueadoPorCaja()) return false;

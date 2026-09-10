@@ -25,6 +25,15 @@
   &__text p  { margin: 0; font-size: .92rem; opacity: .85; }
 
   &__actions { display: flex; gap: .5rem; flex-wrap: wrap; }
+
+  // En tablet/móvil el texto pasa a su propia línea y los botones quedaban del tamaño de su
+  // contenido, apiñados a la izquierda con todo el resto de la fila vacío. Que ocupen la fila
+  // entera a partes iguales es lo que la hace lucir intencional y no como un sobrante.
+  @media (max-width: 900px) {
+    &__actions { width: 100%; }
+    &__actions .btn { flex: 1; }
+  }
+
   &__actions .btn-outline {
     background: rgba(255, 255, 255, .12); color: var(--color-on-primary);
     border-color: rgba(255, 255, 255, .3);

@@ -42,13 +42,18 @@
 }
 
 // ── Lista de usuarios ──
-.lista { padding: 0; }
+//
+// Es una tabla de columnas (avatar · datos · rol · acciones), no una tarjeta: en móvil se
+// mantiene en una sola fila y se desplaza en horizontal en vez de apilar todo verticalmente,
+// que es lo que pasaba con el `grid-template-columns` de dos columnas de antes.
+.lista { padding: 0; overflow-x: auto; }
 
 .us {
   display: grid;
   grid-template-columns: auto minmax(0, 1.4fr) minmax(0, 1fr) auto;
   align-items: center; gap: .85rem;
   padding: .85rem 1.1rem; border-top: 1px solid var(--color-border);
+  min-width: 640px;
   &:first-child { border-top: 0; }
   &--off { opacity: .6; }
 
@@ -91,10 +96,6 @@
   &__acciones { display: flex; gap: .3rem; flex-shrink: 0; }
 }
 
-@media (max-width: 860px) {
-  .us { grid-template-columns: auto minmax(0, 1fr); }
-  .us__meta, .us__acciones { grid-column: 2; }
-}
 
 .mini {
   display: inline-flex; align-items: center; gap: .25rem; flex-shrink: 0;
@@ -312,4 +313,15 @@
 .cred__pass {
   font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
   letter-spacing: .05em;
+}
+
+@media (max-width: 767px) {
+  .page__head { flex-direction: column; align-items: stretch; }
+  .page__head .btn { width: 100%; }
+
+  .tabs { width: 100%; }
+  .tab { flex: 1; text-align: center; }
+
+  .matriz__head { flex-direction: column; align-items: stretch; }
+  .matriz__head .btn { width: 100%; }
 }

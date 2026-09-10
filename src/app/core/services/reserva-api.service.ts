@@ -696,6 +696,17 @@ export class ReservaApiService {
     return this.http.get<ApiResponse<ClientesPagina>>(`${this.base}/clientes`, { params: p });
   }
 
+  /** La cartera completa en Excel o PDF, con el mismo filtro de búsqueda que el listado. */
+  exportarClientes(opts: { idNegocio: number; formato: 'xlsx' | 'pdf'; buscar?: string }) {
+    let p = new HttpParams().set('id_negocio', String(opts.idNegocio)).set('formato', opts.formato);
+    if (opts.buscar) p = p.set('buscar', opts.buscar);
+    return this.http.get(`${this.base}/clientes/exportar`, {
+      params: p,
+      responseType: 'blob',
+      observe: 'response',
+    });
+  }
+
   /**
    * Reconoce a un cliente por su teléfono. `data` llega en `null` cuando no se le conoce —
    * que es la respuesta normal para alguien nuevo, no un error.

@@ -228,7 +228,8 @@ export interface UsuarioNegocio {
   primer_apellido: string;
   segundo_apellido: string | null;
   num_identificacion: string;
-  email: string;
+  /** Opcional: quien inicia sesión es el documento, no el correo. */
+  email: string | null;
   telefono: string | null;
   estado: 'A' | 'I';
   fecha_creacion: string;
@@ -286,7 +287,8 @@ export interface UsuarioPayload {
   primer_apellido: string;
   segundo_apellido?: string | null;
   num_identificacion: string;
-  email: string;
+  /** Dato de contacto, no credencial. `null` = sin correo. */
+  email: string | null;
   telefono?: string | null;
   id_rol: number;
   password?: string | null;

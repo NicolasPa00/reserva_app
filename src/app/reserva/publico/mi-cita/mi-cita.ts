@@ -7,6 +7,7 @@ import { VitrinaStore } from '../vitrina.store';
 import { ReservaApiService } from '../../../core/services/reserva-api.service';
 import { CitaPublica } from '../../../core/models';
 import { aHora12 } from '../../../core/utils/hora';
+import { normalizarEntradaCodigo } from '../../../core/utils/codigo-cita';
 
 /**
  * Consulta y cancelación de una cita con su código público.
@@ -14,7 +15,8 @@ import { aHora12 } from '../../../core/utils/hora';
  * ## Por qué el código y no una cuenta
  *
  * Obligar a registrarse para reservar en una barbería es la forma más rápida de perder al
- * cliente. El código (un UUID) es la credencial: quien lo tiene es quien reservó. Por eso no se
+ * cliente. El código (8 caracteres legibles) es la credencial: quien lo tiene es quien reservó.
+ * Por eso no se
  * enumera —no hay listado por teléfono ni por correo—, y por eso la cancelación exige tenerlo.
  *
  * ## La ventana de cancelación la decide el backend
@@ -69,10 +71,15 @@ export class PublicoMiCitaComponent implements OnInit {
   ngOnInit(): void {
     this.store.cargar(Number(this.route.parent?.snapshot.paramMap.get('id_negocio')));
 
-    // Se llega aquí desde la confirmación con `?codigo=`: buscar sola ahorra un pegado manual
-    // de un UUID en el momento en que el cliente está más impaciente.
+    // Se llega aquí desde la confirmación con `?codigo=`: buscar sola ahorra un tecleo manual
+    // en el momento en que el cliente está más impaciente.
     const codigo = this.route.snapshot.queryParamMap.get('codigo');
-    if (codigo) { this.codigo.set(codigo); this.buscar(); }
+    if (codigo) { this.codigo.set(normalizarEntradaCodigo(codigo)); this.buscar(); }
+  }
+
+  /** Pone en limpio lo que se escribe: mayúsculas y el guion en su sitio. */
+  escribirCodigo(valor: string): void {
+    this.codigo.set(normalizarEntradaCodigo(valor));
   }
 
   hora12(fechaHora: string | null | undefined): string {

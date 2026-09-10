@@ -149,6 +149,12 @@
 // ── Agrupación por categoría ──
 .page__acciones { display: flex; gap: .5rem; flex-wrap: wrap; }
 
+@media (max-width: 767px) {
+  .page__head { flex-direction: column; align-items: stretch; }
+  .page__acciones { width: 100%; }
+  .page__acciones .btn { flex: 1; }
+}
+
 .grupo {
   & + & { margin-top: 1.75rem; }
 

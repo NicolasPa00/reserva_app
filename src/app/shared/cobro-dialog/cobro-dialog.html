@@ -21,10 +21,18 @@
       </div>
 
       @if (bloqueadoPorCaja()) {
+        <!-- El texto cambia según quién lo lea: mandar al módulo Caja a quien no lo tiene en
+             el menú era un callejón sin salida. Ver `puedeAbrirCaja` en el componente. -->
         <p class="cb__aviso cb__aviso--error">
           <lucide-icon name="wallet" [size]="15" />
-          No hay ninguna caja abierta. Un cobro que no entra en un turno no se puede cuadrar,
-          así que abre la caja en <strong>Caja</strong> y vuelve a intentarlo.
+          @if (puedeAbrirCaja()) {
+            No hay ninguna caja abierta. Un cobro que no entra en un turno no se puede cuadrar,
+            así que ábrela desde el módulo <strong>Caja</strong> y vuelve a intentarlo.
+          } @else {
+            No hay ninguna caja abierta y un cobro que no entra en un turno no se puede cuadrar.
+            Pídele a alguien con permiso sobre <strong>Caja</strong> que abra el turno desde ese
+            módulo y vuelve a intentarlo.
+          }
         </p>
       }
 

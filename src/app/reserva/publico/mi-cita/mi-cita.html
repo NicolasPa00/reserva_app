@@ -5,8 +5,9 @@
   </header>
 
   <div class="buscador">
-    <input class="input" type="text" [value]="codigo()" placeholder="Código de la cita"
-           (input)="codigo.set($any($event.target).value)"
+    <input class="input" type="text" [value]="codigo()" placeholder="Ej. K3M7-9QXP"
+           inputmode="text" autocapitalize="characters" maxlength="36"
+           (input)="escribirCodigo($any($event.target).value)"
            (keyup.enter)="buscar()" autocomplete="off" spellcheck="false" />
     <button type="button" class="btn btn-primary" (click)="buscar()"
             [disabled]="buscando() || !codigo().trim()">

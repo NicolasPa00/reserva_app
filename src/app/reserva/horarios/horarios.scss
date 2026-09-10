@@ -61,7 +61,12 @@
     font-size: .74rem; color: var(--color-error);
   }
 
-  &__foot { display: flex; gap: .3rem; flex-wrap: wrap; }
+  // Los tres botones se repartan el ancho de la tarjeta a partes iguales en vez de apiñarse a
+  // la izquierda: el hueco vacío a la derecha no comunicaba que hubiera más acciones ahí.
+  &__foot {
+    display: flex; gap: .3rem;
+    .mini { flex: 1; justify-content: center; }
+  }
 
   &--skeleton {
     min-height: 150px; border-style: solid;
@@ -185,4 +190,15 @@
 .presets {
   display: flex; align-items: center; gap: .4rem; flex-wrap: wrap;
   > span { font-size: .72rem; font-weight: 600; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: .04em; }
+}
+
+@media (max-width: 767px) {
+  // «Descartar» y «Guardar horario» cabían cada uno de sobra en su línea, pero juntos
+  // desbordaban la fila y el segundo caía debajo del primero. El aviso pasa a su propia línea
+  // arriba y los dos botones se reparten la fila siguiente a partes iguales.
+  .acciones__aviso { width: 100%; margin-right: 0; }
+  .acciones .btn { flex: 1; }
+
+  .bloqueos__head { flex-direction: column; align-items: stretch; }
+  .bloqueos__head .btn { width: 100%; }
 }

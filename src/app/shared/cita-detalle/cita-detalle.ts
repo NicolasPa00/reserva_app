@@ -3,6 +3,7 @@ import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
 import { LucideAngularModule } from 'lucide-angular';
 
 import { Cita, EstadoCita, PagoEstado } from '../../core/models';
+import { formatearCodigoCita } from '../../core/utils/codigo-cita';
 
 export const ESTADO_LABELS: Record<EstadoCita, string> = {
   pendiente: 'Pendiente',
@@ -92,7 +93,9 @@ export function badgeEstado(e: EstadoCita): string {
           </div>
           <div>
             <dt><lucide-icon name="hash" [size]="13" /> Código público</dt>
-            <dd class="cd__mono">{{ (cita.codigo_publico || '').slice(0, 8) || '—' }}</dd>
+            <!-- Entero, no recortado: es el código que el cliente dice por teléfono y que
+                 el mostrador tiene que poder comparar letra a letra. -->
+            <dd class="cd__mono">{{ codigoBonito(cita.codigo_publico) || '—' }}</dd>
           </div>
         </dl>
 
@@ -245,6 +248,9 @@ export function badgeEstado(e: EstadoCita): string {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class CitaDetalleComponent {
+  /** `K3M79QXP` → `K3M7-9QXP`. Un código antiguo (UUID) se muestra tal cual. */
+  readonly codigoBonito = formatearCodigoCita;
+
   private readonly citaSig = signal<Cita | null>(null);
 
   @Input() set cita(v: Cita | null) { this.citaSig.set(v); }
