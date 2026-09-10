@@ -124,7 +124,7 @@
                 </div>
                 <div class="tl__meta">
                   <span class="badge" [class]="badgeEstado(c.estado)">{{ estadoLabel(c.estado) }}</span>
-                  <span class="tl__monto">{{ c.monto_total | currency:'COP':'symbol':'1.0-0' }}</span>
+                  <span class="tl__monto">{{ c.monto_total | moneda }}</span>
                   @if (proximaCita()?.id_cita === c.id_cita) {
                     <span class="tl__siguiente">Siguiente</span>
                   }
@@ -193,7 +193,7 @@
           </div>
           <p class="mini__total">
             <span>Ingresos del periodo</span>
-            <strong>{{ r.semana.ingresos | currency:'COP':'symbol':'1.0-0' }}</strong>
+            <strong>{{ r.semana.ingresos | moneda }}</strong>
           </p>
         </section>
 
@@ -218,7 +218,7 @@
                   <div class="ranking__barra">
                     <div [style.width.%]="(s.citas / maxCitasServicio()) * 100"></div>
                   </div>
-                  <span class="ranking__monto">{{ s.ingresos | currency:'COP':'symbol':'1.0-0' }}</span>
+                  <span class="ranking__monto">{{ s.ingresos | moneda }}</span>
                 </li>
               }
             </ul>

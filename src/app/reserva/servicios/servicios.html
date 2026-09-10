@@ -72,7 +72,7 @@
           </header>
           <div class="servicio__body">
             <strong>{{ s.nombre }}</strong>
-            <span class="servicio__precio">{{ s.precio | currency:'COP':'symbol':'1.0-0' }}</span>
+            <span class="servicio__precio">{{ s.precio | moneda }}</span>
             @if (s.descripcion) { <p>{{ s.descripcion }}</p> }
           </div>
           <footer class="servicio__foot">
@@ -112,8 +112,8 @@
         <input class="input" type="number" formControlName="duracion_min" min="5" max="600" step="5" />
       </label>
       <label>
-        <span>Precio (COP) *</span>
-        <input class="input" type="number" formControlName="precio" min="0" step="500" />
+        <span>Precio ({{ codigoMoneda() }}) *</span>
+        <input class="input" type="number" formControlName="precio" min="0" [step]="pasoPrecio()" />
       </label>
     </div>
     <div class="form__row">

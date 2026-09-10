@@ -52,14 +52,14 @@
 
       <div class="mp__resumen" [class.ok]="restante() === 0" [class.over]="restante() < 0">
         <span class="mp__asignado">
-          Asignado <strong>{{ sumaMulti() | currency:'COP':'symbol':'1.0-0' }}</strong>
+          Asignado <strong>{{ sumaMulti() | moneda }}</strong>
         </span>
-        <span>de <strong>{{ total() | currency:'COP':'symbol':'1.0-0' }}</strong></span>
+        <span>de <strong>{{ total() | moneda }}</strong></span>
         <span class="mp__estado">
           @if (restante() > 0) {
-            Faltan {{ restante() | currency:'COP':'symbol':'1.0-0' }}
+            Faltan {{ restante() | moneda }}
           } @else if (restante() < 0) {
-            Sobran {{ -restante() | currency:'COP':'symbol':'1.0-0' }}
+            Sobran {{ -restante() | moneda }}
           } @else {
             <lucide-icon name="check" [size]="14" /> Cuadra
           }

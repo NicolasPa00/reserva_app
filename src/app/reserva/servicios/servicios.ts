@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
-import { CommonModule, CurrencyPipe } from '@angular/common';
+import { CommonModule } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
 import { firstValueFrom, forkJoin } from 'rxjs';
@@ -11,12 +11,14 @@ import { CategoriaReserva, Servicio } from '../../core/models';
 import { ImageCropperComponent } from '../../shared/image-cropper/image-cropper';
 import { ModalComponent } from '../../shared/modal/modal';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dialog';
+import { MonedaPipe } from '../../shared/moneda.pipe';
+import { MonedaService } from '../../core/services/moneda.service';
 
 @Component({
   selector: 'reserva-servicios',
   standalone: true,
   imports: [
-    CommonModule, ReactiveFormsModule, LucideAngularModule, CurrencyPipe,
+    CommonModule, ReactiveFormsModule, LucideAngularModule, MonedaPipe,
     ModalComponent, ConfirmDialogComponent, ImageCropperComponent,
   ],
   templateUrl: './servicios.html',
@@ -28,6 +30,23 @@ export class ServiciosComponent implements OnInit {
   private readonly api  = inject(ReservaApiService);
   private readonly toast = inject(ToastService);
   private readonly fb   = inject(FormBuilder);
+  private readonly monedas = inject(MonedaService);
+
+  /**
+   * El código de la moneda, para la etiqueta del campo de precio.
+   *
+   * Estaba escrito «COP» a mano: en un negocio chileno el formulario pedía pesos colombianos y
+   * la lista de abajo mostraba pesos chilenos, con el mismo número en las dos.
+   */
+  readonly codigoMoneda = computed(() => this.monedas.moneda().codigo);
+
+  /**
+   * Cuánto sube el precio con las flechas del campo.
+   *
+   * Donde no hay céntimos (COP, CLP) los precios se mueven en miles y el paso de 500 ahorra
+   * pulsaciones; donde sí los hay, un paso de 500 haría inalcanzable un servicio de 25,50.
+   */
+  readonly pasoPrecio = computed(() => (this.monedas.moneda().decimales > 0 ? 0.5 : 500));
 
   readonly servicios = signal<Servicio[]>([]);
   readonly cargando = signal(false);

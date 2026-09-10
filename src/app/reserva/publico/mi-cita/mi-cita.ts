@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
-import { CurrencyPipe, DatePipe } from '@angular/common';
+import { DatePipe } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
 
@@ -8,6 +8,7 @@ import { ReservaApiService } from '../../../core/services/reserva-api.service';
 import { CitaPublica } from '../../../core/models';
 import { aHora12 } from '../../../core/utils/hora';
 import { normalizarEntradaCodigo } from '../../../core/utils/codigo-cita';
+import { MonedaPipe } from '../../../shared/moneda.pipe';
 
 /**
  * Consulta y cancelación de una cita con su código público.
@@ -28,7 +29,7 @@ import { normalizarEntradaCodigo } from '../../../core/utils/codigo-cita';
 @Component({
   selector: 'reserva-publico-mi-cita',
   standalone: true,
-  imports: [LucideAngularModule, CurrencyPipe, DatePipe, RouterLink],
+  imports: [LucideAngularModule, MonedaPipe, DatePipe, RouterLink],
   templateUrl: './mi-cita.html',
   styleUrl: './mi-cita.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

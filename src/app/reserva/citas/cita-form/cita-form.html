@@ -40,7 +40,7 @@
                 </span>
                 <span class="chip__txt">
                   <strong>{{ s.nombre }}</strong>
-                  <em>{{ s.duracion_min }} min · {{ s.precio | currency:'COP':'symbol':'1.0-0' }}</em>
+                  <em>{{ s.duracion_min }} min · {{ s.precio | moneda }}</em>
                 </span>
               </button>
             }
@@ -49,7 +49,7 @@
           @if (idServicios().size > 0) {
             <div class="resumen">
               <span><lucide-icon name="timer" [size]="14" /> <strong>{{ duracionTotal() }} min</strong> en total</span>
-              <span><lucide-icon name="tag" [size]="14" /> <strong>{{ montoTotal() | currency:'COP':'symbol':'1.0-0' }}</strong></span>
+              <span><lucide-icon name="tag" [size]="14" /> <strong>{{ montoTotal() | moneda }}</strong></span>
               <span class="resumen__n">{{ idServicios().size }} servicio(s)</span>
             </div>
           }

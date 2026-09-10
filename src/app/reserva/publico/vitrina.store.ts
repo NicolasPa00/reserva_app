@@ -2,6 +2,7 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 
 import { ReservaApiService } from '../../core/services/reserva-api.service';
 import { ThemeService } from '../../core/theme/theme.service';
+import { MonedaService } from '../../core/services/moneda.service';
 import { ProfesionalPublico, ServicioPublico, Vitrina } from '../../core/models';
 
 /**
@@ -22,6 +23,7 @@ import { ProfesionalPublico, ServicioPublico, Vitrina } from '../../core/models'
 export class VitrinaStore {
   private readonly api = inject(ReservaApiService);
   private readonly theme = inject(ThemeService);
+  private readonly monedas = inject(MonedaService);
 
   private readonly _vitrina = signal<Vitrina | null>(null);
   private readonly _cargando = signal(false);
@@ -61,6 +63,9 @@ export class VitrinaStore {
         if (r?.success && r.data) {
           this._vitrina.set(r.data);
           this.theme.aplicar(r.data.negocio.colores, r.data.negocio.paleta);
+          // La moneda va con el tema y por lo mismo: aquí no hay sesión de la que sacarla, y
+          // el catálogo se pinta con precios en cuanto llega esta respuesta.
+          this.monedas.usarLaDelPortal(r.data.negocio.moneda);
         } else {
           this._error.set(r?.message || 'Esta página no está disponible.');
         }

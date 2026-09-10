@@ -2,7 +2,7 @@ import {
   ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, OnInit, Output,
   SimpleChanges, computed, effect, inject, signal,
 } from '@angular/core';
-import { CommonModule, CurrencyPipe } from '@angular/common';
+import { CommonModule } from '@angular/common';
 import { LucideAngularModule } from 'lucide-angular';
 import { forkJoin } from 'rxjs';
 
@@ -12,6 +12,7 @@ import { EventBusService } from '../../../core/services/event-bus.service';
 import { Cita, ClienteNegocio, DiaDisponible, Profesional, Servicio, Slot } from '../../../core/models';
 import { aHora12, fechaBogota, horaBogota, rangoHora12 } from '../../../core/utils/hora';
 import { ModalComponent } from '../../../shared/modal/modal';
+import { MonedaPipe } from '../../../shared/moneda.pipe';
 
 /** Días que muestra la tira del selector de fecha de una vez. */
 const DIAS_VENTANA = 14;
@@ -64,7 +65,7 @@ interface DiaChip extends DiaDisponible {
 @Component({
   selector: 'reserva-cita-form',
   standalone: true,
-  imports: [CommonModule, LucideAngularModule, CurrencyPipe, ModalComponent],
+  imports: [CommonModule, LucideAngularModule, MonedaPipe, ModalComponent],
   templateUrl: './cita-form.html',
   styleUrl: './cita-form.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

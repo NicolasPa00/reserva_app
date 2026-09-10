@@ -27,12 +27,15 @@ interface FormUsuario {
   password: string;
   id_profesional: number | null;
   especialidad: string;
+  /** ¿Atiende citas? Independiente del rol: ver `atiendeCitas`. */
+  es_profesional: boolean;
 }
 
 const FORM_VACIO: FormUsuario = {
   primer_nombre: '', segundo_nombre: '', primer_apellido: '', segundo_apellido: '',
   num_identificacion: '', email: '', telefono: '',
   id_rol: null, password: '', id_profesional: null, especialidad: '',
+  es_profesional: false,
 };
 
 /**
@@ -54,6 +57,16 @@ const FORM_VACIO: FormUsuario = {
  * Crear un usuario con rol PROFESIONAL crea también su ficha en la agenda, o enlaza una que ya
  * exista. Es lo que permite que «Nuevo profesional» redirija aquí: un profesional que no puede
  * entrar al sistema y un usuario que no puede recibir citas son media persona cada uno.
+ *
+ * ## Atender citas no es un rol
+ *
+ * El rol dice **qué pantallas ve** una persona; atender citas dice **si tiene ficha en la
+ * agenda**. Son dos preguntas y antes se contestaban con una sola respuesta: la ficha solo se
+ * creaba si el rol era PROFESIONAL. En un salón pequeño eso obligaba a la dueña a elegir entre
+ * administrar su negocio o cortar el pelo, que es justo lo que hace todos los días.
+ *
+ * Por eso la casilla «Atiende citas» es aparte del selector de rol. Con el rol PROFESIONAL
+ * aparece marcada y bloqueada: ahí la ficha no es opcional, sin ella el acceso no sirve de nada.
  */
 @Component({
   selector: 'reserva-usuarios',
@@ -106,7 +119,21 @@ export class UsuariosComponent implements OnInit {
     return this.roles().find(r => r.id_rol === id) ?? null;
   });
 
-  readonly esProfesional = computed(() => this.rolElegido()?.descripcion === 'PROFESIONAL');
+  /** El rol elegido es PROFESIONAL: entonces atender citas no se puede desmarcar. */
+  readonly rolEsProfesional = computed(() => this.rolElegido()?.descripcion === 'PROFESIONAL');
+
+  /** ¿La persona que se está editando tendrá ficha en la agenda? */
+  readonly atiendeCitas = computed(() => this.rolEsProfesional() || this.form().es_profesional);
+
+  /**
+   * Fichas sueltas que se pueden enlazar.
+   *
+   * Al editar se añade la suya, si la tiene: sin eso, el desplegable diría «crear una nueva» a
+   * quien ya está en la agenda y daría a entender que se va a duplicar.
+   */
+  readonly puedeElegirFicha = computed(
+    () => this.profesionalesLibres().length > 0 && !this.usuarioEditando()?.profesional,
+  );
 
   readonly hayInactivos = computed(() => this.usuarios().some(u => u.estado === 'I'));
 
@@ -198,16 +225,31 @@ export class UsuariosComponent implements OnInit {
       password: '',
       id_profesional: null,
       especialidad: '',
+      // La ficha desactivada es la de alguien a quien se retiró de la agenda (o cuyo acceso se
+      // desactivó): la casilla tiene que reflejar lo que hay, no lo que hubo.
+      es_profesional: u.profesional?.estado === 'A',
     });
     this.credenciales.set(null);
     this.modalUsuario.set(true);
+  }
+
+  /** La casilla «Atiende citas». Con rol PROFESIONAL no se puede desmarcar. */
+  setAtiendeCitas(valor: boolean) {
+    if (this.rolEsProfesional()) return;
+    this.setCampo('es_profesional', valor);
+    if (!valor) this.setCampo('id_profesional', null);
   }
 
   setCampo<K extends keyof FormUsuario>(campo: K, valor: FormUsuario[K]) {
     this.form.update(f => ({ ...f, [campo]: valor }));
   }
 
-  setRol(raw: string) { this.setCampo('id_rol', raw ? Number(raw) : null); }
+  setRol(raw: string) {
+    this.setCampo('id_rol', raw ? Number(raw) : null);
+    // Elegir PROFESIONAL marca la casilla; dejar de serlo NO la desmarca, porque quien pasa de
+    // profesional a cajero puede seguir atendiendo y decidirlo es del usuario, no del formulario.
+    if (this.rolEsProfesional()) this.setCampo('es_profesional', true);
+  }
 
   setProfesionalExistente(raw: string) {
     const id = raw ? Number(raw) : null;
@@ -241,8 +283,9 @@ export class UsuariosComponent implements OnInit {
       telefono: f.telefono.trim() || null,
       id_rol: f.id_rol!,
       password: f.password.trim() || null,
-      id_profesional: f.id_profesional,
+      id_profesional: this.atiendeCitas() ? f.id_profesional : null,
       especialidad: f.especialidad.trim() || null,
+      es_profesional: this.atiendeCitas(),
     };
 
     this.guardando.set(true);

@@ -7,6 +7,7 @@ import { LucideAngularModule } from 'lucide-angular';
 import { AuthService } from '../../core/services/auth.service';
 import { ReservaApiService } from '../../core/services/reserva-api.service';
 import { ToastService } from '../../core/services/toast.service';
+import { MonedaService } from '../../core/services/moneda.service';
 import {
   EstadoCita, Informe, InformeDia, InformeProfesional, Profesional,
 } from '../../core/models';
@@ -72,6 +73,7 @@ export class InformesComponent implements OnInit {
   private readonly auth  = inject(AuthService);
   private readonly api   = inject(ReservaApiService);
   private readonly toast = inject(ToastService);
+  private readonly monedas = inject(MonedaService);
 
   readonly informe = signal<Informe | null>(null);
   readonly profesionales = signal<Profesional[]>([]);
@@ -339,20 +341,31 @@ export class InformesComponent implements OnInit {
   hora12(h: number): string { return aHora12(`${String(h).padStart(2, '0')}:00`); }
 
   moneda(v: number): string {
-    return new Intl.NumberFormat('es-CO', {
-      style: 'currency', currency: 'COP', maximumFractionDigits: 0,
-    }).format(v || 0);
+    return this.monedas.formatear(v || 0);
   }
 
-  /** Versión corta para las etiquetas de la gráfica: "$ 1,2 M" en vez de "$ 1.234.567". */
+  /**
+   * Versión corta para las etiquetas de la gráfica: "$ 1,2 M" en vez de "$ 1.234.567".
+   *
+   * Aquí no se usa `Intl`: lo que se abrevia no es un importe sino su orden de magnitud, y
+   * pedirle a `Intl` que formatee «1,2 M» acabaría en «$ 1,20» con la M pegada fuera. El símbolo
+   * sí sale de la moneda del negocio, que es lo único que cambia de un país a otro.
+   */
   monedaCorta(v: number): string {
-    if (!v) return '$ 0';
-    if (v >= 1_000_000) return `$ ${(v / 1_000_000).toFixed(1).replace('.', ',')} M`;
-    if (v >= 1_000)     return `$ ${Math.round(v / 1000)} k`;
-    return `$ ${v}`;
+    const s = this.monedas.moneda().simbolo;
+    if (!v) return `${s} 0`;
+    if (v >= 1_000_000) return `${s} ${(v / 1_000_000).toFixed(1).replace('.', ',')} M`;
+    if (v >= 1_000)     return `${s} ${Math.round(v / 1000)} k`;
+    return `${s} ${v}`;
   }
 
-  numero(v: number): string { return new Intl.NumberFormat('es-CO').format(v || 0); }
+  /**
+   * Conteos, no dinero: sin símbolo, pero con los separadores del país — en la misma pantalla
+   * los importes ya salen con los suyos, y mezclar «1.234 citas» con «1,234» chirría.
+   */
+  numero(v: number): string {
+    return new Intl.NumberFormat(this.monedas.moneda().locale).format(v || 0);
+  }
 
   horas(min: number): string {
     if (!min) return '0 h';

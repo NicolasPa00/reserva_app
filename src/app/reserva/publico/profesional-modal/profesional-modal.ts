@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, output } from '@angular/core';
-import { CurrencyPipe } from '@angular/common';
+
 import { LucideAngularModule } from 'lucide-angular';
 
 import { VitrinaStore } from '../vitrina.store';
@@ -7,6 +7,7 @@ import { UrlArchivoPipe } from '../../../shared/url-archivo.pipe';
 import { ModalComponent } from '../../../shared/modal/modal';
 import { rangoHora12 } from '../../../core/utils/hora';
 import { colorDeEntidad } from '../../../core/utils/color-entidad';
+import { MonedaPipe } from '../../../shared/moneda.pipe';
 
 /**
  * Ficha de un profesional: qué hace y cuándo atiende.
@@ -25,7 +26,7 @@ import { colorDeEntidad } from '../../../core/utils/color-entidad';
 @Component({
   selector: 'reserva-profesional-modal',
   standalone: true,
-  imports: [LucideAngularModule, CurrencyPipe, ModalComponent, UrlArchivoPipe],
+  imports: [LucideAngularModule, MonedaPipe, ModalComponent, UrlArchivoPipe],
   templateUrl: './profesional-modal.html',
   styleUrl: './profesional-modal.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

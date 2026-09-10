@@ -50,7 +50,7 @@
             <li>
               <span>{{ s.nombre }}</span>
               <em>{{ s.duracion_min }} min</em>
-              <strong>{{ s.precio | currency:'COP':'symbol-narrow':'1.0-0' }}</strong>
+              <strong>{{ s.precio | moneda }}</strong>
             </li>
           }
         </ul>
@@ -58,7 +58,7 @@
 
       <footer class="detalle__pie">
         <span>Total</span>
-        <strong>{{ c.monto_total | currency:'COP':'symbol-narrow':'1.0-0' }}</strong>
+        <strong>{{ c.monto_total | moneda }}</strong>
       </footer>
 
       @if (c.notas) {

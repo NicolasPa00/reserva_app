@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
-import { CommonModule, CurrencyPipe, DatePipe, DecimalPipe } from '@angular/common';
+import { CommonModule, DatePipe, DecimalPipe } from '@angular/common';
 import { Router } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
 
@@ -11,6 +11,8 @@ import { Cita, CitaResumen, EstadoCita, ResumenDashboard } from '../../core/mode
 import { CitaFormComponent } from '../citas/cita-form/cita-form';
 import { ESTADO_LABELS, badgeEstado } from '../../shared/cita-detalle/cita-detalle';
 import { colorDeEntidad } from '../../core/utils/color-entidad';
+import { MonedaPipe } from '../../shared/moneda.pipe';
+import { MonedaService } from '../../core/services/moneda.service';
 
 interface Kpi {
   label: string;
@@ -37,7 +39,7 @@ interface Kpi {
 @Component({
   selector: 'reserva-dashboard',
   standalone: true,
-  imports: [CommonModule, LucideAngularModule, CurrencyPipe, DecimalPipe, DatePipe, CitaFormComponent],
+  imports: [CommonModule, LucideAngularModule, MonedaPipe, DecimalPipe, DatePipe, CitaFormComponent],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -45,6 +47,7 @@ interface Kpi {
 export class DashboardComponent implements OnInit {
   readonly auth = inject(AuthService);
   private readonly api = inject(ReservaApiService);
+  private readonly monedas = inject(MonedaService);
   private readonly bus = inject(EventBusService);
   private readonly router = inject(Router);
 
@@ -244,9 +247,7 @@ export class DashboardComponent implements OnInit {
   }
 
   private formatoMoneda(v: number): string {
-    return new Intl.NumberFormat('es-CO', {
-      style: 'currency', currency: 'COP', maximumFractionDigits: 0,
-    }).format(v || 0);
+    return this.monedas.formatear(v || 0);
   }
 
   private formatoHoras(min: number): string {

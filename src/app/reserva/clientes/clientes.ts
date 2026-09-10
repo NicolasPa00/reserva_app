@@ -11,6 +11,7 @@ import { ReservaApiService } from '../../core/services/reserva-api.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ClienteCita, ClienteNegocio } from '../../core/models';
 import { ModalComponent } from '../../shared/modal/modal';
+import { MonedaPipe } from '../../shared/moneda.pipe';
 
 const PAGINA = 50;
 
@@ -36,7 +37,7 @@ const PAGINA = 50;
 @Component({
   selector: 'reserva-clientes',
   standalone: true,
-  imports: [CommonModule, LucideAngularModule, ModalComponent],
+  imports: [MonedaPipe, CommonModule, LucideAngularModule, ModalComponent],
   templateUrl: './clientes.html',
   styleUrl: './clientes.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

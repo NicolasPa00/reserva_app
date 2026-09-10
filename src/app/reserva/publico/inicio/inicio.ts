@@ -2,7 +2,7 @@ import {
   ChangeDetectionStrategy, Component, ElementRef, HostListener, Injector,
   afterNextRender, computed, effect, inject, signal, viewChild,
 } from '@angular/core';
-import { CurrencyPipe } from '@angular/common';
+
 import { Router } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
 
@@ -12,6 +12,7 @@ import { ProfesionalPublico } from '../../../core/models';
 import { rangoHora12 } from '../../../core/utils/hora';
 import { ProfesionalModalComponent } from '../profesional-modal/profesional-modal';
 import { colorDeEntidad } from '../../../core/utils/color-entidad';
+import { MonedaPipe } from '../../../shared/moneda.pipe';
 
 /**
  * Portada pública del negocio.
@@ -38,7 +39,7 @@ import { colorDeEntidad } from '../../../core/utils/color-entidad';
 @Component({
   selector: 'reserva-publico-inicio',
   standalone: true,
-  imports: [LucideAngularModule, CurrencyPipe, UrlArchivoPipe, ProfesionalModalComponent],
+  imports: [LucideAngularModule, MonedaPipe, UrlArchivoPipe, ProfesionalModalComponent],
   templateUrl: './inicio.html',
   styleUrl: './inicio.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

@@ -291,6 +291,23 @@
   }
 }
 
+// La casilla de «Atiende citas»: es una decisión, no un ajuste fino, así que ocupa una línea
+// entera y se lee de un vistazo aunque el modal esté lleno de campos.
+.check-pro {
+  display: flex; align-items: flex-start; gap: .6rem; cursor: pointer;
+
+  input { margin-top: .2rem; width: 1rem; height: 1rem; accent-color: var(--color-primary); }
+
+  &__texto {
+    display: flex; flex-direction: column; gap: .15rem;
+    strong { font-size: .9rem; color: var(--color-text); }
+    small  { font-size: .78rem; color: var(--color-text-secondary); line-height: 1.4; }
+  }
+
+  // Con rol PROFESIONAL la casilla no se puede tocar: se ve marcada y sin invitación a pulsar.
+  &--fijo { cursor: default; opacity: .85; }
+}
+
 // ── Credenciales ──
 .cred { display: flex; flex-direction: column; gap: .9rem; }
 

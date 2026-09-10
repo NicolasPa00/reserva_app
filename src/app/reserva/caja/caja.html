@@ -66,19 +66,19 @@
                   </span>
                 </td>
                 <td>{{ h.usuario || '—' }}</td>
-                <td class="num">{{ h.monto_apertura | currency:'COP':'symbol':'1.0-0' }}</td>
-                <td class="num pos">{{ h.ingresos | currency:'COP':'symbol':'1.0-0' }}</td>
-                <td class="num neg">{{ h.egresos | currency:'COP':'symbol':'1.0-0' }}</td>
-                <td class="num destacado">{{ h.monto_cierre | currency:'COP':'symbol':'1.0-0' }}</td>
+                <td class="num">{{ h.monto_apertura | moneda }}</td>
+                <td class="num pos">{{ h.ingresos | moneda }}</td>
+                <td class="num neg">{{ h.egresos | moneda }}</td>
+                <td class="num destacado">{{ h.monto_cierre | moneda }}</td>
                 <td class="num">
-                  {{ h.monto_reportado != null ? (h.monto_reportado | currency:'COP':'symbol':'1.0-0') : '—' }}
+                  {{ h.monto_reportado != null ? (h.monto_reportado | moneda) : '—' }}
                 </td>
                 <td class="num">
                   @if (h.diferencia == null) { <span class="dif dif--na">Sin contar</span> }
                   @else if (h.diferencia === 0) { <span class="dif dif--ok">Cuadra</span> }
                   @else {
                     <span class="dif" [class.dif--sobra]="h.diferencia > 0" [class.dif--falta]="h.diferencia < 0">
-                      {{ h.diferencia > 0 ? '+' : '' }}{{ h.diferencia | currency:'COP':'symbol':'1.0-0' }}
+                      {{ h.diferencia > 0 ? '+' : '' }}{{ h.diferencia | moneda }}
                     </span>
                   }
                 </td>
@@ -114,7 +114,7 @@
         <p class="cerrada__aviso">
           <lucide-icon name="circle-alert" [size]="15" />
           Hay {{ sinCaja().length }} cita(s) cobradas hoy sin caja abierta, por
-          {{ totalSinCaja() | currency:'COP':'symbol':'1.0-0' }}. Ese dinero no está en ningún turno.
+          {{ totalSinCaja() | moneda }}. Ese dinero no está en ningún turno.
         </p>
       }
     </div>
@@ -125,7 +125,7 @@
     <div class="resumen">
       <article class="rk rk--neutro">
         <span class="rk__lab">Base de apertura</span>
-        <strong class="rk__val">{{ totales()?.apertura | currency:'COP':'symbol':'1.0-0' }}</strong>
+        <strong class="rk__val">{{ totales()?.apertura | moneda }}</strong>
         <span class="rk__pie">
           Abrió {{ caja()?.usuario?.nombre || '—' }} ·
           {{ caja()?.fecha_apertura | date:'HH:mm':'':'es-CO' }}
@@ -133,17 +133,17 @@
       </article>
       <article class="rk rk--exito">
         <span class="rk__lab">Ingresos</span>
-        <strong class="rk__val">{{ totales()?.ingresos | currency:'COP':'symbol':'1.0-0' }}</strong>
+        <strong class="rk__val">{{ totales()?.ingresos | moneda }}</strong>
         <span class="rk__pie">{{ totales()?.movimientos }} movimiento(s)</span>
       </article>
       <article class="rk rk--alerta">
         <span class="rk__lab">Egresos</span>
-        <strong class="rk__val">{{ totales()?.egresos | currency:'COP':'symbol':'1.0-0' }}</strong>
+        <strong class="rk__val">{{ totales()?.egresos | moneda }}</strong>
         <span class="rk__pie">Gastos y salidas del turno</span>
       </article>
       <article class="rk rk--primario">
         <span class="rk__lab">Debería haber en caja</span>
-        <strong class="rk__val">{{ totales()?.esperado | currency:'COP':'symbol':'1.0-0' }}</strong>
+        <strong class="rk__val">{{ totales()?.esperado | moneda }}</strong>
         <span class="rk__pie">Apertura + ingresos − egresos</span>
       </article>
     </div>
@@ -153,7 +153,7 @@
         <lucide-icon name="circle-alert" [size]="15" />
         <span>
           {{ sinCaja().length }} cita(s) se cobraron hoy con la caja cerrada
-          ({{ totalSinCaja() | currency:'COP':'symbol':'1.0-0' }}). No entraron en este turno.
+          ({{ totalSinCaja() | moneda }}). No entraron en este turno.
         </span>
       </p>
     }
@@ -175,7 +175,7 @@
               <li>
                 <div class="ranking__fila">
                   <span class="ranking__nombre">{{ m.nombre }}</span>
-                  <strong class="ranking__valor">{{ m.total | currency:'COP':'symbol':'1.0-0' }}</strong>
+                  <strong class="ranking__valor">{{ m.total | moneda }}</strong>
                 </div>
                 <div class="ranking__barra">
                   <div [style.width.%]="(m.total / maxPorMetodo()) * 100"></div>
@@ -198,7 +198,7 @@
             @if (porProfesional().length > 0) {
               <div class="panel__dato">
                 <span>Total</span>
-                <strong>{{ totalAEntregar() | currency:'COP':'symbol':'1.0-0' }}</strong>
+                <strong>{{ totalAEntregar() | moneda }}</strong>
               </div>
             }
           </header>
@@ -213,11 +213,11 @@
                     <strong>{{ p.nombre }}</strong>
                     <span>
                       {{ p.citas }} cita(s)
-                      · efectivo {{ p.efectivo | currency:'COP':'symbol':'1.0-0' }}
-                      @if (p.otros > 0) { · otros {{ p.otros | currency:'COP':'symbol':'1.0-0' }} }
+                      · efectivo {{ p.efectivo | moneda }}
+                      @if (p.otros > 0) { · otros {{ p.otros | moneda }} }
                     </span>
                   </div>
-                  <strong class="pros__total">{{ p.total | currency:'COP':'symbol':'1.0-0' }}</strong>
+                  <strong class="pros__total">{{ p.total | moneda }}</strong>
                 </li>
               }
             </ul>
@@ -253,7 +253,7 @@
                 </span>
               </div>
               <strong class="movs__monto" [class.pos]="m.tipo === 'INGRESO'" [class.neg]="m.tipo === 'EGRESO'">
-                {{ m.tipo === 'EGRESO' ? '−' : '+' }}{{ m.monto | currency:'COP':'symbol':'1.0-0' }}
+                {{ m.tipo === 'EGRESO' ? '−' : '+' }}{{ m.monto | moneda }}
               </strong>
               @if (permiteEliminar()) {
                 <button type="button" class="movs__borrar" (click)="pedirEliminarMovimiento(m)"
@@ -301,12 +301,12 @@
                (close)="modalCerrar.set(false)">
   <div class="form">
     <div class="cuadre">
-      <div><span>Base de apertura</span><strong>{{ totales()?.apertura | currency:'COP':'symbol':'1.0-0' }}</strong></div>
-      <div><span>+ Ingresos</span><strong class="pos">{{ totales()?.ingresos | currency:'COP':'symbol':'1.0-0' }}</strong></div>
-      <div><span>− Egresos</span><strong class="neg">{{ totales()?.egresos | currency:'COP':'symbol':'1.0-0' }}</strong></div>
+      <div><span>Base de apertura</span><strong>{{ totales()?.apertura | moneda }}</strong></div>
+      <div><span>+ Ingresos</span><strong class="pos">{{ totales()?.ingresos | moneda }}</strong></div>
+      <div><span>− Egresos</span><strong class="neg">{{ totales()?.egresos | moneda }}</strong></div>
       <div class="cuadre__total">
         <span>Debería haber</span>
-        <strong>{{ totales()?.esperado | currency:'COP':'symbol':'1.0-0' }}</strong>
+        <strong>{{ totales()?.esperado | moneda }}</strong>
       </div>
     </div>
 
@@ -323,10 +323,10 @@
           <lucide-icon name="check" [size]="15" /> La caja cuadra exactamente.
         } @else if (dif > 0) {
           <lucide-icon name="circle-alert" [size]="15" />
-          Sobran {{ dif | currency:'COP':'symbol':'1.0-0' }} respecto a lo esperado.
+          Sobran {{ dif | moneda }} respecto a lo esperado.
         } @else {
           <lucide-icon name="circle-alert" [size]="15" />
-          Faltan {{ -dif | currency:'COP':'symbol':'1.0-0' }} respecto a lo esperado.
+          Faltan {{ -dif | moneda }} respecto a lo esperado.
         }
       </p>
     }

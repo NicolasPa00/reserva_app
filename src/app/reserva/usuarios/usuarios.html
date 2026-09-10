@@ -75,7 +75,7 @@
               } @else {
                 <span class="badge b-off">Sin rol</span>
               }
-              @if (u.profesional) {
+              @if (u.profesional?.estado === 'A') {
                 <span class="us__pro">
                   <lucide-icon name="scissors" [size]="11" /> Atiende citas
                 </span>
@@ -335,14 +335,24 @@
         <small>Define qué vistas verá. Se ajustan en la pestaña «Roles y permisos».</small>
       </label>
 
-      @if (esProfesional() && !usuarioEditando()) {
-        <div class="bloque-pro">
-          <p class="bloque-pro__nota">
-            <lucide-icon name="info" [size]="15" />
-            Como es un profesional, también se creará su ficha en la agenda para que pueda
-            recibir citas.
-          </p>
-          @if (profesionalesLibres().length > 0) {
+      <!-- Brinda servicio profesional es una capacidad, no un rol: un administrador o un cajero también
+           pueden prestar servicios. Con rol PROFESIONAL viene marcada y bloqueada. -->
+      <div class="bloque-pro">
+        <label class="check-pro" [class.check-pro--fijo]="rolEsProfesional()">
+          <input type="checkbox" [checked]="atiendeCitas()" [disabled]="rolEsProfesional()"
+                 (change)="setAtiendeCitas($any($event.target).checked)" />
+          <span class="check-pro__texto">
+            <strong>Brinda servicio profesional</strong>
+            @if (rolEsProfesional()) {
+              <small>Su rol es profesional, así que siempre tendrá ficha en la agenda.</small>
+            } @else {
+              <small>Tendrá ficha en la agenda y podrá prestar servicios, además de su rol.</small>
+            }
+          </span>
+        </label>
+
+        @if (atiendeCitas()) {
+          @if (puedeElegirFicha()) {
             <label class="campo">
               <span>¿Ya existe su ficha?</span>
               <select class="select" [value]="form().id_profesional ?? ''"
@@ -363,10 +373,19 @@
               <input class="input" type="text" placeholder="Barbería, colorimetría…"
                      [value]="form().especialidad"
                      (input)="setCampo('especialidad', $any($event.target).value)" />
+              @if (usuarioEditando()?.profesional) {
+                <small>Se guarda en su ficha de la agenda. Vacío la deja como está.</small>
+              }
             </label>
           }
-        </div>
-      }
+        } @else if (usuarioEditando()?.profesional) {
+          <p class="bloque-pro__nota">
+            <lucide-icon name="info" [size]="15" />
+            Al guardar dejará de ofrecerse para citas nuevas. Sus citas anteriores y lo que
+            haya cobrado se conservan.
+          </p>
+        }
+      </div>
 
       <label class="campo">
         <span>Contraseña</span>

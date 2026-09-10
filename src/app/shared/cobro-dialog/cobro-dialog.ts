@@ -2,7 +2,7 @@ import {
   ChangeDetectionStrategy, Component, EventEmitter, Input, Output,
   computed, inject, input, signal,
 } from '@angular/core';
-import { CommonModule, CurrencyPipe } from '@angular/common';
+import { CommonModule } from '@angular/common';
 import { LucideAngularModule } from 'lucide-angular';
 
 import { AuthService } from '../../core/services/auth.service';
@@ -11,6 +11,7 @@ import { ToastService } from '../../core/services/toast.service';
 import { Cita, MetodoPago } from '../../core/models';
 import { ModalComponent } from '../modal/modal';
 import { MultipagoSelectorComponent, PagoSeleccion } from '../multipago-selector/multipago-selector';
+import { MonedaPipe } from '../moneda.pipe';
 
 /**
  * Diálogo de cobro: el único sitio desde el que se completa una cita.
@@ -26,7 +27,7 @@ import { MultipagoSelectorComponent, PagoSeleccion } from '../multipago-selector
 @Component({
   selector: 'reserva-cobro-dialog',
   standalone: true,
-  imports: [CommonModule, LucideAngularModule, CurrencyPipe, ModalComponent, MultipagoSelectorComponent],
+  imports: [CommonModule, LucideAngularModule, MonedaPipe, ModalComponent, MultipagoSelectorComponent],
   templateUrl: './cobro-dialog.html',
   styleUrl: './cobro-dialog.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

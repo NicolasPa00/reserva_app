@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, effect, inject, signal } from '@angular/core';
-import { CurrencyPipe, DatePipe } from '@angular/common';
+import { DatePipe } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
 
@@ -12,6 +12,7 @@ import { ProfesionalModalComponent } from '../profesional-modal/profesional-moda
 import { colorDeEntidad } from '../../../core/utils/color-entidad';
 import { esHojaMovil } from '../../../core/utils/pantalla';
 import { formatearCodigoCita } from '../../../core/utils/codigo-cita';
+import { MonedaPipe } from '../../../shared/moneda.pipe';
 
 /** Cuántas horas se muestran antes de plegar el resto. */
 const SLOTS_VISIBLES = 12;
@@ -43,7 +44,7 @@ const SLOTS_VISIBLES = 12;
   selector: 'reserva-publico-servicio',
   standalone: true,
   imports: [
-    LucideAngularModule, CurrencyPipe, DatePipe, RouterLink, UrlArchivoPipe,
+    LucideAngularModule, MonedaPipe, DatePipe, RouterLink, UrlArchivoPipe,
     ProfesionalModalComponent,
   ],
   templateUrl: './servicio.html',

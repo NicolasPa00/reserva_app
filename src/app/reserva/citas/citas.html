@@ -83,7 +83,7 @@
                 <lucide-icon name="credit-card" [size]="11" /> {{ pagoLabel(c.pago_estado) }}
               </span>
             }
-            <span class="row__monto">{{ c.monto_total | currency:'COP':'symbol':'1.0-0' }}</span>
+            <span class="row__monto">{{ c.monto_total | moneda }}</span>
           </div>
           @if (puedeValidarPago() && c.pago_estado === 'pendiente_validacion') {
             <div class="row__actions" (click)="$event.stopPropagation()">
@@ -178,7 +178,7 @@
           {{ citaPago()!.fecha_hora_inicio | date:'EEEE dd MMM, HH:mm':'':'es-CO' }} ·
           {{ citaPago()!.profesional?.nombre }}
         </p>
-        <p class="pago__monto">{{ citaPago()!.monto_total | currency:'COP':'symbol':'1.0-0' }}</p>
+        <p class="pago__monto">{{ citaPago()!.monto_total | moneda }}</p>
       </div>
       @if (citaPago()!.comprobante_pago_url) {
         <div class="pago__img">

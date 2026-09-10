@@ -318,6 +318,42 @@
 
       <!-- Cobros y caja -->
       @if (tab() === 'cobros') {
+      <!-- País y moneda.
+           Va la primera del bloque de cobros porque manda sobre todo lo que hay debajo: los
+           precios de los servicios, los cobros y el cuadre de caja se leen con esta moneda. -->
+      <div class="card">
+        <h3>País y moneda</h3>
+        <p class="hint">Con qué moneda se muestran los precios en la consola y en tu página pública.</p>
+
+        <div class="pais">
+          <label class="campo">
+            <span>País del negocio</span>
+            <select class="select" [value]="paisElegido()"
+                    (change)="paisElegido.set($any($event.target).value)">
+              @for (p of paises(); track p.codigo) {
+                <option [value]="p.codigo" [selected]="p.codigo === paisElegido()">
+                  {{ p.nombre }} — {{ p.moneda.codigo }}
+                </option>
+              }
+            </select>
+          </label>
+
+          @if (monedaElegida()) {
+            <p class="pais__ejemplo">
+              <span>Un precio de 25.000 se verá</span>
+              <strong>{{ ejemploPrecio() }}</strong>
+            </p>
+          }
+        </div>
+
+        <p class="hint hint--fijo">
+          <lucide-icon name="info" [size]="14" />
+          Cambiar de país <strong>no convierte los precios</strong>: el número se queda igual y
+          solo cambia el símbolo. También decide cómo se guardan los teléfonos de tus clientes,
+          así que elige el país donde atiendes.
+        </p>
+      </div>
+
       <div class="card">
         <h3>Cobros y caja</h3>
         <p class="hint">Cómo se registra el dinero cuando se completa una cita.</p>

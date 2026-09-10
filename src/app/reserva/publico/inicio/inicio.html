@@ -122,7 +122,7 @@
                 <h3>{{ s.nombre }}</h3>
                 @if (s.descripcion) { <p>{{ s.descripcion }}</p> }
                 <footer class="srv__meta">
-                  <span class="srv__precio">{{ s.precio | currency:'COP':'symbol-narrow':'1.0-0' }}</span>
+                  <span class="srv__precio">{{ s.precio | moneda }}</span>
                   <span class="srv__dur"><lucide-icon name="clock" [size]="13" /> {{ s.duracion_min }} min</span>
                   @if (s.id_profesionales.length > 1) {
                     <span class="srv__pros">

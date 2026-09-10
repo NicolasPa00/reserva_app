@@ -57,7 +57,7 @@
             <em>Servicio</em>
           </span>
           <span class="opcion__cuanto">
-            <span class="opcion__precio">{{ s.precio | currency:'COP':'symbol-narrow':'1.0-0' }}</span>
+            <span class="opcion__precio">{{ s.precio | moneda }}</span>
             <span class="opcion__dur"><lucide-icon name="clock" [size]="13" /> {{ s.duracion_min }} min</span>
           </span>
         </div>
@@ -174,7 +174,7 @@
         </div>
         <div>
           <dt>Precio</dt>
-          <dd class="barra__precio">{{ s.precio | currency:'COP':'symbol-narrow':'1.0-0' }}</dd>
+          <dd class="barra__precio">{{ s.precio | moneda }}</dd>
         </div>
         <div class="barra__ocultable">
           <dt>Duración</dt>

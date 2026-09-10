@@ -20,6 +20,7 @@ import {
   CitaDetalleComponent, ESTADO_LABELS, badgeEstado,
 } from '../../shared/cita-detalle/cita-detalle';
 import { colorDeEntidad } from '../../core/utils/color-entidad';
+import { MonedaPipe } from '../../shared/moneda.pipe';
 
 /**
  * Alto de una hora en píxeles.
@@ -52,7 +53,7 @@ interface FranjaAbierta { topPx: number; heightPx: number; }
 @Component({
   selector: 'reserva-agenda',
   standalone: true,
-  imports: [
+  imports: [MonedaPipe, 
     CommonModule, LucideAngularModule, DatePipe,
     CitaFormComponent, ModalComponent, CitaDetalleComponent, CobroDialogComponent,
     ConfirmDialogComponent,

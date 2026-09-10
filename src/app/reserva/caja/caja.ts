@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
-import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
+import { CommonModule, DatePipe } from '@angular/common';
 import { LucideAngularModule } from 'lucide-angular';
 import { forkJoin } from 'rxjs';
 
@@ -11,6 +11,8 @@ import { CajaHistorial, EstadoCaja, MetodoPago, MovimientoCaja } from '../../cor
 import { ModalComponent } from '../../shared/modal/modal';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dialog';
 import { colorDeEntidad } from '../../core/utils/color-entidad';
+import { MonedaPipe } from '../../shared/moneda.pipe';
+import { MonedaService } from '../../core/services/moneda.service';
 
 type Tab = 'turno' | 'historial';
 
@@ -34,7 +36,7 @@ type Tab = 'turno' | 'historial';
 @Component({
   selector: 'reserva-caja',
   standalone: true,
-  imports: [CommonModule, LucideAngularModule, CurrencyPipe, DatePipe, ModalComponent, ConfirmDialogComponent],
+  imports: [CommonModule, LucideAngularModule, MonedaPipe, DatePipe, ModalComponent, ConfirmDialogComponent],
   templateUrl: './caja.html',
   styleUrl: './caja.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -43,6 +45,7 @@ export class CajaComponent implements OnInit {
   private readonly auth  = inject(AuthService);
   private readonly api   = inject(ReservaApiService);
   private readonly toast = inject(ToastService);
+  private readonly monedas = inject(MonedaService);
   private readonly bus   = inject(EventBusService);
 
   readonly estado = signal<EstadoCaja | null>(null);
@@ -299,9 +302,7 @@ export class CajaComponent implements OnInit {
   descripcionMovimiento(m: MovimientoCaja | null): string {
     if (!m) return '';
     const signo = m.tipo === 'EGRESO' ? 'egreso' : 'ingreso';
-    return `${signo} de ${new Intl.NumberFormat('es-CO', {
-      style: 'currency', currency: 'COP', maximumFractionDigits: 0,
-    }).format(Number(m.monto ?? 0))}${m.concepto ? ` · ${m.concepto}` : ''}`;
+    return `${signo} de ${this.monedas.formatear(Number(m.monto ?? 0))}${m.concepto ? ` · ${m.concepto}` : ''}`;
   }
 
   setMovMetodo(raw: string) { this.movMetodo.set(raw === '' ? null : Number(raw)); }

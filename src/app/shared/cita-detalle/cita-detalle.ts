@@ -1,9 +1,10 @@
 import { ChangeDetectionStrategy, Component, Input, computed, signal } from '@angular/core';
-import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
+import { CommonModule, DatePipe } from '@angular/common';
 import { LucideAngularModule } from 'lucide-angular';
 
 import { Cita, EstadoCita, PagoEstado } from '../../core/models';
 import { formatearCodigoCita } from '../../core/utils/codigo-cita';
+import { MonedaPipe } from '../moneda.pipe';
 
 export const ESTADO_LABELS: Record<EstadoCita, string> = {
   pendiente: 'Pendiente',
@@ -45,7 +46,7 @@ export function badgeEstado(e: EstadoCita): string {
 @Component({
   selector: 'reserva-cita-detalle',
   standalone: true,
-  imports: [CommonModule, LucideAngularModule, CurrencyPipe, DatePipe],
+  imports: [CommonModule, LucideAngularModule, MonedaPipe, DatePipe],
   template: `
     @if (cita) {
       <div class="cd">
@@ -109,14 +110,14 @@ export function badgeEstado(e: EstadoCita): string {
                 <li>
                   <span>{{ s.servicio?.nombre || 'Servicio #' + s.id_servicio }}</span>
                   <em>{{ s.duracion_snapshot_min }} min</em>
-                  <strong>{{ s.precio_snapshot | currency:'COP':'symbol':'1.0-0' }}</strong>
+                  <strong>{{ s.precio_snapshot | moneda }}</strong>
                 </li>
               }
             </ul>
           }
           <p class="cd__total">
             <span>Total</span>
-            <strong>{{ cita.monto_total | currency:'COP':'symbol':'1.0-0' }}</strong>
+            <strong>{{ cita.monto_total | moneda }}</strong>
           </p>
         </section>
 
@@ -147,7 +148,7 @@ export function badgeEstado(e: EstadoCita): string {
                   <li>
                     <span>{{ p.metodoPago?.nombre || 'Forma #' + p.id_metodo_pago }}</span>
                     <em></em>
-                    <strong>{{ p.valor | currency:'COP':'symbol':'1.0-0' }}</strong>
+                    <strong>{{ p.valor | moneda }}</strong>
                   </li>
                 }
               </ul>

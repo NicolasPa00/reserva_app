@@ -58,6 +58,32 @@ export interface MarcaNegocio {
   paletas: { id_paleta: number; nombre: string; colores: Record<string, string> }[];
 }
 
+/**
+ * La moneda con la que se pintan los precios.
+ *
+ * Viene del **país del negocio** (`gener_negocio.pais`), que es el mismo dato que decide cómo se
+ * normalizan los teléfonos. El catálogo vive en el backend (`app_core/helpers/paises.js`) y viaja
+ * con la sesión y con la vitrina: aquí no hay copia de la lista, solo lo que el servidor diga.
+ *
+ * Es un **indicador, no una conversión**: cambiar de país no toca ni un precio guardado.
+ */
+export interface Moneda {
+  /** ISO 4217: 'COP', 'CLP', 'PEN'… */
+  codigo: string;
+  simbolo: string;
+  /** 0 en peso colombiano y chileno, 2 donde se cobran céntimos. */
+  decimales: number;
+  /** Separadores de miles y decimales, p. ej. 'es-CO'. */
+  locale: string;
+}
+
+/** Un país que la plataforma sabe atender, tal y como lo ofrece el backend. */
+export interface PaisDisponible {
+  codigo: string;
+  nombre: string;
+  moneda: Moneda;
+}
+
 export interface PaletaColor {
   id_paleta: number;
   nombre: string;
@@ -72,6 +98,10 @@ export interface NegocioReserva {
   /** Identidad visual: viaja con la sesión para pintar el tema en el primer render. */
   logo_url?: string | null;
   colores?: ColoresNegocio | null;
+  /** ISO 3166-1 alfa-2. Opcional: las sesiones guardadas antes de esto no lo traen. */
+  pais?: string | null;
+  /** Viaja por lo mismo que los colores: los precios se pintan en el primer render. */
+  moneda?: Moneda | null;
   roles: { id_rol: number; descripcion: string }[];
   permisos_vista: PermisoVista[];
   permisos_subnivel: PermisoSubnivel[];
@@ -210,6 +240,14 @@ export interface ConfigReserva {
    * tabla, pero ni la UI la ofrece ni el backend la mira. Ver `cobroService`.
    */
   exige_caja_abierta?: boolean;
+  /**
+   * País del negocio. No es columna de `reserva_config`: se guarda en `gener_negocio` y se
+   * edita desde aquí porque es donde el usuario lo busca. De él sale la moneda.
+   */
+  pais?: string;
+  moneda?: Moneda;
+  /** Catálogo del backend para el selector. Sin copia local que se quede vieja. */
+  paises?: PaisDisponible[];
 }
 
 // ────────────────────── Usuarios y permisos ──────────────────────
@@ -292,9 +330,18 @@ export interface UsuarioPayload {
   telefono?: string | null;
   id_rol: number;
   password?: string | null;
-  /** Al crear un PROFESIONAL: enlazar una ficha existente en vez de crear otra. */
+  /** Al dar de alta a alguien que atiende: enlazar una ficha existente en vez de crear otra. */
   id_profesional?: number | null;
   especialidad?: string | null;
+  /**
+   * ¿Atiende citas?
+   *
+   * Es una **capacidad, no un rol**: un administrador o un cajero también pueden prestar
+   * servicios. El rol PROFESIONAL la implica y el backend la fuerza en ese caso. Ausente
+   * significa «no se toca», para que una llamada que no la conozca no retire a nadie de la
+   * agenda por omisión.
+   */
+  es_profesional?: boolean;
 }
 
 // ────────────────────── Caja y formas de pago ──────────────────────
@@ -602,6 +649,8 @@ export interface NegocioPublico {
     facebook: string | null;
     instagram: string | null;
   };
+  /** El portal no tiene sesión de la que sacarla, así que viaja con la vitrina. */
+  moneda?: Moneda | null;
 }
 
 /** Todo lo que la portada pública necesita, en una sola respuesta. */

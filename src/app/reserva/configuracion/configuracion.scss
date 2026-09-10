@@ -268,6 +268,27 @@
   small { color: var(--color-text-muted); font-size: .73rem; }
 }
 
+// ── País y moneda ──
+//
+// El selector y el ejemplo van uno al lado del otro: el ejemplo es la respuesta a la única
+// pregunta que se hace quien cambia el país —«¿y cómo se verán mis precios?»— y leerlo lejos
+// del desplegable obligaría a mirar dos sitios.
+.pais {
+  display: flex; align-items: flex-end; gap: 1rem; flex-wrap: wrap;
+  margin-bottom: .9rem;
+
+  .campo { flex: 1 1 15rem; }
+
+  &__ejemplo {
+    display: flex; flex-direction: column; gap: .15rem; margin: 0;
+    padding: .5rem .8rem; border-radius: var(--radius-md);
+    background: var(--color-bg-muted); border: 1px solid var(--color-border);
+
+    span   { font-size: .73rem; color: var(--color-text-muted); }
+    strong { font-size: 1.05rem; color: var(--color-primary); }
+  }
+}
+
 // ── Página pública ──
 .publica .card + .card { margin-top: 0; }
 

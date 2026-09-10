@@ -2,7 +2,7 @@ import {
   ChangeDetectionStrategy, Component, ElementRef, OnDestroy, OnInit,
   computed, effect, inject, signal, viewChild,
 } from '@angular/core';
-import { CurrencyPipe, DOCUMENT } from '@angular/common';
+import { DOCUMENT } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
 
@@ -10,6 +10,8 @@ import { FaviconService } from '../../core/services/favicon.service';
 import { VitrinaStore } from '../../reserva/publico/vitrina.store';
 import { UrlArchivoPipe } from '../../shared/url-archivo.pipe';
 import { ServicioPublico } from '../../core/models';
+import { MonedaPipe } from '../../shared/moneda.pipe';
+import { MonedaService } from '../../core/services/moneda.service';
 
 /**
  * Marco del portal público: la página que ve un cliente que llega por un enlace o un QR.
@@ -24,7 +26,7 @@ import { ServicioPublico } from '../../core/models';
 @Component({
   selector: 'reserva-publico-shell',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, LucideAngularModule, UrlArchivoPipe, CurrencyPipe],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, LucideAngularModule, UrlArchivoPipe, MonedaPipe],
   // El pipe se provee además de importarse: la clase se inyecta abajo para resolver la URL del
   // logo con la MISMA regla que usa la plantilla, sin duplicar el prefijo de la API.
   providers: [UrlArchivoPipe],
@@ -39,6 +41,7 @@ export class PublicoShellComponent implements OnInit, OnDestroy {
   private readonly favicon = inject(FaviconService);
   private readonly urlArchivo = inject(UrlArchivoPipe);
   readonly store = inject(VitrinaStore);
+  private readonly monedas = inject(MonedaService);
 
   readonly negocio = this.store.negocio;
   readonly idNegocio = computed(() => this.negocio()?.id_negocio ?? null);
@@ -157,6 +160,10 @@ export class PublicoShellComponent implements OnInit, OnDestroy {
     this.favicon.restaurar();
     // La variable es global: dejarla puesta descuadraría cualquier otra pantalla.
     this.document.documentElement.style.removeProperty('--alto-cabecera');
+    // Y la moneda, igual: la consola y el portal viven en la misma aplicación, así que un
+    // administrador que se asome al portal de otro negocio volvería a su caja viendo la moneda
+    // ajena. Al salir, manda otra vez la del negocio de su sesión.
+    this.monedas.olvidarLaDelPortal();
   }
 
   escribir(valor: string): void {

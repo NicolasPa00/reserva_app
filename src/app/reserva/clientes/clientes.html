@@ -79,7 +79,7 @@
             </div>
             <div class="dato">
               <span>Gastado</span>
-              <strong>{{ c.total_gastado | currency:'COP':'symbol-narrow':'1.0-0' }}</strong>
+              <strong>{{ c.total_gastado | moneda }}</strong>
             </div>
             @if (c.inasistencias > 0) {
               <div class="dato dato--alerta" [title]="c.inasistencias + ' inasistencia(s)'">
@@ -116,7 +116,7 @@
         <div><span>Completadas</span><strong>{{ c.citas_completadas }}</strong></div>
         <div><span>Canceladas</span><strong>{{ c.citas_canceladas }}</strong></div>
         <div><span>No asistió</span><strong>{{ c.inasistencias }}</strong></div>
-        <div><span>Gastado</span><strong>{{ c.total_gastado | currency:'COP':'symbol-narrow':'1.0-0' }}</strong></div>
+        <div><span>Gastado</span><strong>{{ c.total_gastado | moneda }}</strong></div>
         <div><span>Cliente desde</span><strong>{{ c.primera_cita ? (c.primera_cita | date:'dd/MM/yy') : (c.creado_en | date:'dd/MM/yy') }}</strong></div>
       </div>
 
@@ -174,7 +174,7 @@
                       {{ etiquetaEstado(cita.estado) }}
                     </span>
                   </td>
-                  <td class="num">{{ cita.monto_total | currency:'COP':'symbol-narrow':'1.0-0' }}</td>
+                  <td class="num">{{ cita.monto_total | moneda }}</td>
                 </tr>
               }
             </tbody>

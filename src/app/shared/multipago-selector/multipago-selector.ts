@@ -1,10 +1,11 @@
 import {
   ChangeDetectionStrategy, Component, computed, effect, input, output, signal,
 } from '@angular/core';
-import { CurrencyPipe } from '@angular/common';
+
 import { LucideAngularModule } from 'lucide-angular';
 
 import { MetodoPago, PagoLinea } from '../../core/models';
+import { MonedaPipe } from '../moneda.pipe';
 
 /** Lo que el padre necesita saber para poder cobrar. */
 export interface PagoSeleccion {
@@ -45,7 +46,7 @@ function centavos(v: number): number {
 @Component({
   selector: 'reserva-multipago-selector',
   standalone: true,
-  imports: [CurrencyPipe, LucideAngularModule],
+  imports: [MonedaPipe, LucideAngularModule],
   templateUrl: './multipago-selector.html',
   styleUrl: './multipago-selector.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

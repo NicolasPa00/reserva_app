@@ -7,8 +7,9 @@ import { forkJoin } from 'rxjs';
 import { AuthService } from '../../core/services/auth.service';
 import { ReservaApiService } from '../../core/services/reserva-api.service';
 import { ToastService } from '../../core/services/toast.service';
-import { ColoresNegocio, MarcaNegocio, MetodoPago } from '../../core/models';
+import { ColoresNegocio, MarcaNegocio, MetodoPago, Moneda, PaisDisponible } from '../../core/models';
 import { ThemeService } from '../../core/theme/theme.service';
+import { MonedaService } from '../../core/services/moneda.service';
 import { ImageCropperComponent } from '../../shared/image-cropper/image-cropper';
 import { ModalComponent } from '../../shared/modal/modal';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dialog';
@@ -39,6 +40,7 @@ export class ConfiguracionComponent implements OnInit {
   private readonly toast = inject(ToastService);
   private readonly fb    = inject(FormBuilder);
   private readonly theme = inject(ThemeService);
+  private readonly monedas = inject(MonedaService);
 
   readonly cargando = signal(false);
   readonly guardando = signal(false);
@@ -89,6 +91,30 @@ export class ConfiguracionComponent implements OnInit {
 
   /** Con menos de dos formas activas, el multipago no tiene entre qué repartir. */
   readonly puedeMultipago = computed(() => this.metodosActivos().length >= 2);
+
+  // ── País y moneda ──
+  //
+  // El país es del negocio (`gener_negocio.pais`), no del vertical, y decide dos cosas: con qué
+  // moneda se pintan los precios y cómo se normalizan los teléfonos de los clientes. Se edita
+  // aquí porque es donde el dueño lo busca, pero se guarda donde siempre estuvo.
+  readonly paises = signal<PaisDisponible[]>([]);
+  readonly paisElegido = signal('CO');
+
+  /** La moneda que se va a usar con el país elegido, para poder enseñar un ejemplo. */
+  readonly monedaElegida = computed<Moneda | null>(
+    () => this.paises().find(p => p.codigo === this.paisElegido())?.moneda ?? null,
+  );
+
+  /**
+   * «$ 25.000» / «S/ 25.00»: el mismo número en la moneda elegida, antes de guardar.
+   *
+   * Se formatea con el mismo servicio que pinta los precios de verdad, y no con un `Intl` aparte:
+   * un ejemplo que no coincidiera con lo que se ve después sería peor que no enseñar ninguno.
+   */
+  readonly ejemploPrecio = computed(() => {
+    const m = this.monedaElegida();
+    return m ? this.monedas.formatear(25000, m) : '';
+  });
 
   // ── Página pública ──
   //
@@ -195,6 +221,8 @@ export class ConfiguracionComponent implements OnInit {
             permite_cobro_profesional: cfg.data.permite_cobro_profesional ?? false,
             permite_multipago:         cfg.data.permite_multipago ?? false,
           });
+          this.paises.set(cfg.data.paises ?? []);
+          this.paisElegido.set(cfg.data.pais ?? 'CO');
         }
         if (metodos?.success && metodos.data) this.metodos.set(metodos.data);
         this.cargando.set(false);
@@ -222,11 +250,18 @@ export class ConfiguracionComponent implements OnInit {
       // Guardar multipago activo sin formas suficientes dejaría una opción que no se puede
       // usar; se corrige en el envío en vez de dejar que el usuario lo descubra al cobrar.
       permite_multipago:         v.permite_multipago && this.puedeMultipago(),
+      pais:                      this.paisElegido(),
     }).subscribe({
       next: r => {
         this.guardando.set(false);
-        if (r?.success) this.toast.success('Configuración guardada');
-        else this.toast.error(r?.message || 'No se pudo guardar.');
+        if (!r?.success) { this.toast.error(r?.message || 'No se pudo guardar.'); return; }
+        this.toast.success('Configuración guardada');
+        // La moneda vive en la sesión —de ahí la leen todas las pantallas—, así que se parchea
+        // con lo que devolvió el servidor. Sin esto, los precios seguirían en la moneda anterior
+        // hasta volver a entrar, que es justo cuando el usuario dudaría de si guardó algo.
+        if (r.data?.moneda) {
+          this.auth.actualizarNegocioActivo({ pais: r.data.pais ?? null, moneda: r.data.moneda });
+        }
       },
       error: e => {
         this.guardando.set(false);

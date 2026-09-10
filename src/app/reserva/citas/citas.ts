@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
-import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
+import { CommonModule, DatePipe } from '@angular/common';
 import { LucideAngularModule } from 'lucide-angular';
 
 import { AuthService } from '../../core/services/auth.service';
@@ -16,12 +16,13 @@ import {
   CitaDetalleComponent, ESTADO_LABELS, PAGO_LABELS, badgeEstado,
 } from '../../shared/cita-detalle/cita-detalle';
 import { colorDeEntidad } from '../../core/utils/color-entidad';
+import { MonedaPipe } from '../../shared/moneda.pipe';
 
 @Component({
   selector: 'reserva-citas',
   standalone: true,
   imports: [
-    CommonModule, LucideAngularModule, CurrencyPipe, DatePipe,
+    CommonModule, LucideAngularModule, MonedaPipe, DatePipe,
     ModalComponent, ConfirmDialogComponent, CitaFormComponent, CitaDetalleComponent,
     CobroDialogComponent,
   ],

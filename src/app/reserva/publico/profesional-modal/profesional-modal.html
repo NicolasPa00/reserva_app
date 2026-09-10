@@ -59,7 +59,7 @@
                 <span class="servicios__nombre">{{ s!.nombre }}</span>
                 <span class="servicios__dur">{{ s!.duracion_min }} min</span>
                 <span class="servicios__precio">
-                  {{ s!.precio | currency:'COP':'symbol-narrow':'1.0-0' }}
+                  {{ s!.precio | moneda }}
                 </span>
               </li>
             }
