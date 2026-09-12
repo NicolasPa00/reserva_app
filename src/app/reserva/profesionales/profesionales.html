@@ -64,7 +64,7 @@
             </li>
             <li [class.pro__dato--vacio]="!p.telefono">
               <lucide-icon name="phone" [size]="13" />
-              <span>{{ p.telefono || 'Sin teléfono' }}</span>
+              <span>{{ p.telefono ? (p.telefono | telefono) : 'Sin teléfono' }}</span>
             </li>
             <li>
               <lucide-icon name="scissors" [size]="13" />
@@ -115,15 +115,29 @@
       </label>
     </div>
     <div class="form__grid-2">
-      <label>
+      <div class="campo">
         <span>Teléfono</span>
-        <input class="input" type="tel" formControlName="telefono" />
-      </label>
+        <reserva-telefono-pais
+          [pais]="form.controls.telefono_pais.value" [numero]="form.controls.telefono.value"
+          (paisChange)="form.controls.telefono_pais.setValue($event); form.markAsDirty()"
+          (numeroChange)="form.controls.telefono.setValue($event); form.markAsDirty()" />
+      </div>
       <label>
         <span>Email</span>
         <input class="input" type="email" formControlName="email" autocomplete="off" />
       </label>
     </div>
+    <!-- Con cuenta de acceso detrás, éste es el mismo dato que el de Usuarios: se dice, porque
+         si no parecen dos casillas distintas y quien las rellena no sabe cuál mira la agenda. -->
+    @if (editando()?.id_usuario) {
+      <p class="nota-enlazado">
+        <lucide-icon name="info" [size]="14" />
+        <span>
+          Este profesional tiene cuenta de acceso: el teléfono y el correo son los mismos de
+          <strong>Usuarios</strong> y se actualizan en los dos sitios.
+        </span>
+      </p>
+    }
     <!--
       La foto se sube y se recorta aquí; ya no se pega una URL externa. Un enlace de fuera se
       rompe en cuanto el otro sitio lo mueve, y la página pública quedaría con un hueco que

@@ -9,7 +9,9 @@ import { ToastService } from '../../core/services/toast.service';
 import {
   PermisosRol, RolReserva, UsuarioNegocio, UsuarioPayload,
 } from '../../core/models';
+import { PaisesService } from '../../core/services/paises.service';
 import { MayusculasDirective } from '../../shared/mayusculas.directive';
+import { TelefonoPaisComponent } from '../../shared/telefono-pais/telefono-pais';
 import { ModalComponent } from '../../shared/modal/modal';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dialog';
 
@@ -22,7 +24,10 @@ interface FormUsuario {
   segundo_apellido: string;
   num_identificacion: string;
   email: string;
+  /** El número **nacional**, sin indicativo: el selector de al lado guarda el país. */
   telefono: string;
+  /** ISO 3166-1 alfa-2 del indicativo. El backend los junta en E.164 al guardar. */
+  telefono_pais: string;
   id_rol: number | null;
   password: string;
   id_profesional: number | null;
@@ -33,7 +38,7 @@ interface FormUsuario {
 
 const FORM_VACIO: FormUsuario = {
   primer_nombre: '', segundo_nombre: '', primer_apellido: '', segundo_apellido: '',
-  num_identificacion: '', email: '', telefono: '',
+  num_identificacion: '', email: '', telefono: '', telefono_pais: 'CO',
   id_rol: null, password: '', id_profesional: null, especialidad: '',
   es_profesional: false,
 };
@@ -71,7 +76,10 @@ const FORM_VACIO: FormUsuario = {
 @Component({
   selector: 'reserva-usuarios',
   standalone: true,
-  imports: [CommonModule, LucideAngularModule, MayusculasDirective, ModalComponent, ConfirmDialogComponent],
+  imports: [
+    CommonModule, LucideAngularModule, MayusculasDirective,
+    ModalComponent, ConfirmDialogComponent, TelefonoPaisComponent,
+  ],
   templateUrl: './usuarios.html',
   styleUrl: './usuarios.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -80,6 +88,7 @@ export class UsuariosComponent implements OnInit {
   private readonly auth  = inject(AuthService);
   private readonly api   = inject(ReservaApiService);
   private readonly toast = inject(ToastService);
+  private readonly paisesSrv = inject(PaisesService);
 
   readonly usuarios = signal<UsuarioNegocio[]>([]);
   readonly roles = signal<RolReserva[]>([]);
@@ -113,6 +122,9 @@ export class UsuariosComponent implements OnInit {
 
   readonly idNegocio = computed(() => this.auth.negocio()?.id_negocio ?? 0);
   readonly idUsuarioActual = computed(() => this.auth.usuario()?.id_usuario ?? 0);
+
+  /** El indicativo que se propone al dar de alta: el del país del negocio. */
+  readonly paisNegocio = computed(() => this.auth.negocio()?.pais || 'CO');
 
   readonly rolElegido = computed<RolReserva | null>(() => {
     const id = this.form().id_rol;
@@ -163,7 +175,13 @@ export class UsuariosComponent implements OnInit {
       (!f.password.trim() || f.password.trim().length >= 8);
   });
 
-  ngOnInit() { this.cargar(); }
+  ngOnInit() {
+    this.cargar();
+    // El catálogo se pide aquí y no solo dentro del selector: al **editar** hay que partir el
+    // '+573188887013' guardado en país y número antes de pintar el formulario, y sin la lista
+    // de indicativos cargada esa división no se puede hacer.
+    this.paisesSrv.cargar().subscribe();
+  }
 
   cargar() {
     const id = this.idNegocio();
@@ -205,6 +223,7 @@ export class UsuariosComponent implements OnInit {
     this.usuarioEditando.set(null);
     this.form.set({
       ...FORM_VACIO,
+      telefono_pais: this.paisNegocio(),
       id_rol: preseleccionarProfesional && rolPro ? rolPro.id_rol : (this.roles()[0]?.id_rol ?? null),
     });
     this.credenciales.set(null);
@@ -220,7 +239,9 @@ export class UsuariosComponent implements OnInit {
       segundo_apellido: u.segundo_apellido ?? '',
       num_identificacion: u.num_identificacion ?? '',
       email: u.email ?? '',
-      telefono: u.telefono ?? '',
+      // Se rellenan abajo, cuando el catálogo de indicativos permita partir el número.
+      telefono: '',
+      telefono_pais: this.paisNegocio(),
       id_rol: u.rol?.id_rol ?? null,
       password: '',
       id_profesional: null,
@@ -231,6 +252,13 @@ export class UsuariosComponent implements OnInit {
     });
     this.credenciales.set(null);
     this.modalUsuario.set(true);
+
+    // Lo guardado es E.164 ('+573188887013') y el formulario necesita las dos mitades. La
+    // suscripción resuelve al instante si el catálogo ya está en memoria, que es el caso normal.
+    this.paisesSrv.cargar().subscribe(() => {
+      const { pais, numero } = this.paisesSrv.partir(u.telefono, this.paisNegocio());
+      this.form.update(f => ({ ...f, telefono: numero, telefono_pais: pais }));
+    });
   }
 
   /** La casilla «Atiende citas». Con rol PROFESIONAL no se puede desmarcar. */
@@ -281,6 +309,7 @@ export class UsuariosComponent implements OnInit {
       num_identificacion: f.num_identificacion.trim(),
       email: f.email.trim() || null,
       telefono: f.telefono.trim() || null,
+      telefono_pais: f.telefono_pais || null,
       id_rol: f.id_rol!,
       password: f.password.trim() || null,
       id_profesional: this.atiendeCitas() ? f.id_profesional : null,

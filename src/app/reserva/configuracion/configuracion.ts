@@ -13,6 +13,7 @@ import { MonedaService } from '../../core/services/moneda.service';
 import { ImageCropperComponent } from '../../shared/image-cropper/image-cropper';
 import { ModalComponent } from '../../shared/modal/modal';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dialog';
+import { IconoTiktokComponent } from '../../shared/iconos-marca/iconos-marca';
 
 /**
  * Configuración del vertical.
@@ -27,7 +28,7 @@ import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dial
   standalone: true,
   imports: [
     CommonModule, ReactiveFormsModule, LucideAngularModule,
-    ModalComponent, ConfirmDialogComponent, ImageCropperComponent,
+    ModalComponent, ConfirmDialogComponent, ImageCropperComponent, IconoTiktokComponent,
   ],
   templateUrl: './configuracion.html',
   styleUrl: './configuracion.scss',
@@ -131,6 +132,7 @@ export class ConfiguracionComponent implements OnInit {
     url_whatsapp:        [''],
     url_facebook:        [''],
     url_instagram:       [''],
+    url_tiktok:          [''],
     descripcion_publica: ['', [Validators.maxLength(1200)]],
     publico_activo:      [true],
   });
@@ -199,6 +201,7 @@ export class ConfiguracionComponent implements OnInit {
             url_whatsapp:        v.url_whatsapp ?? '',
             url_facebook:        v.url_facebook ?? '',
             url_instagram:       v.url_instagram ?? '',
+            url_tiktok:          v.url_tiktok ?? '',
             descripcion_publica: v.descripcion_publica ?? '',
             publico_activo:      v.publico_activo,
           });
@@ -285,6 +288,7 @@ export class ConfiguracionComponent implements OnInit {
       url_whatsapp:        v.url_whatsapp.trim(),
       url_facebook:        v.url_facebook.trim(),
       url_instagram:       v.url_instagram.trim(),
+      url_tiktok:          v.url_tiktok.trim(),
       descripcion_publica: v.descripcion_publica.trim(),
       publico_activo:      v.publico_activo,
     }).subscribe({
@@ -300,6 +304,7 @@ export class ConfiguracionComponent implements OnInit {
           url_whatsapp:  d.url_whatsapp ?? '',
           url_facebook:  d.url_facebook ?? '',
           url_instagram: d.url_instagram ?? '',
+          url_tiktok:    d.url_tiktok ?? '',
         });
         this.vitrinaForm.markAsPristine();
         this.toast.success('Página pública actualizada');

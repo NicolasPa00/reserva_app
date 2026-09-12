@@ -115,6 +115,34 @@ body {
 .btn-danger:hover:not(:disabled) { background: color-mix(in srgb, var(--color-error) 85%, #000); }
 .btn:disabled { opacity: .55; cursor: not-allowed; }
 
+/*
+ * Botón pequeño de WhatsApp: «háblale a esta persona».
+ *
+ * Vive aquí y no en el SCSS de una vista porque aparece en tres sitios del portal público —la
+ * tarjeta del equipo, la ficha del profesional y el paso de elegir hora— y los estilos de
+ * componente están encapsulados: definirlo en uno no lo lleva a los otros, y copiarlo tres
+ * veces garantiza que dos se queden atrás.
+ *
+ * El verde es el de WhatsApp, no el de la paleta del negocio. Es deliberado: la paleta la
+ * elige cada inquilino y un botón de marca ajena pintado del color del salón deja de
+ * reconocerse de un vistazo, que es justo lo que hace que sirva.
+ */
+.wa-mini {
+  display: inline-flex; align-items: center; gap: .35rem;
+  padding: .3rem .6rem; border-radius: var(--radius-full);
+  border: 1px solid color-mix(in srgb, #25D366 45%, transparent);
+  background: color-mix(in srgb, #25D366 12%, transparent);
+  color: #128C4A;
+  font-size: .74rem; font-weight: 600; line-height: 1.3;
+  text-decoration: none; cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+
+  &:hover {
+    background: color-mix(in srgb, #25D366 22%, transparent);
+    border-color: #25D366;
+  }
+}
+
 .input, .select, .textarea {
   width: 100%; padding: .55rem .7rem;
   border: 1px solid var(--color-border); border-radius: var(--radius-md);

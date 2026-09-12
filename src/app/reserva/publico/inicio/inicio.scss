@@ -357,8 +357,15 @@
     font-size: .8rem; color: var(--color-text-muted);
   }
 
-  &__pista {
+  // El pie empuja hacia abajo (`margin-top: auto`) para que todas las tarjetas de la fila
+  // terminen a la misma altura aunque una tenga cuatro días de horario y otra dos.
+  &__pie {
     margin-top: auto;
+    display: flex; align-items: center; justify-content: space-between; gap: .5rem;
+    flex-wrap: wrap;
+  }
+
+  &__pista {
     display: inline-flex; align-items: center; gap: .3rem;
     font-size: .76rem; color: var(--color-text-muted);
     transition: color var(--transition-fast);

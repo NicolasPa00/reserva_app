@@ -284,6 +284,13 @@
     }
   }
 
+  // En móvil la cabecera se aprieta (foto, nombre, WhatsApp, info y fecha en 340 px), así que
+  // el botón puede encoger hasta quedarse en el icono antes de empujar la fila a dos líneas.
+  &__wa {
+    flex-shrink: 1; min-width: 0;
+    span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  }
+
   &__cuando {
     flex-shrink: 0; font-size: .74rem; color: var(--color-text-muted);
     text-transform: capitalize;

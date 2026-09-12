@@ -52,6 +52,11 @@
             <lucide-icon name="instagram" [size]="17" />
           </a>
         }
+        @if (n.redes.tiktok) {
+          <a class="cab__red" [href]="n.redes.tiktok" target="_blank" rel="noopener" aria-label="TikTok">
+            <icono-tiktok [size]="16" />
+          </a>
+        }
       </div>
     </div>
 
@@ -189,9 +194,22 @@
                 </p>
               }
 
-              <span class="ficha__pista">
-                <lucide-icon name="info" [size]="13" /> Ver ficha completa
-              </span>
+              <footer class="ficha__pie">
+                <span class="ficha__pista">
+                  <lucide-icon name="info" [size]="13" /> Ver ficha completa
+                </span>
+                <!-- `stopPropagation`: la tarjeta entera abre la ficha, y sin esto escribir por
+                     WhatsApp abriría además el modal por debajo. -->
+                @if (p.whatsapp) {
+                  <a class="wa-mini" [href]="p.whatsapp" target="_blank" rel="noopener noreferrer"
+                     (click)="$event.stopPropagation()"
+                     [attr.aria-label]="'Escribir a ' + p.nombre + ' por WhatsApp'"
+                     [title]="'Escribir a ' + p.nombre + ' por WhatsApp'">
+                    <icono-whatsapp [size]="14" />
+                    <span>WhatsApp</span>
+                  </a>
+                }
+              </footer>
             </article>
           }
         </div>

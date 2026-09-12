@@ -309,11 +309,14 @@
             <small>La identificación no se puede cambiar.</small>
           }
         </label>
-        <label class="campo">
+        <div class="campo">
           <span>Teléfono</span>
-          <input class="input" type="tel" [value]="form().telefono"
-                 (input)="setCampo('telefono', $any($event.target).value)" />
-        </label>
+          <reserva-telefono-pais
+            [pais]="form().telefono_pais" [numero]="form().telefono"
+            (paisChange)="setCampo('telefono_pais', $event)"
+            (numeroChange)="setCampo('telefono', $event)" />
+          <small>Con este número se le escribe por WhatsApp desde la página pública.</small>
+        </div>
       </div>
 
       <label class="campo">

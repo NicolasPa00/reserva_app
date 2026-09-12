@@ -133,6 +133,21 @@
 }
 @media (max-width: 520px) { .form__grid-2 { grid-template-columns: 1fr; } }
 
+// El teléfono no es un <label> —envuelve un componente con su propio foco— y por eso no lo
+// alcanza la regla de arriba, que solo mira etiquetas.
+.form__grid-2 .campo {
+  display: flex; flex-direction: column; gap: .35rem; min-width: 0;
+  > span { font-size: .8rem; color: var(--color-text-secondary); font-weight: 500; }
+}
+
+.nota-enlazado {
+  display: flex; align-items: flex-start; gap: .45rem; margin: -.4rem 0 0;
+  padding: .6rem .75rem; border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-primary) 6%, transparent);
+  color: var(--color-text-secondary); font-size: .78rem; line-height: 1.45;
+  lucide-icon { color: var(--color-primary); flex: none; margin-top: .1rem; }
+}
+
 @media (max-width: 767px) {
   .page__head { flex-direction: column; align-items: stretch; }
   .page__head .btn { width: 100%; }

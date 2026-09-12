@@ -8,6 +8,7 @@ import { ModalComponent } from '../../../shared/modal/modal';
 import { rangoHora12 } from '../../../core/utils/hora';
 import { colorDeEntidad } from '../../../core/utils/color-entidad';
 import { MonedaPipe } from '../../../shared/moneda.pipe';
+import { IconoWhatsappComponent } from '../../../shared/iconos-marca/iconos-marca';
 
 /**
  * Ficha de un profesional: qué hace y cuándo atiende.
@@ -26,7 +27,7 @@ import { MonedaPipe } from '../../../shared/moneda.pipe';
 @Component({
   selector: 'reserva-profesional-modal',
   standalone: true,
-  imports: [LucideAngularModule, MonedaPipe, ModalComponent, UrlArchivoPipe],
+  imports: [LucideAngularModule, MonedaPipe, ModalComponent, UrlArchivoPipe, IconoWhatsappComponent],
   templateUrl: './profesional-modal.html',
   styleUrl: './profesional-modal.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

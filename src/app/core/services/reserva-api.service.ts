@@ -10,6 +10,7 @@ import {
   ResumenDashboard, MetodoPago, PagoLinea, EstadoCaja, CajaHistorial, MovimientoCaja,
   UsuarioNegocio, RolReserva, PermisosRol, UsuarioPayload, MarcaNegocio, ColoresNegocio,
   Vitrina, VitrinaEdicion, CitaPublica, CategoriaReserva, DiaServicio, SlotsServicio,
+  PaisDisponible,
 } from '../models';
 
 /**
@@ -388,6 +389,16 @@ export class ReservaApiService {
   }
 
   // ── Página pública (edición desde Configuración) ──
+
+  /**
+   * Catálogo de países: código, nombre, indicativo telefónico y moneda.
+   *
+   * Sin `id_negocio`: es catálogo de plataforma, el mismo para todos. Lo consume
+   * `PaisesService`, que lo pide una vez por sesión.
+   */
+  listarPaises() {
+    return this.http.get<ApiResponse<PaisDisponible[]>>(`${this.base}/paises`);
+  }
 
   getVitrinaEdicion(idNegocio: number) {
     return this.http.get<ApiResponse<VitrinaEdicion>>(`${this.base}/vitrina?id_negocio=${idNegocio}`);

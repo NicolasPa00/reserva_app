@@ -81,6 +81,10 @@ export interface Moneda {
 export interface PaisDisponible {
   codigo: string;
   nombre: string;
+  /** Indicativo telefónico con el signo: '+57'. Lo pinta el selector del teléfono. */
+  indicativo: string;
+  /** Dígitos del número nacional. Solo para avisar antes de enviar; quien valida es el backend. */
+  largo: number;
   moneda: Moneda;
 }
 
@@ -146,6 +150,7 @@ export interface Servicio {
 export interface Profesional {
   id_profesional: number;
   id_negocio: number;
+  /** Con usuario detrás, el teléfono y el correo son los suyos: se propagan en los dos sentidos. */
   id_usuario: number | null;
   nombre: string;
   especialidad: string | null;
@@ -327,7 +332,10 @@ export interface UsuarioPayload {
   num_identificacion: string;
   /** Dato de contacto, no credencial. `null` = sin correo. */
   email: string | null;
+  /** El número **nacional**, sin indicativo: el backend lo junta con `telefono_pais`. */
   telefono?: string | null;
+  /** ISO 3166-1 alfa-2 del indicativo elegido. Ausente = el país del negocio. */
+  telefono_pais?: string | null;
   id_rol: number;
   password?: string | null;
   /** Al dar de alta a alguien que atiende: enlazar una ficha existente en vez de crear otra. */
@@ -627,6 +635,14 @@ export interface ProfesionalPublico {
   especialidad: string | null;
   foto_url: string | null;
   color_hex: string | null;
+  /**
+   * Enlace `wa.me` ya armado, o `null` si no tiene un móvil utilizable.
+   *
+   * Llega el enlace y no el número a propósito: la regla de qué es un móvil válido en cada país
+   * vive en el backend, y con el número crudo la página tendría que repetirla para decidir si
+   * pinta el botón. `null` es la respuesta a «no hay a dónde enlazar».
+   */
+  whatsapp: string | null;
   /** Sin asignaciones en la base: ofrece el catálogo entero. */
   ofrece_todo: boolean;
   id_servicios: number[];
@@ -648,6 +664,7 @@ export interface NegocioPublico {
     whatsapp: string | null;
     facebook: string | null;
     instagram: string | null;
+    tiktok: string | null;
   };
   /** El portal no tiene sesión de la que sacarla, así que viaja con la vitrina. */
   moneda?: Moneda | null;
@@ -681,6 +698,7 @@ export interface VitrinaEdicion {
   url_whatsapp: string | null;
   url_facebook: string | null;
   url_instagram: string | null;
+  url_tiktok: string | null;
   descripcion_publica: string | null;
   publico_activo: boolean;
 }

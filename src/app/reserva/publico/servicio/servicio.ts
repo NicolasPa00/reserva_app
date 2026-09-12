@@ -9,6 +9,7 @@ import { UrlArchivoPipe } from '../../../shared/url-archivo.pipe';
 import { CitaPublica, DiaServicio, SlotsServicio } from '../../../core/models';
 import { aHora12 } from '../../../core/utils/hora';
 import { ProfesionalModalComponent } from '../profesional-modal/profesional-modal';
+import { IconoWhatsappComponent } from '../../../shared/iconos-marca/iconos-marca';
 import { colorDeEntidad } from '../../../core/utils/color-entidad';
 import { esHojaMovil } from '../../../core/utils/pantalla';
 import { formatearCodigoCita } from '../../../core/utils/codigo-cita';
@@ -45,7 +46,7 @@ const SLOTS_VISIBLES = 12;
   standalone: true,
   imports: [
     LucideAngularModule, MonedaPipe, DatePipe, RouterLink, UrlArchivoPipe,
-    ProfesionalModalComponent,
+    ProfesionalModalComponent, IconoWhatsappComponent,
   ],
   templateUrl: './servicio.html',
   styleUrl: './servicio.scss',
@@ -274,6 +275,18 @@ export class PublicoServicioComponent implements OnInit {
 
   slotsDe(p: { id_profesional: number; slots: string[] }): string[] {
     return this.expandido().has(p.id_profesional) ? p.slots : p.slots.slice(0, SLOTS_VISIBLES);
+  }
+
+  /**
+   * El WhatsApp del profesional, sacado de la vitrina por su id.
+   *
+   * La disponibilidad devuelve los profesionales **recortados** —id, nombre, foto y huecos— y no
+   * su contacto, que no pinta nada en un cálculo de agenda. Ampliar esa respuesta para traerlo
+   * habría metido un dato de contacto en un endpoint que se pide en cada cambio de día; el store
+   * ya tiene la vitrina cargada y ahí está.
+   */
+  whatsappDe(idProfesional: number): string | null {
+    return this.store.profesionalPorId(idProfesional)?.whatsapp ?? null;
   }
 
   ocultos(p: { slots: string[] }): number {
