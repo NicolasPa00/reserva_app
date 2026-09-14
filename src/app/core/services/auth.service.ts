@@ -4,7 +4,7 @@ import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
-import { ApiResponse, NegocioReserva, PermisoSubnivel, SesionReserva } from '../models';
+import { ApiResponse, EstadoPlan, NegocioReserva, PermisoSubnivel, SesionReserva } from '../models';
 
 const TOKEN_KEY   = 'reserva_token';
 const SESSION_KEY = 'reserva_session';
@@ -61,6 +61,20 @@ export class AuthService {
   readonly planActivo = computed(() =>
     this.negocio()?.plan_activo ?? this.session()?.plan_activo ?? false,
   );
+  /** Detalle del plan del negocio activo: vencimiento y días de gracia. */
+  readonly plan = computed<EstadoPlan | null>(
+    () => this.negocio()?.plan ?? this.session()?.plan ?? null,
+  );
+
+  /**
+   * El plan venció pero el negocio sigue operando dentro de los días de gracia.
+   * Es la condición del aviso «tienes N días para pagar».
+   */
+  readonly planEnGracia = computed(() => this.plan()?.en_gracia === true);
+
+  /** Días que quedan de gracia (0 si no aplica). */
+  readonly diasGraciaPlan = computed(() => this.plan()?.dias_gracia_restantes ?? 0);
+
   readonly usuario   = computed(() => this.session()?.usuario ?? null);
   readonly negocios  = computed(() => this.session()?.negocios ?? []);
   readonly negocio   = computed<NegocioReserva | null>(() => {

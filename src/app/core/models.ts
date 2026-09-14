@@ -107,6 +107,25 @@ export interface NegocioReserva {
   permisos_subnivel: PermisoSubnivel[];
   /** Opcional: las sesiones guardadas antes de que el backend lo enviara no lo traen. */
   plan_activo?: boolean;
+  /** Detalle del plan: vencimiento y días de gracia. Ver `EstadoPlan`. */
+  plan?: EstadoPlan | null;
+}
+
+/**
+ * Estado del plan del negocio, tal como lo calcula `planHelper` en el backend.
+ *
+ * Un plan vencido no corta el acceso de inmediato: hay 5 días de gracia
+ * (`estado: 'GRACIA'`, `activo: true`) en los que el negocio sigue trabajando
+ * mientras la app le avisa cuántos días le quedan para pagar.
+ */
+export interface EstadoPlan {
+  estado: 'ACTIVO' | 'GRACIA' | 'VENCIDO' | 'SIN_PLAN';
+  /** ¿Puede operar? Incluye los días de gracia. Es lo que mira el guardia. */
+  activo: boolean;
+  en_gracia: boolean;
+  dias_gracia_restantes: number | null;
+  fecha_fin: string | null;
+  fecha_limite_gracia: string | null;
 }
 
 export interface SesionReserva {
@@ -120,6 +139,7 @@ export interface SesionReserva {
   permisos_subnivel?: PermisoSubnivel[];
   roles_globales: { id_rol: number; descripcion: string }[];
   plan_activo?: boolean;
+  plan?: EstadoPlan | null;
 }
 
 // ────────────────────── Entidades del dominio reserva ──────────────────────
