@@ -107,8 +107,14 @@ export class DashboardComponent implements OnInit {
    * Antes eso ocurría en silencio —el menú simplemente no llevaba a ninguna parte— porque la
    * redirección a `/sin-plan` la rebotaba `permissionGuard`. Aquí se dice en la propia pantalla
    * a la que el usuario acaba volviendo, que es donde tiene sentido leerlo.
+   *
+   * **Hace falta saber de qué negocio se habla antes de acusarlo de no pagar.** `planActivo()`
+   * devuelve `false` cuando no hay sesión, y sin sesión están tanto el prerender como el primer
+   * ciclo del navegador: el aviso entraba en el HTML generado y todo el que abría el panel
+   * empezaba leyendo que su negocio no tiene plan —con el nombre en blanco, porque tampoco
+   * había negocio del que sacarlo—. Mientras no haya negocio no se afirma nada.
    */
-  readonly sinPlan = computed(() => !this.auth.planActivo());
+  readonly sinPlan = computed(() => !!this.auth.negocio() && !this.auth.planActivo());
   readonly adminUrl = environment.adminUrl;
 
   readonly saludo = computed(() => {

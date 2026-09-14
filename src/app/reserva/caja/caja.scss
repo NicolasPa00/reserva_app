@@ -264,4 +264,29 @@
 
   .tabs { width: 100%; }
   .tab { flex: 1; text-align: center; }
+
+  // Dos por fila, no una.
+  //
+  // El `auto-fit` con `minmax(200px, 1fr)` de arriba resuelve a una sola columna en cuanto el
+  // contenido baja de 400 px, y las cuatro cifras del turno ocupaban cuatro pantallazos de
+  // scroll para decir cuatro números. Aquí se fija la rejilla a dos columnas: son cifras que se
+  // leen comparándolas —ingresos contra egresos, apertura contra lo que debería haber— y para
+  // eso tienen que verse a la vez.
+  //
+  // `minmax(0, 1fr)` y no `1fr` a secas: el ancho mínimo intrínseco de un importe con
+  // `tabular-nums` desbordaría la columna en pantallas de 320 px en vez de encogerla.
+  .resumen { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .6rem; }
+
+  .rk {
+    padding: .75rem .8rem;
+    &__lab { font-size: .72rem; }
+    &__val { font-size: 1.1rem; }
+    // El pie es contexto, no dato: en media tarjeta cabe en dos líneas y ahí se corta, antes
+    // que estirar la tarjeta por un «Apertura + ingresos − egresos» de tres renglones.
+    &__pie {
+      font-size: .68rem; line-height: 1.3;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+  }
 }

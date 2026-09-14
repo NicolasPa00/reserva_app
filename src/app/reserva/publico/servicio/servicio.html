@@ -124,6 +124,14 @@
                         <strong>{{ p.nombre }}</strong>
                         @if (p.especialidad) { <em>{{ p.especialidad }}</em> }
                       </div>
+                      @if (whatsappDe(p.id_profesional); as wa) {
+                        <a class="wa-mini pro__wa" [href]="wa" target="_blank" rel="noopener noreferrer"
+                           [attr.aria-label]="'Escribir a ' + p.nombre + ' por WhatsApp'"
+                           title="Preguntarle algo antes de reservar">
+                          <icono-whatsapp [size]="13" />
+                          <span>WhatsApp</span>
+                        </a>
+                      }
                       <button type="button" class="pro__info"
                               (click)="profesionalAbierto.set(p.id_profesional)"
                               [attr.aria-label]="'Ver la ficha de ' + p.nombre"

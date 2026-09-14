@@ -9,7 +9,10 @@ import { AuthService } from '../../core/services/auth.service';
 import { ReservaApiService } from '../../core/services/reserva-api.service';
 import { ToastService } from '../../core/services/toast.service';
 import { Profesional, Servicio } from '../../core/models';
+import { PaisesService } from '../../core/services/paises.service';
 import { MayusculasDirective } from '../../shared/mayusculas.directive';
+import { TelefonoPaisComponent } from '../../shared/telefono-pais/telefono-pais';
+import { TelefonoPipe } from '../../shared/telefono.pipe';
 import { ModalComponent } from '../../shared/modal/modal';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dialog';
 import { ImageCropperComponent } from '../../shared/image-cropper/image-cropper';
@@ -21,6 +24,7 @@ import { colorDeEntidad } from '../../core/utils/color-entidad';
   imports: [
     CommonModule, ReactiveFormsModule, LucideAngularModule,
     MayusculasDirective, ModalComponent, ConfirmDialogComponent, ImageCropperComponent,
+    TelefonoPaisComponent, TelefonoPipe,
   ],
   templateUrl: './profesionales.html',
   styleUrl: './profesionales.scss',
@@ -32,6 +36,7 @@ export class ProfesionalesComponent implements OnInit {
   private readonly api   = inject(ReservaApiService);
   private readonly toast = inject(ToastService);
   private readonly fb    = inject(FormBuilder);
+  private readonly paisesSrv = inject(PaisesService);
 
   readonly profesionales = signal<Profesional[]>([]);
   readonly servicios = signal<Servicio[]>([]);
@@ -63,9 +68,14 @@ export class ProfesionalesComponent implements OnInit {
   readonly form = this.fb.nonNullable.group({
     nombre:       ['', [Validators.required, Validators.maxLength(150)]],
     especialidad: [''],
+    // El número **nacional**; el indicativo va aparte y el backend los junta en E.164.
     telefono:     [''],
+    telefono_pais: ['CO'],
     email:        ['', [Validators.email]],
   });
+
+  /** El indicativo que se propone cuando la ficha no trae teléfono. */
+  readonly paisNegocio = computed(() => this.auth.negocio()?.pais || 'CO');
 
   readonly profesionalesFiltrados = computed(() => {
     const base = this.incluirInactivos()
@@ -88,7 +98,11 @@ export class ProfesionalesComponent implements OnInit {
     return this.auth.permisosVistaActivos().find(p => p.url === '/profesionales') ?? null;
   }
 
-  ngOnInit() { this.recargar(); }
+  ngOnInit() {
+    this.recargar();
+    // Hace falta para partir el '+573188887013' guardado en indicativo y número al editar.
+    this.paisesSrv.cargar().subscribe();
+  }
 
   recargar() {
     const idNegocio = this.auth.negocio()?.id_negocio;
@@ -145,10 +159,18 @@ export class ProfesionalesComponent implements OnInit {
     this.form.reset({
       nombre: p.nombre,
       especialidad: p.especialidad ?? '',
-      telefono: p.telefono ?? '',
+      telefono: '',
+      telefono_pais: this.paisNegocio(),
       email: p.email ?? '',
     });
     this.modalAbierto.set(true);
+
+    // El teléfono se rellena aparte: lo guardado es E.164 y el formulario lo enseña partido.
+    // Con el catálogo ya en memoria —el caso normal— esto resuelve en el mismo tick.
+    this.paisesSrv.cargar().subscribe(() => {
+      const { pais, numero } = this.paisesSrv.partir(p.telefono, this.paisNegocio());
+      this.form.patchValue({ telefono: numero, telefono_pais: pais }, { emitEvent: false });
+    });
   }
 
   cerrarModal() {
@@ -250,11 +272,12 @@ export class ProfesionalesComponent implements OnInit {
     if (!idNegocio) return;
 
     const v = this.form.getRawValue();
-    const payload: Partial<Profesional> & { id_negocio: number } = {
+    const payload: Partial<Profesional> & { id_negocio: number; telefono_pais?: string } = {
       id_negocio: idNegocio,
       nombre: v.nombre.trim(),
       especialidad: v.especialidad?.trim() || null,
       telefono: v.telefono?.trim() || null,
+      telefono_pais: v.telefono_pais || this.paisNegocio(),
       email: v.email?.trim() || null,
     };
 

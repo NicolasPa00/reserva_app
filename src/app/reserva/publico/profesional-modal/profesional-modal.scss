@@ -76,3 +76,11 @@
   &__dur { font-size: .74rem; color: var(--color-text-muted); flex-shrink: 0; }
   &__precio { font-weight: 700; color: var(--color-primary); flex-shrink: 0; }
 }
+
+// Ocupa la línea entera: en un modal estrecho un botón suelto a la izquierda se lee como un
+// enlace olvidado, y aquí es la segunda acción de la ficha después de reservar.
+.pro__wa {
+  align-self: flex-start;
+  padding: .45rem .8rem;
+  font-size: .82rem;
+}

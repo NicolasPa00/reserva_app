@@ -27,6 +27,16 @@
         </ul>
       </header>
 
+      <!-- Escribirle va arriba, no al final: quien abre la ficha desde el paso de agendar suele
+           venir con una pregunta («¿esto lo haces con pelo rizado?») y no a leer el horario. -->
+      @if (p.whatsapp) {
+        <a class="wa-mini pro__wa" [href]="p.whatsapp" target="_blank" rel="noopener noreferrer"
+           [attr.aria-label]="'Escribir a ' + p.nombre + ' por WhatsApp'">
+          <icono-whatsapp [size]="15" />
+          <span>Escribirle por WhatsApp</span>
+        </a>
+      }
+
       <!-- ── Horario ── -->
       <section class="bloque">
         <h4><lucide-icon name="clock" [size]="14" /> Horario de atención</h4>

@@ -13,6 +13,7 @@ import { rangoHora12 } from '../../../core/utils/hora';
 import { ProfesionalModalComponent } from '../profesional-modal/profesional-modal';
 import { colorDeEntidad } from '../../../core/utils/color-entidad';
 import { MonedaPipe } from '../../../shared/moneda.pipe';
+import { IconoTiktokComponent, IconoWhatsappComponent } from '../../../shared/iconos-marca/iconos-marca';
 
 /**
  * Portada pública del negocio.
@@ -39,7 +40,10 @@ import { MonedaPipe } from '../../../shared/moneda.pipe';
 @Component({
   selector: 'reserva-publico-inicio',
   standalone: true,
-  imports: [LucideAngularModule, MonedaPipe, UrlArchivoPipe, ProfesionalModalComponent],
+  imports: [
+    LucideAngularModule, MonedaPipe, UrlArchivoPipe, ProfesionalModalComponent,
+    IconoTiktokComponent, IconoWhatsappComponent,
+  ],
   templateUrl: './inicio.html',
   styleUrl: './inicio.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

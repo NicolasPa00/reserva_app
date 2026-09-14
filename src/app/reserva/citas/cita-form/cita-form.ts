@@ -102,6 +102,9 @@ export class CitaFormComponent implements OnInit, OnChanges {
   private readonly bus = inject(EventBusService);
 
   readonly abierto = signal(false);
+
+  /** Evita que `ngOnInit` y `ngOnChanges` pidan el catálogo dos veces al arrancar. */
+  private catalogoPedido = false;
   private readonly citaSig = signal<Cita | null>(null);
 
   /** ¿Este modal está editando una cita existente en vez de crear una? */
@@ -263,6 +266,15 @@ export class CitaFormComponent implements OnInit, OnChanges {
   }
 
   ngOnChanges(cambios: SimpleChanges) {
+    // El negocio llega tarde.
+    //
+    // El padre pasa `[idNegocio]="idNegocio()"`, un `computed` que vale 0 mientras no hay
+    // sesión: en el prerender siempre, y en el navegador durante el primer ciclo. Con ese 0 el
+    // catálogo se pedía igual, el backend respondía 400 y el usuario veía «No se pudo cargar el
+    // catálogo» nada más entrar —un error de una petición que nunca debió salir—. Ahora se
+    // espera a saber de qué negocio se habla.
+    if (cambios['idNegocio'] && this.idNegocio) this.cargarCatalogo();
+
     const open = cambios['open'];
     if (!open) return;
     const seAbre = open.currentValue === true && open.previousValue !== true;
@@ -319,7 +331,10 @@ export class CitaFormComponent implements OnInit, OnChanges {
     if (this.buscaCliente) { clearTimeout(this.buscaCliente); this.buscaCliente = null; }
   }
 
+  /** Sin negocio no hay catálogo que pedir; se reintenta cuando `idNegocio` llega. */
   private cargarCatalogo() {
+    if (!this.idNegocio || this.catalogoPedido) return;
+    this.catalogoPedido = true;
     this.cargandoCatalogo.set(true);
     forkJoin({
       pros: this.api.listarProfesionales(this.idNegocio),
@@ -330,7 +345,13 @@ export class CitaFormComponent implements OnInit, OnChanges {
         if (svs?.success && svs.data)   this.servicios.set(svs.data);
         this.cargandoCatalogo.set(false);
       },
-      error: () => { this.toast.error('No se pudo cargar el catálogo.'); this.cargandoCatalogo.set(false); },
+      error: () => {
+        // Se permite reintentar: si falló por un corte de red, el siguiente cambio de entrada
+        // vuelve a pedirlo en vez de dejar el formulario sin profesionales para siempre.
+        this.catalogoPedido = false;
+        this.toast.error('No se pudo cargar el catálogo.');
+        this.cargandoCatalogo.set(false);
+      },
     });
   }
 

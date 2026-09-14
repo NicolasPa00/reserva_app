@@ -319,7 +319,9 @@
 
 .publica .grid label > span {
   display: inline-flex; align-items: center; gap: .35rem;
-  lucide-icon { color: var(--color-text-muted); }
+  // `icono-tiktok` va junto a los de Lucide: el logo no existe en ese juego y se dibuja aparte,
+  // pero en la etiqueta tiene que leerse igual que los demás.
+  lucide-icon, icono-tiktok { color: var(--color-text-muted); }
 }
 
 .publica textarea { resize: vertical; font-family: inherit; }
