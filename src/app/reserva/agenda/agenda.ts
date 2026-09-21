@@ -7,6 +7,7 @@ import { LucideAngularModule } from 'lucide-angular';
 import { forkJoin } from 'rxjs';
 
 import { AuthService } from '../../core/services/auth.service';
+import { minutosDelDiaBogota } from '../../core/utils/hora';
 import { ReservaApiService } from '../../core/services/reserva-api.service';
 import { ToastService } from '../../core/services/toast.service';
 import { EventBusService } from '../../core/services/event-bus.service';
@@ -145,9 +146,8 @@ export class AgendaComponent implements OnInit, OnDestroy {
     }
     for (const c of this.citas()) {
       if (c.estado === 'cancelada') continue;
-      const ini = new Date(c.fecha_hora_inicio);
-      const fin = new Date(c.fecha_hora_fin);
-      horas.push(ini.getHours() + ini.getMinutes() / 60, fin.getHours() + fin.getMinutes() / 60);
+      // En hora de pared de la cita, no del navegador: desde Chile la rejilla se corría 2 h.
+      horas.push(minutosDelDiaBogota(c.fecha_hora_inicio) / 60, minutosDelDiaBogota(c.fecha_hora_fin) / 60);
     }
 
     if (horas.length === 0) return { inicio: HORA_INICIO_FALLBACK, fin: HORA_FIN_FALLBACK };
@@ -248,16 +248,21 @@ export class AgendaComponent implements OnInit, OnDestroy {
 
   cargar() {
     if (!this.idNegocio()) return;
-    const desde = new Date(this.fechaActiva()); desde.setHours(0, 0, 0, 0);
-    const hasta = new Date(desde); hasta.setDate(hasta.getDate() + 1);
+    // El día que se mira, de medianoche a medianoche **en la zona de las citas**. Con la
+    // medianoche del navegador, desde Chile el rango empezaba a las 22:00 del día anterior y
+    // dejaba fuera las citas de la última hora.
+    const dia = this.claveDia(this.fechaActiva());
+    const siguiente = new Date(this.fechaActiva()); siguiente.setDate(siguiente.getDate() + 1);
+    const desde = `${dia}T00:00:00-05:00`;
+    const hasta = `${this.claveDia(siguiente)}T00:00:00-05:00`;
 
     this.cargando.set(true);
     forkJoin({
       pros:  this.api.listarProfesionales(this.idNegocio()),
       citas: this.api.listarCitas({
         idNegocio: this.idNegocio(),
-        desde: desde.toISOString(),
-        hasta: hasta.toISOString(),
+        desde,
+        hasta,
       }),
     }).subscribe({
       next: ({ pros, citas }) => {
@@ -590,8 +595,7 @@ export class AgendaComponent implements OnInit, OnDestroy {
       if (col === -1) { col = columnas.length; columnas.push(fin); }
       else columnas[col] = fin;
 
-      const iniDate = new Date(ini);
-      const minutosDesdeInicio = (iniDate.getHours() - horaInicioGrid) * 60 + iniDate.getMinutes();
+      const minutosDesdeInicio = minutosDelDiaBogota(c.fecha_hora_inicio) - horaInicioGrid * 60;
       const duracionMin = (fin - ini) / 60_000;
       const heightPx = Math.max(20, (duracionMin / 60) * PIXELS_POR_HORA - 2);
 
@@ -617,7 +621,11 @@ export class AgendaComponent implements OnInit, OnDestroy {
   }
 
   private fechaISO(): string {
-    const d = this.fechaActiva();
+    return this.claveDia(this.fechaActiva());
+  }
+
+  /** `YYYY-MM-DD` del día elegido en el calendario (el que el usuario ve, sin zonas). */
+  private claveDia(d: Date): string {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   }
 

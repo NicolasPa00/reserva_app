@@ -62,10 +62,10 @@ export function badgeEstado(e: EstadoCita): string {
         <div class="cd__when">
           <lucide-icon name="calendar-clock" [size]="16" />
           <div>
-            <strong>{{ cita.fecha_hora_inicio | date:'EEEE d \\'de\\' MMMM':'':'es-CO' }}</strong>
+            <strong>{{ cita.fecha_hora_inicio | date:'EEEE d \\'de\\' MMMM':'-0500':'es-CO' }}</strong>
             <span>
-              {{ cita.fecha_hora_inicio | date:'HH:mm':'':'es-CO' }} –
-              {{ cita.fecha_hora_fin | date:'HH:mm':'':'es-CO' }}
+              {{ cita.fecha_hora_inicio | date:'HH:mm':'-0500':'es-CO' }} –
+              {{ cita.fecha_hora_fin | date:'HH:mm':'-0500':'es-CO' }}
               · {{ duracionMin() }} min
             </span>
           </div>

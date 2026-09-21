@@ -58,8 +58,8 @@
       @for (c of citas(); track c.id_cita) {
         <article class="row" (click)="abrirDetalle(c)">
           <div class="row__time">
-            <strong>{{ c.fecha_hora_inicio | date:'EEE dd MMM':'':'es-CO' }}</strong>
-            <span>{{ c.fecha_hora_inicio | date:'HH:mm':'':'es-CO' }} – {{ c.fecha_hora_fin | date:'HH:mm':'':'es-CO' }}</span>
+            <strong>{{ c.fecha_hora_inicio | date:'EEE dd MMM':'-0500':'es-CO' }}</strong>
+            <span>{{ c.fecha_hora_inicio | date:'HH:mm':'-0500':'es-CO' }} – {{ c.fecha_hora_fin | date:'HH:mm':'-0500':'es-CO' }}</span>
           </div>
           <div class="row__main">
             <strong>{{ c.cliente_nombre }}</strong>
@@ -175,7 +175,7 @@
       <div class="pago__info">
         <p><strong>{{ citaPago()!.cliente_nombre }}</strong></p>
         <p class="hint">
-          {{ citaPago()!.fecha_hora_inicio | date:'EEEE dd MMM, HH:mm':'':'es-CO' }} ·
+          {{ citaPago()!.fecha_hora_inicio | date:'EEEE dd MMM, HH:mm':'-0500':'es-CO' }} ·
           {{ citaPago()!.profesional?.nombre }}
         </p>
         <p class="pago__monto">{{ citaPago()!.monto_total | moneda }}</p>

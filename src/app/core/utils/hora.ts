@@ -67,3 +67,23 @@ export function horaBogota(iso: string): string {
   const h = p['hour'] === '24' ? '00' : p['hour'];
   return `${h}:${p['minute']}`;
 }
+
+/*
+ * Las horas de las citas y los bloqueos se muestran con `| date:'…':'-0500'`.
+ *
+ * El backend guarda la hora de pared del negocio como `timestamp without time zone` y la
+ * entrega anclada a -05:00. Formatearla con la zona **del navegador** la mueve: un usuario en
+ * Chile (UTC-3 en horario de verano) veía la cita de las 10:00 a las 12:00, porque el navegador
+ * convertía -05:00 a su hora. Con la zona fija la hora sale tal cual se agendó, se mire desde
+ * donde se mire. Colombia no tiene horario de verano, así que el desfase fijo es exacto.
+ *
+ * Solo para horas de **cita y bloqueo**, que son hora de pared del negocio. Los instantes reales
+ * —apertura de caja, fecha de alta— siguen en la hora del navegador, que ahí es la correcta.
+ */
+
+/** Minutos desde la medianoche, en hora de pared de la cita. Para colocarla en la rejilla. */
+export function minutosDelDiaBogota(iso: string | Date): number {
+  const p = partesBogota(typeof iso === 'string' ? iso : iso.toISOString());
+  const h = p['hour'] === '24' ? 0 : Number(p['hour']);
+  return h * 60 + Number(p['minute']);
+}

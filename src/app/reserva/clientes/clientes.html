@@ -75,7 +75,7 @@
             </div>
             <div class="dato">
               <span>Última</span>
-              <strong>{{ c.ultima_cita ? (c.ultima_cita | date:'dd/MM/yy') : '—' }}</strong>
+              <strong>{{ c.ultima_cita ? (c.ultima_cita | date:'dd/MM/yy':'-0500') : '—' }}</strong>
             </div>
             <div class="dato">
               <span>Gastado</span>
@@ -117,7 +117,7 @@
         <div><span>Canceladas</span><strong>{{ c.citas_canceladas }}</strong></div>
         <div><span>No asistió</span><strong>{{ c.inasistencias }}</strong></div>
         <div><span>Gastado</span><strong>{{ c.total_gastado | moneda }}</strong></div>
-        <div><span>Cliente desde</span><strong>{{ c.primera_cita ? (c.primera_cita | date:'dd/MM/yy') : (c.creado_en | date:'dd/MM/yy') }}</strong></div>
+        <div><span>Cliente desde</span><strong>{{ c.primera_cita ? (c.primera_cita | date:'dd/MM/yy':'-0500') : (c.creado_en | date:'dd/MM/yy') }}</strong></div>
       </div>
 
       @if (puedeEditar()) {
@@ -165,7 +165,7 @@
             <tbody>
               @for (cita of citas(); track cita.id_cita) {
                 <tr>
-                  <td>{{ cita.fecha_hora_inicio | date:'dd/MM/yy HH:mm' }}</td>
+                  <td>{{ cita.fecha_hora_inicio | date:'dd/MM/yy HH:mm':'-0500' }}</td>
                   <td>{{ cita.servicios || '—' }}</td>
                   <td>{{ cita.profesional || '—' }}</td>
                   <td>

@@ -104,7 +104,7 @@
                   <span class="cita__cuerpo">
                     <span class="cita__linea1">
                       <strong>{{ pos.cita.cliente_nombre }}</strong>
-                      <em>{{ pos.cita.fecha_hora_inicio | date:'HH:mm':'':'es-CO' }}</em>
+                      <em>{{ pos.cita.fecha_hora_inicio | date:'HH:mm':'-0500':'es-CO' }}</em>
                     </span>
                     @if (!pos.compacta) {
                       <span class="cita__svc">
@@ -217,7 +217,7 @@
       <div class="pago__info">
         <p><strong>{{ citaPago()!.cliente_nombre }}</strong></p>
         <p class="hint">
-          {{ citaPago()!.fecha_hora_inicio | date:'EEEE dd MMM, HH:mm':'':'es-CO' }} ·
+          {{ citaPago()!.fecha_hora_inicio | date:'EEEE dd MMM, HH:mm':'-0500':'es-CO' }} ·
           {{ citaPago()!.profesional?.nombre }}
         </p>
         <p class="pago__monto">{{ citaPago()!.monto_total | moneda }}</p>
