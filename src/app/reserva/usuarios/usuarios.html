@@ -322,6 +322,7 @@
       <label class="campo">
         <span>Email <small>(opcional)</small></span>
         <input class="input" type="email" placeholder="persona@correo.com" [value]="form().email"
+               autocomplete="off" name="correo_contacto_persona"
                (input)="setCampo('email', $any($event.target).value)" />
         <small>Solo para avisos y contacto: no se usa para iniciar sesión.</small>
       </label>
