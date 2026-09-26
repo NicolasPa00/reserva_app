@@ -79,7 +79,7 @@
   span { font-size: .68rem; text-transform: uppercase; letter-spacing: .03em; color: var(--color-text-muted); }
   strong { font-size: .88rem; }
 
-  &--alerta strong { color: var(--color-danger, #dc2626); }
+  &--alerta strong { color: var(--color-error); }
 }
 
 .mas { margin-top: .75rem; width: 100%; }
@@ -147,8 +147,8 @@
     color: var(--color-success, #16a34a);
   }
   &--mal {
-    background: color-mix(in srgb, var(--color-danger, #dc2626) 15%, transparent);
-    color: var(--color-danger, #dc2626);
+    background: color-mix(in srgb, var(--color-error) 15%, transparent);
+    color: var(--color-error);
   }
 }
 

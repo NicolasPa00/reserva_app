@@ -220,7 +220,7 @@
 
   lucide-icon { color: var(--color-primary); flex: 0 0 auto; }
   strong { color: var(--color-text-primary); }
-  em { font-style: normal; color: var(--color-danger, #dc2626); }
+  em { font-style: normal; color: var(--color-error); }
 
   &__usar {
     margin-left: auto;

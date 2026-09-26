@@ -5,6 +5,7 @@ import { LucideAngularModule } from 'lucide-angular';
 
 import { SidebarComponent } from './sidebar/sidebar';
 import { ToastHostComponent } from './toast-host/toast-host';
+import { PlanAvisoComponent } from './plan-aviso';
 import { AuthService } from '../core/services/auth.service';
 
 /** Por debajo de esto la barra lateral arranca plegada; por encima, desplegada. */
@@ -13,7 +14,7 @@ const ANCHO_ESCRITORIO = 1024;
 @Component({
   selector: 'reserva-layout',
   standalone: true,
-  imports: [RouterOutlet, SidebarComponent, ToastHostComponent, LucideAngularModule],
+  imports: [RouterOutlet, SidebarComponent, ToastHostComponent, PlanAvisoComponent, LucideAngularModule],
   template: `
     <div class="layout">
       <reserva-sidebar [colapsado]="colapsado()" />
@@ -55,6 +56,7 @@ const ANCHO_ESCRITORIO = 1024;
             }
           </div>
         </header>
+        <reserva-plan-aviso />
         <main class="layout__content">
           <router-outlet />
         </main>
