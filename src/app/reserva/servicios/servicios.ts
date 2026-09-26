@@ -7,7 +7,9 @@ import { firstValueFrom, forkJoin } from 'rxjs';
 import { AuthService } from '../../core/services/auth.service';
 import { ReservaApiService } from '../../core/services/reserva-api.service';
 import { ToastService } from '../../core/services/toast.service';
-import { CategoriaReserva, Servicio } from '../../core/models';
+import { CatalogoVistaPrevia, CategoriaReserva, Servicio, TipoRecurso, VarianteServicio } from '../../core/models';
+import { PerfilApiService } from '../../core/services/perfil-api.service';
+import { TerminoPipe } from '../../shared/termino.pipe';
 import { ImageCropperComponent } from '../../shared/image-cropper/image-cropper';
 import { ModalComponent } from '../../shared/modal/modal';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dialog';
@@ -18,7 +20,7 @@ import { MonedaService } from '../../core/services/moneda.service';
   selector: 'reserva-servicios',
   standalone: true,
   imports: [
-    CommonModule, ReactiveFormsModule, LucideAngularModule, MonedaPipe,
+    CommonModule, ReactiveFormsModule, LucideAngularModule, MonedaPipe, TerminoPipe,
     ModalComponent, ConfirmDialogComponent, ImageCropperComponent,
   ],
   templateUrl: './servicios.html',
@@ -31,6 +33,27 @@ export class ServiciosComponent implements OnInit {
   private readonly toast = inject(ToastService);
   private readonly fb   = inject(FormBuilder);
   private readonly monedas = inject(MonedaService);
+  private readonly perfilApi = inject(PerfilApiService);
+
+  // ── Perfil del rubro ──
+  //
+  // Cada campo extra del formulario aparece solo si el negocio tiene su función encendida. En
+  // una barbería (perfil BASE, todo apagado) el formulario es exactamente el de siempre.
+  readonly conProceso = computed(() => this.auth.tieneFuncion('tiempo_proceso'));
+  readonly conVariantes = computed(() => this.auth.tieneFuncion('variantes'));
+  readonly conCotizar = computed(() => this.auth.tieneFuncion('a_cotizar'));
+  readonly conConsentimiento = computed(() => this.auth.tieneFuncion('consentimiento'));
+  readonly conRecursos = computed(() => this.auth.tieneFuncion('recursos'));
+  readonly conMascotas = computed(() => this.auth.tieneFuncion('mascotas'));
+  readonly tiposRecurso = signal<TipoRecurso[]>([]);
+  /** Variantes en edición (largo, tamaño, zona). Se guardan con el servicio. */
+  readonly variantes = signal<VarianteServicio[]>([]);
+
+  // Catálogo de arranque: se ofrece cuando no hay ningún servicio activo.
+  readonly catalogo = signal<CatalogoVistaPrevia | null>(null);
+  readonly sembrando = signal(false);
+  readonly nombresCatalogo = computed(() => (this.catalogo()?.categorias ?? []).map(c => c.categoria).join(', '));
+  readonly sinServicios = computed(() => !this.cargando() && !this.servicios().some(x => x.estado === 'A'));
 
   /**
    * El código de la moneda, para la etiqueta del campo de precio.
@@ -85,6 +108,11 @@ export class ServiciosComponent implements OnInit {
     descripcion:  [''],
     id_categoria: [''],
     imagen_url:   [''],
+    proceso_desde_min:       [0, [Validators.min(0), Validators.max(600)]],
+    proceso_min:             [0, [Validators.min(0), Validators.max(600)]],
+    a_cotizar:               [false],
+    requiere_consentimiento: [false],
+    id_tipo_recurso:         [''],
   });
 
   readonly serviciosFiltrados = computed(() => {
@@ -122,6 +150,7 @@ export class ServiciosComponent implements OnInit {
         if (servicios?.success && servicios.data) this.servicios.set(servicios.data);
         if (categorias?.success && categorias.data) this.categorias.set(categorias.data);
         this.cargando.set(false);
+        if (this.sinServicios() && this.puedeCrear()) this.cargarCatalogo(idNegocio);
       },
       error: () => { this.toast.error('No se pudieron cargar los servicios.'); this.cargando.set(false); },
     });
@@ -237,6 +266,79 @@ export class ServiciosComponent implements OnInit {
   }
 
   /** Filtro local: no hay petición detrás, así que alternarlo es instantáneo. */
+  private cargarCatalogo(idNegocio: number) {
+    this.perfilApi.catalogoVistaPrevia(idNegocio).subscribe({
+      next: r => this.catalogo.set(r?.success && r.data?.total_servicios ? r.data : null),
+      error: () => this.catalogo.set(null),
+    });
+  }
+
+  private cargarTiposRecurso(idNegocio: number) {
+    if (!this.conRecursos()) { this.tiposRecurso.set([]); return; }
+    this.perfilApi.listarRecursos(idNegocio).subscribe({
+      next: r => this.tiposRecurso.set(r?.success && r.data ? r.data : []),
+      error: () => this.tiposRecurso.set([]),
+    });
+  }
+
+  /** Carga los servicios típicos del oficio. Solo sobre un catálogo vacío (el backend lo exige). */
+  sembrarCatalogo() {
+    const idNegocio = this.auth.negocio()?.id_negocio;
+    if (!idNegocio || this.sembrando()) return;
+    this.sembrando.set(true);
+    this.perfilApi.sembrarServicios(idNegocio).subscribe({
+      next: r => {
+        this.sembrando.set(false);
+        if (!r?.success) { this.toast.error(r?.message || 'No se pudieron cargar.'); return; }
+        this.toast.success(`Listo: ${r.data?.servicios ?? 0} servicios de ejemplo. Ajusta precios y tiempos a los tuyos.`);
+        this.catalogo.set(null);
+        this.recargar();
+      },
+      error: e => {
+        this.sembrando.set(false);
+        this.toast.error(e?.error?.message || 'No se pudieron cargar los servicios de ejemplo.');
+      },
+    });
+  }
+
+  // ── Variantes ──
+  agregarVariante() {
+    const base = this.form.getRawValue();
+    this.variantes.update(v => [...v, {
+      nombre: '', clave: null, duracion_min: Number(base.duracion_min) || 30, precio: Number(base.precio) || 0,
+    }]);
+  }
+
+  quitarVariante(i: number) {
+    this.variantes.update(v => v.filter((_, j) => j !== i));
+  }
+
+  cambiarVariante(i: number, campo: keyof VarianteServicio, valor: string) {
+    this.variantes.update(v => v.map((x, j) => {
+      if (j !== i) return x;
+      if (campo === 'duracion_min' || campo === 'precio') return { ...x, [campo]: Number(valor) };
+      if (campo === 'clave') return { ...x, clave: valor || null };
+      return { ...x, [campo]: valor };
+    }));
+  }
+
+  /** Tamaños para emparejar la variante con la mascota (perfil mascotas). */
+  readonly tamanos = [
+    { clave: 'PEQUENO', etiqueta: 'Pequeño' }, { clave: 'MEDIANO', etiqueta: 'Mediano' },
+    { clave: 'GRANDE', etiqueta: 'Grande' }, { clave: 'GIGANTE', etiqueta: 'Gigante' },
+  ];
+
+  /** «desde $X» cuando el servicio tiene variantes: el precio de lista ya no dice todo. */
+  precioDesde(s: Servicio): number | null {
+    if (!this.conVariantes() || !s.variantes?.length) return null;
+    return Math.min(...s.variantes.map(v => Number(v.precio)));
+  }
+
+  nombreRecurso(id: number | null | undefined): string {
+    if (!id) return '';
+    return this.tiposRecurso().find(t => t.id_tipo_recurso === id)?.nombre ?? '';
+  }
+
   toggleInactivos() {
     this.incluirInactivos.update(v => !v);
   }
@@ -250,7 +352,10 @@ export class ServiciosComponent implements OnInit {
     this.form.reset({
       nombre: '', duracion_min: 30, precio: 0, descripcion: '',
       imagen_url: '', id_categoria: '',
+      proceso_desde_min: 0, proceso_min: 0, a_cotizar: false, requiere_consentimiento: false, id_tipo_recurso: '',
     });
+    this.variantes.set([]);
+    this.cargarTiposRecurso(this.auth.negocio()?.id_negocio ?? 0);
     this.modalAbierto.set(true);
   }
 
@@ -264,7 +369,14 @@ export class ServiciosComponent implements OnInit {
       descripcion: s.descripcion ?? '',
       imagen_url: s.imagen_url ?? '',
       id_categoria: s.id_categoria != null ? String(s.id_categoria) : '',
+      proceso_desde_min: s.proceso_desde_min ?? 0,
+      proceso_min: s.proceso_min ?? 0,
+      a_cotizar: !!s.a_cotizar,
+      requiere_consentimiento: !!s.requiere_consentimiento,
+      id_tipo_recurso: s.id_tipo_recurso != null ? String(s.id_tipo_recurso) : '',
     });
+    this.variantes.set((s.variantes ?? []).map(v => ({ ...v, precio: Number(v.precio) })));
+    this.cargarTiposRecurso(this.auth.negocio()?.id_negocio ?? 0);
     this.modalAbierto.set(true);
   }
 
@@ -380,6 +492,24 @@ export class ServiciosComponent implements OnInit {
       // El `<select>` devuelve texto; `''` es «sin categoría» y viaja como null.
       id_categoria: v.id_categoria ? Number(v.id_categoria) : null,
     };
+    // Solo se mandan los campos de las funciones encendidas: con una apagada, lo que el servicio
+    // ya tuviera se conserva tal cual en vez de pisarse con el valor vacío del formulario.
+    if (this.conProceso()) {
+      payload.proceso_desde_min = Number(v.proceso_desde_min) || 0;
+      payload.proceso_min = Number(v.proceso_min) || 0;
+      if (payload.proceso_min > 0 && payload.proceso_desde_min + payload.proceso_min >= payload.duracion_min!) {
+        this.toast.error('La espera tiene que terminar antes de que acabe el servicio.');
+        return;
+      }
+    }
+    if (this.conCotizar()) payload.a_cotizar = v.a_cotizar;
+    if (this.conConsentimiento()) payload.requiere_consentimiento = v.requiere_consentimiento;
+    if (this.conRecursos()) payload.id_tipo_recurso = v.id_tipo_recurso ? Number(v.id_tipo_recurso) : null;
+    if (this.conVariantes()) {
+      const variantes = this.variantes();
+      if (variantes.some(x => !x.nombre.trim())) { this.toast.error('Ponle nombre a cada variante.'); return; }
+      payload.variantes = variantes.map(x => ({ ...x, nombre: x.nombre.trim() }));
+    }
 
     this.guardando.set(true);
     const editando = this.editando();

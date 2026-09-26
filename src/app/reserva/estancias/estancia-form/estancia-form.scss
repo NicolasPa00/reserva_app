@@ -1,0 +1,36 @@
+.hint { color: var(--color-text-muted); font-size: .85rem; margin: 0; }
+
+.ef { display: flex; flex-direction: column; gap: 1rem; }
+
+.ef__fechas {
+  display: flex; flex-wrap: wrap; align-items: flex-end; gap: .6rem;
+  label { display: grid; gap: .2rem; flex: 1 1 150px; span { font-size: .78rem; color: var(--color-text-secondary); } }
+}
+.ef__h { flex: 0 0 110px !important; }
+.ef__noches { margin: 0 0 .5rem; font-weight: 600; color: var(--color-primary); }
+
+.ef__tipos { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: .5rem; }
+.ef__tipo {
+  display: flex; flex-direction: column; align-items: flex-start; gap: .15rem; text-align: left; cursor: pointer;
+  padding: .65rem .75rem; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface);
+  strong { font-size: .92rem; color: var(--color-text-primary); }
+  span { font-size: .75rem; color: var(--color-text-muted); }
+  em { font-style: normal; font-weight: 700; color: var(--color-primary); }
+  &--on { border-color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 7%, transparent); }
+  &--off { opacity: .55; cursor: not-allowed; }
+}
+.ef__motivo { color: var(--color-text-muted) !important; font-weight: 500 !important; font-size: .78rem; }
+.ef__unidad { display: grid; gap: .2rem; max-width: 260px; span { font-size: .78rem; color: var(--color-text-secondary); } }
+
+.ef__cliente {
+  display: grid; gap: .5rem; border-top: 1px solid var(--color-border); padding-top: .8rem;
+  h4 { margin: 0; font-size: .85rem; }
+}
+.ef__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: .45rem; }
+.ef__mascotas { display: flex; flex-wrap: wrap; gap: .35rem; }
+.chip {
+  display: inline-flex; align-items: center; gap: .25rem; border: 1px solid var(--color-border); border-radius: 999px;
+  padding: .25rem .6rem; background: var(--color-surface); cursor: pointer; font-size: .82rem;
+  &--on { border-color: var(--color-primary); color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 8%, transparent); }
+}
+.ef__resumen { margin-right: auto; font-size: .85rem; color: var(--color-text-secondary); }

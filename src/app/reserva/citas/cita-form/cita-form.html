@@ -1,5 +1,5 @@
 <reserva-modal [open]="abierto()"
-               [title]="modoEdicion() ? 'Editar cita' : 'Nueva cita'"
+               [title]="(modoEdicion() ? 'Editar ' : 'Nueva ') + ('cita' | termino:'min')"
                [subtitle]="modoEdicion()
                  ? 'Cambia los servicios, el profesional o la hora. La duración y el total se recalculan solos.'
                  : 'Los días y horas salen del horario de atención configurado.'"
@@ -11,11 +11,11 @@
 
       <!-- Paso 1: profesional -->
       <section class="paso">
-        <h4><span class="paso__n">1</span> Profesional</h4>
+        <h4><span class="paso__n">1</span> {{ 'profesional' | termino }}</h4>
         <select class="select"
                 [value]="idProfesional() == null ? '' : idProfesional()"
                 (change)="setProfesional($any($event.target).value)">
-          <option value="">— Selecciona un profesional —</option>
+          <option value="">— Selecciona —</option>
           @for (p of profesionales(); track p.id_profesional) {
             <option [value]="p.id_profesional">{{ p.nombre }}</option>
           }
@@ -24,7 +24,7 @@
 
       <!-- Paso 2: servicios -->
       <section class="paso">
-        <h4><span class="paso__n">2</span> Servicios</h4>
+        <h4><span class="paso__n">2</span> {{ 'servicios' | termino }}</h4>
         @if (idProfesional() == null) {
           <p class="hint">Selecciona un profesional para ver qué servicios ofrece.</p>
         } @else if (serviciosOfrecidos().length === 0) {
@@ -45,6 +45,38 @@
               </button>
             }
           </div>
+
+          <!-- Variante y precio acordado de los servicios marcados (perfiles que los usan). -->
+          @for (s of serviciosElegidos(); track s.id_servicio) {
+            @if (conVariantes() && s.variantes?.length) {
+              <label class="ajuste">
+                <span>{{ s.nombre }}</span>
+                <select class="select" (change)="elegirVariante(s.id_servicio, $any($event.target).value)">
+                  <option value="" [selected]="!variantesElegidas()[s.id_servicio]">
+                    Precio de lista · {{ s.duracion_min }} min · {{ s.precio | moneda }}
+                  </option>
+                  @for (v of s.variantes!; track v.id_variante) {
+                    <option [value]="v.id_variante" [selected]="variantesElegidas()[s.id_servicio] === v.id_variante">
+                      {{ v.nombre }} · {{ v.duracion_min }} min · {{ v.precio | moneda }}
+                    </option>
+                  }
+                </select>
+              </label>
+            }
+            @if (conCotizar() && s.a_cotizar) {
+              <div class="ajuste">
+                <span>{{ s.nombre }} <em>(a cotizar)</em></span>
+                <div class="ajuste__campos">
+                  <input class="input" type="number" min="0" placeholder="Precio acordado"
+                         [value]="ajustes()[s.id_servicio]?.precio ?? ''"
+                         (input)="ajustar(s.id_servicio, 'precio', $any($event.target).value)" />
+                  <input class="input" type="number" min="5" max="1440" step="15" placeholder="Minutos"
+                         [value]="ajustes()[s.id_servicio]?.duracion_min ?? ''"
+                         (input)="ajustar(s.id_servicio, 'duracion_min', $any($event.target).value)" />
+                </div>
+              </div>
+            }
+          }
 
           @if (idServicios().size > 0) {
             <div class="resumen">
@@ -227,6 +259,46 @@
               }
             </p>
           }
+          <!-- Mascota: la cita se hace para ella (perfil mascotas). -->
+          @if (conMascotas()) {
+            <div class="mascota">
+              <span class="mascota__lab"><lucide-icon name="paw-print" [size]="14" /> Mascota *</span>
+              @if (mascotasCliente().length) {
+                <div class="chips">
+                  @for (m of mascotasCliente(); track m.id_mascota) {
+                    <button type="button" class="chip" [class.chip--on]="idMascota() === m.id_mascota" (click)="elegirMascota(m)">
+                      <span class="chip__txt">
+                        <strong>{{ m.nombre }}</strong>
+                        <em>{{ m.raza || m.especie }}@if (m.tamano) { · {{ m.tamano | lowercase }} }</em>
+                      </span>
+                    </button>
+                  }
+                  <button type="button" class="chip" [class.chip--on]="!idMascota()" (click)="elegirMascota(null)">
+                    <span class="chip__txt"><strong>Otra</strong><em>registrar nueva</em></span>
+                  </button>
+                </div>
+              }
+              @if (!idMascota()) {
+                <div class="grid-2">
+                  <input class="input" type="text" placeholder="Nombre de la mascota" maxlength="80"
+                         [value]="mascotaNueva().nombre" (input)="setMascotaNueva('nombre', $any($event.target).value)" />
+                  <input class="input" type="text" placeholder="Raza (opcional)" maxlength="80"
+                         [value]="mascotaNueva().raza" (input)="setMascotaNueva('raza', $any($event.target).value)" />
+                  <select class="select" (change)="setMascotaNueva('especie', $any($event.target).value)">
+                    @for (e of especies; track e.clave) {
+                      <option [value]="e.clave" [selected]="mascotaNueva().especie === e.clave">{{ e.etiqueta }}</option>
+                    }
+                  </select>
+                  <select class="select" (change)="setMascotaNueva('tamano', $any($event.target).value)">
+                    <option value="" [selected]="!mascotaNueva().tamano">Tamaño…</option>
+                    @for (t of tamanos; track t.clave) {
+                      <option [value]="t.clave" [selected]="mascotaNueva().tamano === t.clave">{{ t.etiqueta }}</option>
+                    }
+                  </select>
+                </div>
+              }
+            </div>
+          }
           <label class="campo">
             <span>Email</span>
             <input class="input" type="email" placeholder="cliente@correo.com"
@@ -256,7 +328,7 @@
       @if (enviando()) {
         {{ modoEdicion() ? 'Guardando…' : 'Creando…' }}
       } @else {
-        {{ modoEdicion() ? 'Guardar cambios' : 'Crear cita' }}
+        {{ modoEdicion() ? 'Guardar cambios' : 'Crear ' + ('cita' | termino:'min') }}
       }
     </button>
   </div>

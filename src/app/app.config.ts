@@ -25,7 +25,12 @@ import {
   // Navegación responsive del admin: hamburguesa y barra inferior.
   Menu,
   CalendarPlus, MessageCircle, Facebook, Instagram, ExternalLink,
-  CircleCheckBig, Globe, Contact, FileSpreadsheet
+  CircleCheckBig, Globe, Contact, FileSpreadsheet, Send,
+  // Perfiles de rubro: salón, spa, estética, tatuaje, mascotas y alojamiento.
+  Sparkles, Flower2, PenTool, PawPrint, BedDouble, DoorOpen, CalendarRange, Hotel, Dog, Syringe,
+  ClipboardList, ShieldCheck, Layers, LogIn, Receipt, Link, KeyRound, Stethoscope, NotebookPen,
+  Palette, Hourglass, ImagePlus, FileCheck, BadgePercent, CircleDollarSign, Tent, Building2,
+  HandHeart, Download, Unlink, CircleX, House, UsersRound, ArrowRightLeft
 } from 'lucide-angular';
 
 registerLocaleData(localeEsCO);
@@ -50,7 +55,12 @@ export const icons = {
   // Navegación responsive del admin: hamburguesa y barra inferior.
   Menu,
   CalendarPlus, MessageCircle, Facebook, Instagram, ExternalLink,
-  CircleCheckBig, Globe, Contact, FileSpreadsheet
+  CircleCheckBig, Globe, Contact, FileSpreadsheet, Send,
+  // Perfiles de rubro: salón, spa, estética, tatuaje, mascotas y alojamiento.
+  Sparkles, Flower2, PenTool, PawPrint, BedDouble, DoorOpen, CalendarRange, Hotel, Dog, Syringe,
+  ClipboardList, ShieldCheck, Layers, LogIn, Receipt, Link, KeyRound, Stethoscope, NotebookPen,
+  Palette, Hourglass, ImagePlus, FileCheck, BadgePercent, CircleDollarSign, Tent, Building2,
+  HandHeart, Download, Unlink, CircleX, House, UsersRound, ArrowRightLeft
 };
 
 export const appConfig: ApplicationConfig = {

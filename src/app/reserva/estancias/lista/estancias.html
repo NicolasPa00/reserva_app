@@ -1,0 +1,61 @@
+<section class="page estancias">
+  <header class="page__head">
+    <div>
+      <h1>{{ titulo() }}</h1>
+      <p>Llegadas, huéspedes en casa y anticipos por validar.</p>
+    </div>
+    @if (puedeCrear()) {
+      <button type="button" class="btn btn-primary" (click)="formAbierto.set(true)">
+        <lucide-icon name="plus" [size]="16" /> Nueva estancia
+      </button>
+    }
+  </header>
+
+  <div class="barra">
+    <div class="filtros">
+      @for (f of filtros; track f.id) {
+        <button type="button" class="filtro" [class.filtro--on]="filtro() === f.id" (click)="elegirFiltro(f.id)">{{ f.label }}</button>
+      }
+    </div>
+    <label class="buscador">
+      <lucide-icon name="search" [size]="15" />
+      <input class="input" type="search" placeholder="Nombre, teléfono o código…" [value]="busqueda()" (input)="buscar($any($event.target).value)" />
+    </label>
+  </div>
+
+  @if (cargando() && estancias().length === 0) {
+    <p class="hint">Cargando…</p>
+  } @else if (visibles().length === 0) {
+    <div class="card vacio">
+      <lucide-icon name="bed-double" [size]="26" />
+      <strong>Nada por aquí</strong>
+      <p>Cambia el filtro o la búsqueda.</p>
+    </div>
+  } @else {
+    <div class="lista">
+      @for (e of visibles(); track e.id_estancia) {
+        <article class="est" tabindex="0" (click)="detalleId.set(e.id_estancia)" (keydown.enter)="detalleId.set(e.id_estancia)">
+          <div class="est__fechas">
+            <strong>{{ e.fecha_entrada | date:'d MMM':'UTC':'es-CO' }}</strong>
+            <span>→ {{ e.fecha_salida | date:'d MMM':'UTC':'es-CO' }}</span>
+            <small>{{ e.noches }} noche(s)</small>
+          </div>
+          <div class="est__id">
+            <strong>{{ e.cliente_nombre }}</strong>
+            <span>{{ e.tipo?.nombre }} · {{ e.unidad?.nombre }} · {{ e.huespedes }} huésped(es)@if (e.mascota) { · {{ e.mascota.nombre }} }</span>
+          </div>
+          <div class="est__estado">
+            <span class="badge" [class]="badge(e.estado)">{{ estados[e.estado] }}</span>
+            @if (e.pago_estado === 'pendiente_validacion') { <span class="badge b-warn">Anticipo por validar</span> }
+          </div>
+          <strong class="est__monto">{{ e.monto_total | moneda }}</strong>
+        </article>
+      }
+    </div>
+  }
+</section>
+
+<reserva-estancia-detalle [idNegocio]="idNegocio()" [idEstancia]="detalleId()"
+                          (cerrar)="detalleId.set(null)" (cambiada)="cargar()" />
+<reserva-estancia-form [idNegocio]="idNegocio()" [open]="formAbierto()"
+                       (cerrar)="formAbierto.set(false)" (creada)="formAbierto.set(false); cargar()" />

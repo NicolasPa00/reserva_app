@@ -1,0 +1,102 @@
+<section class="page ocup">
+  <header class="page__head">
+    <div>
+      <h1>Ocupación</h1>
+      <p>Toca una noche libre para reservarla, o una barra para ver la estancia.</p>
+    </div>
+    <div class="page__acciones">
+      @if (ocupacionHoy() !== null) {
+        <span class="kpi"><strong>{{ ocupacionHoy() }}%</strong> ocupado hoy</span>
+      }
+      @if (puedeCrear()) {
+        <button type="button" class="btn btn-primary" (click)="nueva()">
+          <lucide-icon name="plus" [size]="16" /> Nueva estancia
+        </button>
+      }
+    </div>
+  </header>
+
+  <div class="nav">
+    <button type="button" class="btn btn-outline" (click)="mover(-1)"><lucide-icon name="chevron-left" [size]="15" /></button>
+    <button type="button" class="btn btn-outline" (click)="mover(0)">Hoy</button>
+    <button type="button" class="btn btn-outline" (click)="mover(1)"><lucide-icon name="chevron-right" [size]="15" /></button>
+    <input class="input nav__fecha" type="date" [value]="desde()" (change)="irA($any($event.target).value)" />
+    <span class="nav__rango">{{ desde() | date:'d MMM':'':'es-CO' }} – {{ hasta() | date:'d MMM y':'':'es-CO' }}</span>
+    <span class="leyenda">
+      <i class="l l--confirmada"></i> Confirmada
+      <i class="l l--pendiente"></i> Pendiente
+      <i class="l l--en_curso"></i> En casa
+      <i class="l l--bloqueo"></i> Bloqueada / otra plataforma
+    </span>
+  </div>
+
+  @if (cargando() && !tablero()) {
+    <p class="hint">Cargando…</p>
+  } @else if (!tablero()?.unidades?.length) {
+    <div class="card vacio">
+      <lucide-icon name="bed-double" [size]="26" />
+      <strong>Todavía no hay unidades</strong>
+      <p>Crea tus habitaciones, cabañas o cupos en «Unidades» para empezar a recibir reservas.</p>
+    </div>
+  } @else {
+    <div class="tabla-scroll">
+      <div class="tabla" [style.--dias]="dias().length">
+        <div class="tabla__esquina"></div>
+        @for (d of dias(); track d.fecha) {
+          <div class="tabla__dia" [class.tabla__dia--finde]="d.finde" [class.tabla__dia--hoy]="d.hoy">
+            <span>{{ d.dia }}</span><strong>{{ d.num }}</strong>
+          </div>
+        }
+
+        @for (g of filas(); track g.tipo) {
+          <div class="tabla__grupo">{{ g.tipo }}</div>
+          @for (u of g.unidades; track u.id_unidad) {
+            <div class="tabla__unidad">
+              <span>{{ u.nombre }}</span>
+              @if (puedeCrear()) {
+                <button type="button" class="mini" (click)="abrirBloqueo(u.id_unidad)" title="Bloquear fechas">
+                  <lucide-icon name="ban" [size]="12" />
+                </button>
+              }
+            </div>
+            <div class="tabla__fila">
+              @for (d of dias(); track d.fecha; let i = $index) {
+                <button type="button" class="celda" [class.celda--finde]="d.finde" [class.celda--pasado]="d.fecha < hoy"
+                        [style.grid-column]="i + 1" [disabled]="!u.libres.has(d.fecha) || d.fecha < hoy || !puedeCrear()"
+                        (click)="nuevaEn(u.id_unidad, u.id_unidad_tipo, d.fecha)" [attr.aria-label]="'Reservar ' + u.nombre + ' el ' + d.fecha"></button>
+              }
+              @for (b of u.barras; track b.tipo + b.id) {
+                <button type="button" class="barra" [class]="'barra barra--' + (b.tipo === 'bloqueo' ? 'bloqueo' : b.estado)"
+                        [class.barra--ini]="b.cortadaIni" [class.barra--fin]="b.cortadaFin"
+                        [style.grid-column]="b.col + ' / span ' + b.span" [title]="b.detalle" (click)="abrirBarra(b)">
+                  {{ b.etiqueta }}
+                </button>
+              }
+            </div>
+          }
+        }
+      </div>
+    </div>
+  }
+</section>
+
+<reserva-estancia-detalle [idNegocio]="idNegocio()" [idEstancia]="detalleId()"
+                          (cerrar)="detalleId.set(null)" (cambiada)="cargar()" />
+
+<reserva-estancia-form [idNegocio]="idNegocio()" [open]="formAbierto()" [prefill]="prefill()"
+                       (cerrar)="formAbierto.set(false)" (creada)="alCrear()" />
+
+@if (bloqueo(); as b) {
+  <reserva-modal [open]="true" size="sm" title="Bloquear fechas" subtitle="Mantenimiento, uso propio… La unidad no se ofrecerá esas noches."
+                 (close)="bloqueo.set(null)">
+    <div class="bq">
+      <label><span>Desde</span><input class="input" type="date" [value]="b.desde" (change)="editarBloqueo('desde', $any($event.target).value)" /></label>
+      <label><span>Hasta (sin incluir)</span><input class="input" type="date" [value]="b.hasta" (change)="editarBloqueo('hasta', $any($event.target).value)" /></label>
+      <label class="bq__ancho"><span>Motivo</span><input class="input" type="text" maxlength="255" [value]="b.motivo" (input)="editarBloqueo('motivo', $any($event.target).value)" /></label>
+    </div>
+    <div modal-footer>
+      <button type="button" class="btn btn-outline" (click)="bloqueo.set(null)">Cancelar</button>
+      <button type="button" class="btn btn-primary" (click)="guardarBloqueo()">Bloquear</button>
+    </div>
+  </reserva-modal>
+}

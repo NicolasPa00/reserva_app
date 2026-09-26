@@ -30,6 +30,7 @@
         <input class="input" type="date" [value]="hasta()"
                (change)="setFecha('hasta', $any($event.target).value)" />
       </label>
+      @if (usaCitas()) {
       <label class="campo">
         <span>Profesional</span>
         <select class="select" [value]="idProfesional() == null ? '' : idProfesional()"
@@ -40,6 +41,7 @@
           }
         </select>
       </label>
+      }
       <button type="button" class="btn btn-outline filtros__refrescar"
               (click)="cargar()" [disabled]="cargando()" title="Actualizar">
         <lucide-icon name="refresh-cw" [size]="15" />
@@ -47,7 +49,37 @@
     </div>
   </div>
 
-  @if (cargando() && !informe()) {
+  @if (usaEstancias() && informeEstancias(); as ie) {
+    <section class="card estancias-inf">
+      <h2><lucide-icon name="bed-double" [size]="16" /> Estancias</h2>
+      <div class="cards">
+        <article class="kpi kpi--primario">
+          <strong class="kpi__valor">{{ ie.ocupacion_pct | number:'1.0-1' }}%</strong>
+          <span class="kpi__label">Ocupación</span>
+          <span class="kpi__detalle">{{ ie.noches_vendidas }} de {{ ie.noches_disponibles }} noches</span>
+        </article>
+        <article class="kpi">
+          <strong class="kpi__valor">{{ ie.estancias }}</strong>
+          <span class="kpi__label">Reservas</span>
+          <span class="kpi__detalle">con noches en el periodo</span>
+        </article>
+        <article class="kpi">
+          <strong class="kpi__valor">{{ moneda(ie.tarifa_media) }}</strong>
+          <span class="kpi__label">Tarifa media</span>
+          <span class="kpi__detalle">por noche vendida</span>
+        </article>
+        <article class="kpi kpi--exito">
+          <strong class="kpi__valor">{{ moneda(ie.venta_noches) }}</strong>
+          <span class="kpi__label">Venta de noches</span>
+          <span class="kpi__detalle">{{ moneda(ie.ingresos_caja) }} ya en caja</span>
+        </article>
+      </div>
+    </section>
+  }
+
+  @if (!usaCitas()) {
+    <!-- Alojamiento puro: no hay agenda de citas que resumir. -->
+  } @else if (cargando() && !informe()) {
     <div class="cards">
       @for (i of [1,2,3,4,5,6,7,8]; track i) { <div class="kpi kpi--skeleton"></div> }
     </div>

@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
 
 import { LucideAngularModule } from 'lucide-angular';
 
@@ -38,6 +38,12 @@ export class ProfesionalModalComponent {
   /** `null` cierra el modal. Evita un segundo input de «abierto» que pudiera desincronizarse. */
   readonly idProfesional = input<number | null>(null);
   readonly cerrar = output<void>();
+  readonly terminos = this.store.terminos;
+  readonly iconoServicios = computed(() => this.store.perfil()?.rubro?.icono || 'scissors');
+
+  /** Trabajos publicados (tatuadores, estilistas): solo llegan si el negocio tiene la función. */
+  readonly portafolio = computed(() => this.profesional()?.portafolio ?? []);
+  readonly imagenAbierta = signal<{ url: string; descripcion: string | null } | null>(null);
 
   readonly profesional = computed(() => {
     const id = this.idProfesional();

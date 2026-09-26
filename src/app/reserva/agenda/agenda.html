@@ -211,7 +211,7 @@
 </reserva-modal>
 
 <!-- Validar pago: ver comprobante y aprobar/rechazar -->
-<reserva-modal [open]="modalPago()" title="Validar pago adelantado" size="lg" (close)="cerrarValidarPago()">
+<reserva-modal [open]="modalPago()" [title]="citaPago()?.monto_abono != null ? 'Validar abono' : 'Validar pago adelantado'" size="lg" (close)="cerrarValidarPago()">
   @if (citaPago()) {
     <div class="pago">
       <div class="pago__info">
@@ -220,7 +220,22 @@
           {{ citaPago()!.fecha_hora_inicio | date:'EEEE dd MMM, HH:mm':'':'es-CO' }} ·
           {{ citaPago()!.profesional?.nombre }}
         </p>
-        <p class="pago__monto">{{ citaPago()!.monto_total | moneda }}</p>
+        @if (citaPago()!.monto_abono != null) {
+          <p class="pago__monto">{{ citaPago()!.monto_abono | moneda }}</p>
+          <p class="hint">Abono de un total de {{ citaPago()!.monto_total | moneda }}. El resto se cobra al completar.</p>
+          <label class="block">
+            <span>¿Por dónde llegó el abono? *</span>
+            <select class="select" (change)="metodoAbono.set($any($event.target).value ? +$any($event.target).value : null)">
+              <option value="" [selected]="!metodoAbono()">Elige la forma de pago…</option>
+              @for (m of metodosPago(); track m.id_metodo_pago) {
+                <option [value]="m.id_metodo_pago" [selected]="metodoAbono() === m.id_metodo_pago">{{ m.nombre }}</option>
+              }
+            </select>
+            <small>Se registra en la caja abierta. Si está cerrada, entra al cobrar la cita.</small>
+          </label>
+        } @else {
+          <p class="pago__monto">{{ citaPago()!.monto_total | moneda }}</p>
+        }
       </div>
       @if (citaPago()!.comprobante_pago_url) {
         <div class="pago__img">

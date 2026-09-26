@@ -8,8 +8,9 @@ import { AuthService } from '../../core/services/auth.service';
 import { ReservaApiService } from '../../core/services/reserva-api.service';
 import { ToastService } from '../../core/services/toast.service';
 import { MonedaService } from '../../core/services/moneda.service';
+import { EstanciaApiService } from '../../core/services/estancia-api.service';
 import {
-  EstadoCita, Informe, InformeDia, InformeProfesional, Profesional,
+  EstadoCita, Informe, InformeDia, InformeEstancias, InformeProfesional, Profesional,
 } from '../../core/models';
 import { aHora12 } from '../../core/utils/hora';
 import { ESTADO_LABELS, badgeEstado } from '../../shared/cita-detalle/cita-detalle';
@@ -75,7 +76,16 @@ export class InformesComponent implements OnInit {
   private readonly toast = inject(ToastService);
   private readonly monedas = inject(MonedaService);
 
+  private readonly estanciasApi = inject(EstanciaApiService);
   readonly informe = signal<Informe | null>(null);
+
+  // ── Estancias (alojamiento, hotel de mascotas) ──
+  //
+  // Las métricas de un hotel no son las de una agenda: noches vendidas, ocupación sobre las
+  // noches disponibles y tarifa media (ADR). Van en su propio bloque, con el mismo rango.
+  readonly usaCitas = computed(() => this.auth.usaCitas());
+  readonly usaEstancias = computed(() => this.auth.usaEstancias());
+  readonly informeEstancias = signal<InformeEstancias | null>(null);
   readonly profesionales = signal<Profesional[]>([]);
   readonly cargando = signal(false);
   readonly error = signal<string | null>(null);
@@ -285,6 +295,13 @@ export class InformesComponent implements OnInit {
       this.toast.error('La fecha inicial no puede ser posterior a la final.');
       return;
     }
+    if (this.usaEstancias()) {
+      this.estanciasApi.informe(this.idNegocio(), this.desde(), this.hasta()).subscribe({
+        next: r => this.informeEstancias.set(r?.data ?? null),
+        error: () => this.informeEstancias.set(null),
+      });
+    }
+    if (!this.usaCitas()) return;
     this.cargando.set(true);
     this.error.set(null);
     this.api.getInforme({

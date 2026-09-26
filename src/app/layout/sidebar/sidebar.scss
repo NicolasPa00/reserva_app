@@ -199,3 +199,17 @@ $alto-inferior: 62px;
     }
   }
 }
+
+// Encabezado de sección. Plegada la barra se convierte en una raya: el título no cabe, pero la
+// separación entre «lo de hoy» y «lo que se configura» sí se sigue viendo.
+.sidebar__grupo {
+  margin: .9rem 0 .25rem; padding: 0 .85rem;
+  font-size: .68rem; font-weight: 700; letter-spacing: .09em; text-transform: uppercase;
+  color: var(--color-text-muted);
+
+  &:first-child { margin-top: 0; }
+}
+.sidebar--min .sidebar__grupo {
+  margin: .6rem .55rem; padding: 0; height: 1px; overflow: hidden; color: transparent;
+  background: var(--color-border);
+}

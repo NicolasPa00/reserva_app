@@ -114,6 +114,8 @@ export class AgendaComponent implements OnInit, OnDestroy {
   readonly modalPago = signal(false);
   readonly citaPago = signal<Cita | null>(null);
   readonly motivoRechazo = signal('');
+  /** Por dónde llegó el abono (perfiles con depósito): lo asienta en la caja al aprobar. */
+  readonly metodoAbono = signal<number | null>(null);
 
   // Cancelar
   readonly confirmCancelar = signal(false);
@@ -428,7 +430,8 @@ export class AgendaComponent implements OnInit, OnDestroy {
 
   aprobarPago() {
     const c = this.citaPago(); if (!c) return;
-    this.api.aprobarPago(c.id_cita, this.idNegocio()).subscribe({
+    if (c.monto_abono != null && !this.metodoAbono()) { this.toast.error('Indica por dónde llegó el abono.'); return; }
+    this.api.aprobarPago(c.id_cita, this.idNegocio(), c.monto_abono != null ? this.metodoAbono() : null).subscribe({
       next: r => {
         if (r?.success) { this.toast.success('Pago aprobado'); this.cargar(); this.bus.publish('cita_pago_aprobado', r.data); }
         else this.toast.error(r?.message || 'Error.');

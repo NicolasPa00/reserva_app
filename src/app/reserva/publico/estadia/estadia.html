@@ -1,0 +1,123 @@
+<section class="estadia">
+  <a class="volver" [routerLink]="raiz()"><lucide-icon name="arrow-left" [size]="15" /> Volver</a>
+
+  @if (store.cargando() && !tipo()) {
+    <p class="hint">Cargando…</p>
+  } @else if (!tipo()) {
+    <p class="hint">Esta opción ya no está disponible.</p>
+  } @else if (creada(); as c) {
+    <!-- Confirmación -->
+    <article class="card listo">
+      <lucide-icon name="circle-check-big" [size]="34" />
+      <h2>¡Reserva recibida!</h2>
+      <p>
+        {{ c.unidad_tipo }} · {{ c.fecha_entrada | date:'EEE d MMM':'UTC':'es-CO' }} → {{ c.fecha_salida | date:'EEE d MMM':'UTC':'es-CO' }}
+        · {{ c.noches }} {{ c.noches === 1 ? 'noche' : 'noches' }}
+      </p>
+      <p class="listo__codigo">Tu código: <strong>{{ codigoBonito(c.codigo_publico) }}</strong></p>
+      <small>Guárdalo: con él consultas o cancelas tu reserva.</small>
+      @if (c.pago_estado === 'pendiente_validacion') {
+        <p class="hint">Recibimos tu comprobante. Confirmaremos la reserva al validarlo.</p>
+      }
+      <div class="listo__acciones">
+        <button type="button" class="btn btn-primary" (click)="verReserva()">Ver mi reserva</button>
+        <a class="btn btn-outline" [routerLink]="raiz()">Volver al inicio</a>
+      </div>
+    </article>
+  } @else {
+    @if (tipo(); as t) {
+      <div class="grid">
+        <article class="ficha">
+          <div class="ficha__foto">
+            @if (t.imagen_url) { <img [src]="t.imagen_url | urlArchivo" [alt]="t.nombre" /> }
+            @else { <span><lucide-icon name="bed-double" [size]="36" /></span> }
+          </div>
+          <h1>{{ t.nombre }}</h1>
+          @if (t.descripcion) { <p class="ficha__desc">{{ t.descripcion }}</p> }
+          <ul class="ficha__datos">
+            <li><lucide-icon name="users" [size]="15" /> Hasta {{ t.capacidad_max }} huéspedes ({{ t.ocupacion_base }} incluidos)</li>
+            @if (t.min_noches > 1) { <li><lucide-icon name="calendar-range" [size]="15" /> Mínimo {{ t.min_noches }} noches</li> }
+            @if (store.reglas()?.hora_checkin) {
+              <li><lucide-icon name="clock" [size]="15" /> Llegada desde las {{ store.reglas()?.hora_checkin }} · salida hasta las {{ store.reglas()?.hora_checkout }}</li>
+            }
+          </ul>
+          @if (t.comodidades.length) {
+            <div class="ficha__comodidades">
+              @for (c of t.comodidades; track c) { <span><lucide-icon name="check" [size]="12" /> {{ c }}</span> }
+            </div>
+          }
+        </article>
+
+        <aside class="card reserva">
+          <h2>Tu estadía</h2>
+          <div class="reserva__fechas">
+            <label><span>Llegada</span>
+              <input class="input" type="date" [min]="hoy" [value]="entrada()" (change)="cambiarEntrada($any($event.target).value)" /></label>
+            <label><span>Salida</span>
+              <input class="input" type="date" [min]="entrada()" [value]="salida()" (change)="salida.set($any($event.target).value)" /></label>
+            <label class="reserva__h"><span>Huéspedes</span>
+              <input class="input" type="number" min="1" [max]="t.capacidad_max" [value]="huespedes()" (change)="huespedes.set(+$any($event.target).value || 1)" /></label>
+          </div>
+
+          @if (consultando()) {
+            <p class="hint">Calculando…</p>
+          } @else if (cotizacion(); as q) {
+            @if (!q.disponible) {
+              <p class="aviso">{{ motivo(q.motivo) }}</p>
+            } @else {
+              <ul class="reserva__noches">
+                @for (n of q.noches; track n.fecha) {
+                  <li><span>{{ n.fecha | date:'EEE d MMM':'UTC':'es-CO' }}@if (n.temporada) { <em> · {{ n.temporada }}</em> }</span><strong>{{ n.precio | moneda }}</strong></li>
+                }
+              </ul>
+              <p class="reserva__total"><span>Total · {{ noches() }} {{ noches() === 1 ? 'noche' : 'noches' }}</span><strong>{{ q.total | moneda }}</strong></p>
+
+              <div class="reserva__datos">
+                <input class="input" type="text" placeholder="Nombre y apellido *" [value]="datos().nombre" (input)="setDato('nombre', $any($event.target).value)" />
+                <input class="input" type="tel" placeholder="Teléfono (WhatsApp) *" [value]="datos().telefono" (input)="setDato('telefono', $any($event.target).value)" />
+                <input class="input" type="email" placeholder="Correo (opcional)" [value]="datos().email" (input)="setDato('email', $any($event.target).value)" />
+                <input class="input" type="text" placeholder="Documento (opcional)" [value]="datos().documento" (input)="setDato('documento', $any($event.target).value)" />
+
+                @if (requiereMascota()) {
+                  <div class="reserva__mascota">
+                    <span><lucide-icon name="paw-print" [size]="14" /> Tu mascota</span>
+                    <input class="input" type="text" placeholder="Nombre *" [value]="mascota().nombre" (input)="setMascota('nombre', $any($event.target).value)" />
+                    <input class="input" type="text" placeholder="Raza" [value]="mascota().raza" (input)="setMascota('raza', $any($event.target).value)" />
+                    <select class="select" (change)="setMascota('tamano', $any($event.target).value)">
+                      <option value="" [selected]="!mascota().tamano">Tamaño…</option>
+                      @for (x of tamanos; track x.clave) { <option [value]="x.clave" [selected]="mascota().tamano === x.clave">{{ x.etiqueta }}</option> }
+                    </select>
+                  </div>
+                }
+
+                <textarea class="textarea" rows="2" placeholder="¿Algo que debamos saber? (hora de llegada, pedidos…)"
+                          [value]="datos().notas" (input)="setDato('notas', $any($event.target).value)"></textarea>
+              </div>
+
+              @if (pideComprobante()) {
+                <div class="reserva__pago">
+                  <strong>Para confirmar paga {{ anticipo() | moneda }}{{ store.pago().modo === 'abono' ? ' de anticipo' : '' }}</strong>
+                  @if (store.reglas()?.instrucciones_pago) { <p>{{ store.reglas()?.instrucciones_pago }}</p> }
+                  @if (store.pago().modo === 'abono' && !store.pago().reembolsable) {
+                    <small>El anticipo no es reembolsable.</small>
+                  }
+                  <label class="reserva__archivo">
+                    <lucide-icon name="upload" [size]="14" />
+                    <span>{{ comprobante()?.name || 'Adjunta el comprobante' }}</span>
+                    <input type="file" accept="image/*" hidden (change)="archivo($event)" />
+                  </label>
+                </div>
+              }
+
+              @if (error()) { <p class="aviso">{{ error() }}</p> }
+
+              <button type="button" class="btn btn-primary reserva__boton" (click)="reservar()" [disabled]="!puedeReservar()">
+                @if (enviando()) { Reservando… } @else { Reservar }
+              </button>
+            }
+          }
+        </aside>
+      </div>
+    }
+  }
+</section>

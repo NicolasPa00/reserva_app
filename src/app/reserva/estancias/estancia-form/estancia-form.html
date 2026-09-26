@@ -1,0 +1,89 @@
+<reserva-modal [open]="open" size="lg" title="Nueva estancia"
+               subtitle="Elige las fechas: se muestran los tipos libres con su precio por esas noches."
+               (close)="cerrar.emit()">
+  <div class="ef">
+    <section class="ef__fechas">
+      <label><span>Llegada</span>
+        <input class="input" type="date" [value]="entrada()" (change)="cambiarFecha('entrada', $any($event.target).value)" /></label>
+      <label><span>Salida</span>
+        <input class="input" type="date" [min]="entrada()" [value]="salida()" (change)="cambiarFecha('salida', $any($event.target).value)" /></label>
+      <label class="ef__h"><span>Huéspedes</span>
+        <input class="input" type="number" min="1" max="50" [value]="huespedes()" (change)="cambiarHuespedes(+$any($event.target).value)" /></label>
+      <p class="ef__noches">{{ noches() }} {{ noches() === 1 ? 'noche' : 'noches' }}</p>
+    </section>
+
+    @if (buscando()) {
+      <p class="hint">Buscando disponibilidad…</p>
+    } @else if (opciones().length === 0) {
+      <p class="hint">No hay tipos de unidad configurados. Créalos en «Unidades».</p>
+    } @else {
+      <div class="ef__tipos">
+        @for (o of opciones(); track o.id_unidad_tipo) {
+          <button type="button" class="ef__tipo" [class.ef__tipo--on]="idTipo() === o.id_unidad_tipo"
+                  [class.ef__tipo--off]="!o.disponible" (click)="elegirTipo(o)">
+            <strong>{{ o.nombre }}</strong>
+            <span>hasta {{ o.capacidad_max }} · {{ o.libres }} libre(s)</span>
+            @if (o.disponible) {
+              <em>{{ o.total | moneda }}</em>
+            } @else {
+              <em class="ef__motivo">
+                @switch (o.motivo) {
+                  @case ('CAPACIDAD_EXCEDIDA') { Muy pocos cupos }
+                  @case ('MINIMO_DE_NOCHES') { Mínimo {{ o.min_noches }} noches }
+                  @default { Sin disponibilidad }
+                }
+              </em>
+            }
+          </button>
+        }
+      </div>
+
+      @if (elegida(); as el) {
+        @if (el.unidades_libres?.length) {
+          <label class="ef__unidad"><span>Unidad</span>
+            <select class="select" (change)="idUnidad.set($any($event.target).value ? +$any($event.target).value : null)">
+              <option value="" [selected]="!idUnidad()">La primera libre</option>
+              @for (u of el.unidades_libres!; track u.id_unidad) {
+                <option [value]="u.id_unidad" [selected]="idUnidad() === u.id_unidad">{{ u.nombre }}</option>
+              }
+            </select></label>
+        }
+      }
+    }
+
+    <section class="ef__cliente">
+      <h4>Huésped</h4>
+      <div class="ef__grid">
+        <input class="input" type="text" placeholder="Nombre y apellido *" [value]="cliente().nombre" (input)="setCliente('nombre', $any($event.target).value)" />
+        <input class="input" type="tel" placeholder="Teléfono" [value]="cliente().telefono" (input)="setCliente('telefono', $any($event.target).value)" />
+        <input class="input" type="text" placeholder="Documento" [value]="cliente().documento" (input)="setCliente('documento', $any($event.target).value)" />
+        <input class="input" type="email" placeholder="Email" [value]="cliente().email" (input)="setCliente('email', $any($event.target).value)" />
+      </div>
+      @if (conMascotas()) {
+        <div class="ef__mascotas">
+          @if (mascotas().length) {
+            @for (m of mascotas(); track m.id_mascota) {
+              <button type="button" class="chip" [class.chip--on]="idMascota() === m.id_mascota" (click)="idMascota.set(m.id_mascota)">
+                <lucide-icon name="paw-print" [size]="12" /> {{ m.nombre }}
+              </button>
+            }
+          } @else {
+            <p class="hint">Escribe el teléfono del dueño para elegir su mascota. Si es nueva, regístrala primero en Clientes.</p>
+          }
+        </div>
+      }
+      <textarea class="textarea" rows="2" placeholder="Notas (hora estimada de llegada, pedidos especiales…)"
+                [value]="cliente().notas" (input)="setCliente('notas', $any($event.target).value)"></textarea>
+    </section>
+  </div>
+
+  <div modal-footer>
+    @if (elegida()?.disponible) {
+      <span class="ef__resumen">{{ elegida()!.nombre }} · {{ noches() }} noche(s) · <strong>{{ elegida()!.total | moneda }}</strong></span>
+    }
+    <button type="button" class="btn btn-outline" (click)="cerrar.emit()" [disabled]="enviando()">Cancelar</button>
+    <button type="button" class="btn btn-primary" (click)="guardar()" [disabled]="!listo() || enviando()">
+      {{ enviando() ? 'Creando…' : 'Crear estancia' }}
+    </button>
+  </div>
+</reserva-modal>

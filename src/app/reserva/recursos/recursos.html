@@ -1,0 +1,116 @@
+<section class="page recursos">
+  <header class="page__head">
+    <div>
+      <h1>Cabinas y equipos</h1>
+      <p>
+        Lo que un servicio ocupa además de la persona que lo presta. La agenda solo ofrece horas
+        con uno libre: dos cabinas son dos citas a la vez, aunque haya tres terapeutas.
+      </p>
+    </div>
+  </header>
+
+  @if (puedeEditar()) {
+    <div class="card nuevo">
+      <label>
+        <span>Nuevo tipo</span>
+        <input class="input" type="text" maxlength="80" placeholder="Ej.: Cabina, Sala de masajes, Láser"
+               [value]="nuevo().nombre" (input)="nuevo.set({ nombre: $any($event.target).value, cantidad: nuevo().cantidad })"
+               (keyup.enter)="crearTipo()" />
+      </label>
+      <label class="nuevo__cant">
+        <span>Cuántas</span>
+        <input class="input" type="number" min="1" max="50" [value]="nuevo().cantidad"
+               (input)="nuevo.set({ nombre: nuevo().nombre, cantidad: +$any($event.target).value || 1 })" />
+      </label>
+      <button type="button" class="btn btn-primary" (click)="crearTipo()" [disabled]="ocupado() || !nuevo().nombre.trim()">
+        <lucide-icon name="plus" [size]="15" /> Crear
+      </button>
+    </div>
+  }
+
+  @if (cargando()) {
+    <p class="hint">Cargando…</p>
+  } @else if (tipos().length === 0) {
+    <div class="card vacio">
+      <lucide-icon name="door-open" [size]="26" />
+      <strong>Sin cabinas ni equipos</strong>
+      <p>Si tienes tantas cabinas como personas atendiendo, no necesitas configurar nada aquí.</p>
+    </div>
+  } @else {
+    <div class="tipos">
+      @for (t of tipos(); track t.id_tipo_recurso) {
+        <article class="card tipo">
+          <header class="tipo__head">
+            @if (renombrando()?.tipo === 'tipo' && renombrando()?.id === t.id_tipo_recurso) {
+              <input class="input" type="text" maxlength="80" [value]="renombrando()!.nombre"
+                     (input)="renombrando.set({ tipo: 'tipo', id: t.id_tipo_recurso, nombre: $any($event.target).value })"
+                     (keyup.enter)="guardarNombre()" />
+              <button type="button" class="mini" (click)="guardarNombre()"><lucide-icon name="check" [size]="14" /></button>
+            } @else {
+              <h3>{{ t.nombre }}</h3>
+              <span class="tipo__n">{{ t.recursos.length }}</span>
+              @if (puedeEditar()) {
+                <button type="button" class="mini" (click)="renombrando.set({ tipo: 'tipo', id: t.id_tipo_recurso, nombre: t.nombre })" title="Renombrar">
+                  <lucide-icon name="pencil" [size]="13" />
+                </button>
+              }
+            }
+          </header>
+
+          <ul class="unidades">
+            @for (u of t.recursos; track u.id_recurso) {
+              <li>
+                @if (renombrando()?.tipo === 'unidad' && renombrando()?.id === u.id_recurso) {
+                  <input class="input" type="text" maxlength="80" [value]="renombrando()!.nombre"
+                         (input)="renombrando.set({ tipo: 'unidad', id: u.id_recurso, nombre: $any($event.target).value })"
+                         (keyup.enter)="guardarNombre()" />
+                  <button type="button" class="mini" (click)="guardarNombre()"><lucide-icon name="check" [size]="13" /></button>
+                } @else {
+                  <span>{{ u.nombre }}</span>
+                  @if (puedeEditar()) {
+                    <button type="button" class="mini" (click)="renombrando.set({ tipo: 'unidad', id: u.id_recurso, nombre: u.nombre })" title="Renombrar">
+                      <lucide-icon name="pencil" [size]="12" />
+                    </button>
+                    @if (t.recursos.length > 1) {
+                      <button type="button" class="mini mini--danger" (click)="quitarUnidad(u.id_recurso)" title="Retirar">
+                        <lucide-icon name="x" [size]="12" />
+                      </button>
+                    }
+                  }
+                }
+              </li>
+            }
+          </ul>
+
+          @if (puedeEditar()) {
+            <div class="tipo__agregar">
+              <input class="input" type="text" maxlength="80" [placeholder]="t.nombre + ' ' + (t.recursos.length + 1)"
+                     [value]="unidadNueva()[t.id_tipo_recurso] ?? ''" (input)="escribirUnidad(t.id_tipo_recurso, $any($event.target).value)"
+                     (keyup.enter)="agregarUnidad(t)" />
+              <button type="button" class="btn btn-outline" (click)="agregarUnidad(t)" [disabled]="ocupado()">
+                <lucide-icon name="plus" [size]="14" /> Agregar
+              </button>
+            </div>
+          }
+
+          <footer class="tipo__pie">
+            @if ((t.servicios ?? []).length) {
+              <span>Lo usan: {{ t.servicios!.length }} servicio(s)</span>
+            } @else {
+              <span>Ningún servicio lo usa todavía: asígnalo desde el servicio.</span>
+            }
+            @if (puedeEditar()) {
+              @if (confirmarBaja() === t.id_tipo_recurso) {
+                <button type="button" class="btn btn-danger btn-sm" (click)="quitarTipo(t.id_tipo_recurso)">Sí, retirar</button>
+              } @else {
+                <button type="button" class="btn btn-ghost btn-sm" (click)="confirmarBaja.set(t.id_tipo_recurso)">
+                  <lucide-icon name="trash-2" [size]="13" /> Retirar
+                </button>
+              }
+            }
+          </footer>
+        </article>
+      }
+    </div>
+  }
+</section>

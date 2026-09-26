@@ -37,6 +37,16 @@ const ANCHO_ESCRITORIO = 1024;
           </div>
 
           <div class="topbar__right">
+            <!--
+              Vuelta al panel central. No cierra sesión: canjea el token por un código de un
+              solo uso y entra autenticado al admin_app, que vive en otro origen y no ve este
+              localStorage.
+            -->
+            <button type="button" class="topbar__home" (click)="irAlInicio()"
+                    title="Ir al panel principal" aria-label="Ir al panel principal">
+              <lucide-icon name="house" [size]="20" />
+            </button>
+
             @if (auth.usuario(); as u) {
               <div class="user-chip" aria-label="Sesión activa">
                 <span class="user-chip__avatar" aria-hidden="true">{{ initials() }}</span>
@@ -94,6 +104,21 @@ const ANCHO_ESCRITORIO = 1024;
     }
     .topbar__menu lucide-icon { display: flex; line-height: 0; }
 
+    /* Inicio: mismo tamaño y trato que la hamburguesa, al otro lado de la cabecera. */
+    .topbar__home {
+      display: flex; align-items: center; justify-content: center;
+      width: 38px; height: 38px; flex-shrink: 0;
+      border: 1px solid var(--color-border); border-radius: var(--radius-md);
+      background: transparent; color: var(--color-text-secondary); cursor: pointer;
+      transition: border-color var(--transition-fast), color var(--transition-fast),
+                  background var(--transition-fast);
+    }
+    .topbar__home:hover {
+      border-color: var(--color-primary); color: var(--color-primary);
+      background: color-mix(in srgb, var(--color-primary) 7%, transparent);
+    }
+    .topbar__home lucide-icon { display: flex; line-height: 0; }
+
     /* Identidad del usuario (paridad con el admin) */
     .user-chip {
       display: inline-flex; align-items: center; gap: .5rem;
@@ -147,6 +172,11 @@ export class LayoutComponent {
   protected readonly colapsado = signal(
     isPlatformBrowser(this.platformId) ? window.innerWidth < ANCHO_ESCRITORIO : false,
   );
+
+  /** Vuelve al panel central del admin_app conservando la sesión. */
+  irAlInicio(): void {
+    void this.auth.irAlInicio();
+  }
 
   alternarMenu(): void { this.colapsado.update(v => !v); }
 

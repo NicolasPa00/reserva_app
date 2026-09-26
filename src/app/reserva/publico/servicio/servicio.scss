@@ -471,3 +471,27 @@
   }
   em { font-style: normal; font-size: .76rem; color: var(--color-text-muted); }
 }
+
+// ── Variantes, cotización y mascota (perfiles) ──
+.variantes { display: grid; gap: .5rem; }
+.opcion--elegible {
+  width: 100%; text-align: left; cursor: pointer; font: inherit; color: inherit;
+  transition: border-color .15s, box-shadow .15s;
+  &:hover { border-color: color-mix(in srgb, var(--color-primary) 45%, transparent); }
+}
+.opcion--on {
+  border-color: var(--color-primary) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+.cotizar {
+  display: grid; justify-items: start; gap: .7rem; padding: 1.1rem; border-radius: 14px;
+  background: color-mix(in srgb, var(--color-primary) 6%, transparent);
+  > lucide-icon { color: var(--color-primary); }
+  p { margin: 0; color: var(--color-text-secondary); line-height: 1.5; }
+  .btn { display: inline-flex; align-items: center; gap: .4rem; }
+}
+.mascota {
+  display: grid; grid-template-columns: 1fr 1fr; gap: .45rem;
+  h3 { grid-column: 1 / -1; display: flex; align-items: center; gap: .35rem; margin: 0; font-size: .92rem; }
+}
+.pago__nota { font-size: .84rem; color: var(--color-text-secondary); }

@@ -10,8 +10,17 @@ import {
   ResumenDashboard, MetodoPago, PagoLinea, EstadoCaja, CajaHistorial, MovimientoCaja,
   UsuarioNegocio, RolReserva, PermisosRol, UsuarioPayload, MarcaNegocio, ColoresNegocio,
   Vitrina, VitrinaEdicion, CitaPublica, CategoriaReserva, DiaServicio, SlotsServicio,
-  PaisDisponible,
+  PaisDisponible, EstanciaPublica,
 } from '../models';
+
+/** Campos de una cita que solo usan algunos perfiles (ver `composicionCita.js` en el backend). */
+export interface CamposPerfilCita {
+  /** Variante elegida por servicio: `{ [id_servicio]: id_variante }`. */
+  variantes?: Record<number, number> | null;
+  /** Precio y duración acordados de los servicios «a cotizar». */
+  ajustes?: { id_servicio: number; precio?: number | null; duracion_min?: number | null }[] | null;
+  id_mascota?: string | null;
+}
 
 /**
  * Wrapper único para todos los endpoints de /reserva.
@@ -126,13 +135,15 @@ export class ReservaApiService {
   disponibilidad(opts: {
     idNegocio: number; idProfesional: number; idServicios: number[]; fecha: string;
     excluirCita?: number | null;
-  }) {
+  } & Pick<CamposPerfilCita, 'variantes' | 'ajustes'>) {
     let p = new HttpParams()
       .set('id_negocio', String(opts.idNegocio))
       .set('id_profesional', String(opts.idProfesional))
       .set('id_servicios', opts.idServicios.join(','))
       .set('fecha', opts.fecha);
     if (opts.excluirCita) p = p.set('excluir_cita', String(opts.excluirCita));
+    if (opts.variantes && Object.keys(opts.variantes).length) p = p.set('variantes', JSON.stringify(opts.variantes));
+    if (opts.ajustes?.length) p = p.set('ajustes', JSON.stringify(opts.ajustes));
     return this.http.get<ApiResponse<DisponibilidadResponse>>(
       `${this.base}/disponibilidad`, { params: p },
     );
@@ -200,7 +211,7 @@ export class ReservaApiService {
     id_negocio: number; id_profesional: number; id_servicios: number[];
     fecha_hora_inicio: string; cliente_nombre: string;
     cliente_telefono?: string | null; cliente_email?: string | null; notas?: string | null;
-  }) {
+  } & CamposPerfilCita) {
     return this.http.post<ApiResponse<Cita>>(`${this.base}/citas`, data);
   }
 
@@ -213,7 +224,7 @@ export class ReservaApiService {
   actualizarCita(id: number, data: {
     id_negocio: number; id_servicios: number[];
     id_profesional?: number | null; fecha_hora_inicio?: string | null;
-  }) {
+  } & CamposPerfilCita) {
     return this.http.put<ApiResponse<Cita>>(`${this.base}/citas/${id}`, data);
   }
 
@@ -254,9 +265,22 @@ export class ReservaApiService {
       `${this.base}/citas/${id}?id_negocio=${idNegocio}`,
     );
   }
-  aprobarPago(id: number, idNegocio: number) {
+  /** Con abono, `idMetodoPago` dice por dónde llegó y lo asienta en la caja abierta. */
+  aprobarPago(id: number, idNegocio: number, idMetodoPago?: number | null) {
     return this.http.post<ApiResponse<Cita>>(
-      `${this.base}/citas/${id}/pago/aprobar`, { id_negocio: idNegocio },
+      `${this.base}/citas/${id}/pago/aprobar`, { id_negocio: idNegocio, id_metodo_pago: idMetodoPago ?? null },
+    );
+  }
+  /** Asienta en la caja el abono retenido de una cita cancelada o sin asistencia. */
+  asentarAbono(id: number, idNegocio: number, idMetodoPago?: number | null) {
+    return this.http.post<ApiResponse<Cita>>(
+      `${this.base}/citas/${id}/abono/asentar`, { id_negocio: idNegocio, id_metodo_pago: idMetodoPago ?? null },
+    );
+  }
+  /** Devuelve el abono ya asentado de una cita cancelada (egreso en la caja). */
+  devolverAbono(id: number, idNegocio: number, idMetodoPago?: number | null) {
+    return this.http.post<ApiResponse<Cita>>(
+      `${this.base}/citas/${id}/abono/devolver`, { id_negocio: idNegocio, id_metodo_pago: idMetodoPago ?? null },
     );
   }
   rechazarPago(id: number, idNegocio: number, motivo?: string) {
@@ -657,16 +681,18 @@ export class ReservaApiService {
    * Lo agrega el backend sobre todos los profesionales que lo ofrecen. Hacerlo aquí serían
    * tantas peticiones como profesionales, con el calendario pintándose a trozos.
    */
-  publicoDiasDeServicio(idNegocio: number, idServicio: number, desde: string, hasta: string) {
-    const p = new HttpParams().set('desde', desde).set('hasta', hasta);
+  publicoDiasDeServicio(idNegocio: number, idServicio: number, desde: string, hasta: string, idVariante?: number | null) {
+    let p = new HttpParams().set('desde', desde).set('hasta', hasta);
+    if (idVariante) p = p.set('id_variante', String(idVariante));
     return this.http.get<ApiResponse<DiaServicio[]>>(
       `${this.base}/publico/${idNegocio}/servicio/${idServicio}/dias`, { params: p },
     );
   }
 
   /** Huecos de un día, ya agrupados por profesional. */
-  publicoSlotsDeServicio(idNegocio: number, idServicio: number, fecha: string) {
-    const p = new HttpParams().set('fecha', fecha);
+  publicoSlotsDeServicio(idNegocio: number, idServicio: number, fecha: string, idVariante?: number | null) {
+    let p = new HttpParams().set('fecha', fecha);
+    if (idVariante) p = p.set('id_variante', String(idVariante));
     return this.http.get<ApiResponse<SlotsServicio>>(
       `${this.base}/publico/${idNegocio}/servicio/${idServicio}/slots`, { params: p },
     );
@@ -677,6 +703,10 @@ export class ReservaApiService {
     id_profesional: number; id_servicios: number[]; fecha_hora_inicio: string;
     cliente_nombre: string; cliente_telefono?: string; cliente_email?: string; notas?: string;
     comprobante?: File | null;
+    /** Variante elegida (largo, tamaño, zona): `{ [id_servicio]: id_variante }`. */
+    variantes?: Record<number, number> | null;
+    /** La mascota que describe el dueño (perfil mascotas). */
+    mascota?: { nombre: string; especie?: string; raza?: string; tamano?: string } | null;
   }) {
     if (payload.comprobante) {
       const fd = new FormData();
@@ -687,6 +717,8 @@ export class ReservaApiService {
       if (payload.cliente_telefono) fd.append('cliente_telefono', payload.cliente_telefono);
       if (payload.cliente_email)    fd.append('cliente_email', payload.cliente_email);
       if (payload.notas)            fd.append('notas', payload.notas);
+      if (payload.variantes)        fd.append('variantes', JSON.stringify(payload.variantes));
+      if (payload.mascota)          fd.append('mascota', JSON.stringify(payload.mascota));
       fd.append('comprobante', payload.comprobante);
       return this.http.post<ApiResponse<CitaPublica>>(`${this.base}/publico/${idNegocio}/cita`, fd);
     }
@@ -739,8 +771,9 @@ export class ReservaApiService {
     return this.http.put<ApiResponse<ClienteNegocio>>(`${this.base}/clientes/${id}`, data);
   }
 
+  /** El código puede ser de una cita o de una estancia (alojamiento): `tipo` las distingue. */
   publicoConsultarCita(codigoPublico: string) {
-    return this.http.get<ApiResponse<CitaPublica>>(`${this.base}/publico/cita/${codigoPublico}`);
+    return this.http.get<ApiResponse<CitaPublica | EstanciaPublica>>(`${this.base}/publico/cita/${codigoPublico}`);
   }
 
   publicoCancelarCita(codigoPublico: string, motivo?: string) {

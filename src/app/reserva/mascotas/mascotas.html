@@ -1,0 +1,112 @@
+<section class="page mascotas">
+  <header class="page__head">
+    <div>
+      <h1>Mascotas</h1>
+      <p>Las mascotas de tus clientes. Se registran solas al agendar; aquí completas sus datos.</p>
+    </div>
+    @if (total() > 0) {
+      <span class="conteo">{{ total() }} {{ total() === 1 ? 'mascota' : 'mascotas' }}</span>
+    }
+  </header>
+
+  <label class="buscador">
+    <lucide-icon name="search" [size]="15" />
+    <input class="input" type="search" placeholder="Buscar por nombre, raza o dueño…"
+           [value]="busqueda()" (input)="buscar($any($event.target).value)" />
+  </label>
+
+  @if (cargando() && mascotas().length === 0) {
+    <p class="hint">Cargando…</p>
+  } @else if (mascotas().length === 0) {
+    <div class="card vacio">
+      <lucide-icon name="paw-print" [size]="26" />
+      <strong>{{ busqueda() ? 'Ninguna mascota coincide' : 'Todavía no hay mascotas' }}</strong>
+      <p>Aparecen en cuanto un cliente agenda para su mascota, desde tu página o desde la agenda.</p>
+    </div>
+  } @else {
+    <div class="lista">
+      @for (m of mascotas(); track m.id_mascota) {
+        <article class="mascota" tabindex="0" (click)="abrir(m)" (keydown.enter)="abrir(m)">
+          <span class="mascota__icono"><lucide-icon [name]="m.especie === 'PERRO' ? 'dog' : 'paw-print'" [size]="20" /></span>
+          <div class="mascota__id">
+            <strong>{{ m.nombre }}</strong>
+            <span>
+              {{ m.raza || especieDe(m.especie) }}
+              @if (m.tamano) { · {{ tamanoDe(m.tamano) | lowercase }} }
+              @if (m.fecha_nacimiento) { · {{ edad(m.fecha_nacimiento) }} }
+            </span>
+            @if (m.comportamiento) { <em class="mascota__aviso">{{ m.comportamiento }}</em> }
+          </div>
+          <div class="mascota__dueno">
+            <span>{{ m.dueno_nombre || 'Sin nombre' }}</span>
+            <small>{{ m.dueno_telefono }}</small>
+          </div>
+          <div class="mascota__visitas">
+            <strong>{{ m.visitas ?? 0 }}</strong>
+            <small>{{ m.ultima_visita ? ('última ' + (m.ultima_visita | date:'dd/MM/yy')) : 'visitas' }}</small>
+          </div>
+        </article>
+      }
+    </div>
+    @if (hayMas()) {
+      <button type="button" class="btn btn-outline mas" (click)="cargar()" [disabled]="cargando()">
+        {{ cargando() ? 'Cargando…' : 'Cargar más' }}
+      </button>
+    }
+  }
+</section>
+
+@if (editando(); as m) {
+  <reserva-modal [open]="true" size="lg" [title]="m.nombre" [subtitle]="(m.dueno_nombre || '') + ' · ' + (m.dueno_telefono || '')" (close)="cerrar()">
+    <div class="form">
+      <label><span>Nombre *</span>
+        <input class="input" type="text" maxlength="80" [value]="form().nombre ?? ''" [disabled]="!puedeEditar()"
+               (input)="campo('nombre', $any($event.target).value)" /></label>
+      <label><span>Especie</span>
+        <select class="select" [disabled]="!puedeEditar()" (change)="campo('especie', $any($event.target).value)">
+          @for (e of especies; track e.clave) { <option [value]="e.clave" [selected]="form().especie === e.clave">{{ e.etiqueta }}</option> }
+        </select></label>
+      <label><span>Raza</span>
+        <input class="input" type="text" maxlength="80" [value]="form().raza ?? ''" [disabled]="!puedeEditar()"
+               (input)="campo('raza', $any($event.target).value)" /></label>
+      <label><span>Tamaño</span>
+        <select class="select" [disabled]="!puedeEditar()" (change)="campo('tamano', $any($event.target).value || null)">
+          <option value="" [selected]="!form().tamano">Sin definir</option>
+          @for (t of tamanos; track t.clave) { <option [value]="t.clave" [selected]="form().tamano === t.clave">{{ t.etiqueta }}</option> }
+        </select>
+        <small>Elige solo la variante de precio de los servicios que la tengan.</small></label>
+      <label><span>Peso (kg)</span>
+        <input class="input" type="number" min="0" max="200" step="0.1" [value]="form().peso_kg ?? ''" [disabled]="!puedeEditar()"
+               (input)="campo('peso_kg', $any($event.target).value)" /></label>
+      <label><span>Nacimiento</span>
+        <input class="input" type="date" [value]="form().fecha_nacimiento ?? ''" [disabled]="!puedeEditar()"
+               (input)="campo('fecha_nacimiento', $any($event.target).value)" /></label>
+      <label class="form__ancho"><span>Comportamiento</span>
+        <input class="input" type="text" maxlength="160" placeholder="Ej.: nervioso con el secador, muerde al cortar uñas"
+               [value]="form().comportamiento ?? ''" [disabled]="!puedeEditar()"
+               (input)="campo('comportamiento', $any($event.target).value)" /></label>
+      <label class="form__ancho"><span>Notas</span>
+        <textarea class="textarea" rows="2" maxlength="2000" [value]="form().notas ?? ''" [disabled]="!puedeEditar()"
+                  (input)="campo('notas', $any($event.target).value)"></textarea></label>
+    </div>
+
+    <div modal-footer class="pie">
+      @if (puedeEliminar()) {
+        @if (!confirmarBaja()) {
+          <button type="button" class="btn btn-ghost" (click)="confirmarBaja.set(true)">
+            <lucide-icon name="trash-2" [size]="14" /> Retirar
+          </button>
+        } @else {
+          <button type="button" class="btn btn-danger" (click)="darDeBaja()">Sí, retirar</button>
+        }
+      }
+      <span class="pie__espacio"></span>
+      <button type="button" class="btn btn-outline" (click)="cerrar()">Cerrar</button>
+      @if (puedeEditar()) {
+        <button type="button" class="btn btn-primary" (click)="guardar()" [disabled]="guardando() || !formValido()">
+          {{ guardando() ? 'Guardando…' : 'Guardar' }}
+        </button>
+      }
+    </div>
+  </reserva-modal>
+}

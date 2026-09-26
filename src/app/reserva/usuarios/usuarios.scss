@@ -332,6 +332,21 @@
   letter-spacing: .05em;
 }
 
+// A lo ancho y con icono: es la acción que se espera hacer al llegar a esta pantalla,
+// no una más entre los dos botones de copiar.
+.cred__enviar {
+  width: 100%;
+  justify-content: center;
+  gap: .45rem;
+}
+
+.cred__nota {
+  margin: -.5rem 0 0;
+  text-align: center;
+  font-size: .78rem;
+  color: var(--color-text-muted);
+}
+
 @media (max-width: 767px) {
   .page__head { flex-direction: column; align-items: stretch; }
   .page__head .btn { width: 100%; }

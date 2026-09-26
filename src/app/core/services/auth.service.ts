@@ -4,7 +4,10 @@ import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
-import { ApiResponse, NegocioReserva, PermisoSubnivel, SesionReserva } from '../models';
+import {
+  ApiResponse, ClaveTermino, Funcion, ModoReserva, NegocioReserva, PERFIL_BASE, PerfilReserva,
+  PermisoSubnivel, SesionReserva, TERMINOS_BASE,
+} from '../models';
 
 const TOKEN_KEY   = 'reserva_token';
 const SESSION_KEY = 'reserva_session';
@@ -14,8 +17,9 @@ const NEGOCIO_KEY = 'reserva_negocio_activo';
 // **todas** las rutas de módulo: una que falte aquí nunca podrá ser el destino de un usuario
 // cuyo rol solo tenga acceso a ella.
 const APP_ROUTE_PRIORITY = [
-  '/dashboard', '/agenda', '/citas',
-  '/servicios', '/profesionales', '/horarios', '/caja', '/informes', '/usuarios', '/configuracion',
+  '/dashboard', '/agenda', '/citas', '/ocupacion', '/estancias',
+  '/clientes', '/mascotas', '/servicios', '/profesionales', '/horarios', '/recursos', '/unidades',
+  '/caja', '/informes', '/usuarios', '/configuracion',
 ];
 
 /**
@@ -24,6 +28,15 @@ const APP_ROUTE_PRIORITY = [
  * El guion se normaliza igual que la barra: si no, `citas_no-show` nunca casaría con el
  * `citas_no_show` que consultan las vistas y la acción se vería siempre denegada.
  */
+/** Vistas que solo existen para algunos oficios (ver `perfiles/definiciones.js`). */
+const VISTAS_SOLO_DE_PERFIL = new Set(['/ocupacion', '/estancias', '/unidades', '/mascotas', '/recursos']);
+/** Todas las vistas que el perfil puede encender o apagar. Las demás no las toca. */
+const VISTAS_DE_PERFIL = new Set([
+  ...VISTAS_SOLO_DE_PERFIL,
+  '/dashboard', '/agenda', '/citas', '/clientes', '/servicios', '/profesionales', '/horarios',
+  '/caja', '/usuarios', '/informes', '/configuracion',
+]);
+
 function normalizeCodigoAccion(raw: string): string {
   return String(raw ?? '')
     .trim()
@@ -76,6 +89,36 @@ export class AuthService {
     return 'Usuario';
   });
   readonly permisosVistaActivos = computed(() => this.negocio()?.permisos_vista ?? []);
+
+  /**
+   * Perfil del rubro del negocio activo: qué funciones usa, cómo se llaman las cosas y qué
+   * vistas tiene. Sin perfil en la sesión (sesiones guardadas antes de que existiera, o una
+   * barbería) es el perfil BASE: la app de siempre. Ver `admin_ws/docs/perfiles-de-reserva.md`.
+   */
+  readonly perfil = computed<PerfilReserva>(() => {
+    const p = this.negocio()?.perfil;
+    if (!p) return PERFIL_BASE;
+    return { ...PERFIL_BASE, ...p, terminos: { ...TERMINOS_BASE, ...(p.terminos ?? {}) } };
+  });
+  readonly funciones = computed(() => new Set<Funcion>(this.perfil().funciones));
+  readonly terminos = computed(() => this.perfil().terminos);
+  readonly usaCitas = computed(() => this.perfil().modos.includes('CITA'));
+  readonly usaEstancias = computed(() => this.perfil().modos.includes('ESTANCIA'));
+
+  /** ¿Tiene el negocio encendida esta función de su perfil? */
+  tieneFuncion(f: Funcion): boolean {
+    return this.funciones().has(f);
+  }
+
+  tieneModo(m: ModoReserva): boolean {
+    return this.perfil().modos.includes(m);
+  }
+
+  /** Cómo llama este negocio a una cosa: «Estilista», «Sesión», «Huésped»… */
+  termino(clave: ClaveTermino, minuscula = false): string {
+    const t = this.terminos()[clave] ?? TERMINOS_BASE[clave];
+    return minuscula ? t.toLocaleLowerCase('es-CO') : t;
+  }
 
   readonly permisosSubnivelActivos = computed<PermisoSubnivel[]>(() => {
     const delNegocio = this.negocio()?.permisos_subnivel;
@@ -200,6 +243,41 @@ export class AuthService {
     }
   }
 
+  /**
+   * Vuelve al panel central (admin_app) sin cerrar sesión.
+   *
+   * Es el viaje de vuelta de `entrarAlNegocio()` del dashboard del admin: cada app vive en su
+   * propio origen, así que el token que hay aquí no se ve desde allí. Se cambia por un código
+   * de un solo uso (TTL 30 s) que el admin canjea en `/auth/callback` por la misma sesión.
+   *
+   * Si el código no sale, se va igual al panel: allí decidirá si ya tiene sesión propia o pide
+   * login. Quedarse en la app sin decir nada sería peor.
+   */
+  async irAlInicio(): Promise<void> {
+    if (!isPlatformBrowser(this.platformId)) return;
+    const adminUrl = environment.adminUrl;
+    const token = this.getAccessToken();
+
+    if (token) {
+      try {
+        const res = await firstValueFrom(
+          this.http.post<ApiResponse<{ code: string }>>(
+            `${environment.apiUrl}/auth/generar-codigo`, { token },
+          ),
+        );
+        const code = res?.data?.code;
+        if (code) {
+          window.location.href = `${adminUrl}/auth/callback?code=${encodeURIComponent(code)}`;
+          return;
+        }
+      } catch {
+        // Sin código se entra al panel a pelo; si no tiene sesión propia, pedirá login.
+      }
+    }
+
+    window.location.href = `${adminUrl}/admin/dashboard`;
+  }
+
   logout(): void {
     this.clearSession();
     if (isPlatformBrowser(this.platformId)) {
@@ -210,6 +288,7 @@ export class AuthService {
   canAccessRoute(routePath: string): boolean {
     const session = this.session();
     if (!session) return false;
+    if (!this.perfilUsaRuta(routePath)) return false;
     if (session.permisos_cargados !== true) return true;
 
     const allowed = new Set(
@@ -224,6 +303,21 @@ export class AuthService {
       if (target.startsWith(`${a}/`)) return true;
     }
     return false;
+  }
+
+  /**
+   * ¿El perfil del negocio usa esta vista? El backend ya las quita de los permisos, pero una
+   * sesión guardada antes de los perfiles no trae permisos por vista y dejaría pasar todo: sin
+   * este filtro, una barbería vería «Habitaciones» en el menú.
+   */
+  private perfilUsaRuta(routePath: string): boolean {
+    const raiz = normalizeRoute(routePath).split('/').slice(0, 2).join('/');
+    const perfil = this.perfil();
+    if (perfil.vistas.length > 0) {
+      return !VISTAS_DE_PERFIL.has(raiz) || perfil.vistas.includes(raiz);
+    }
+    // Sin lista de vistas (perfil BASE de respaldo): las de siempre sí, las de otros oficios no.
+    return !VISTAS_SOLO_DE_PERFIL.has(raiz);
   }
 
   getFirstAccessibleRoute(): string | null {

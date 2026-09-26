@@ -308,3 +308,9 @@
     flex-shrink: 0;
   }
 }
+
+// ── Estancias ──
+.estancias-inf {
+  display: grid; gap: .75rem; margin-bottom: 1rem;
+  h2 { display: flex; align-items: center; gap: .4rem; margin: 0; font-size: 1rem; }
+}

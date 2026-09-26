@@ -59,6 +59,8 @@ export class CitasComponent implements OnInit {
   readonly modalPago = signal(false);
   readonly citaPago = signal<Cita | null>(null);
   readonly motivoRechazo = signal('');
+  /** Por dónde llegó el abono (perfiles con depósito): lo asienta en la caja al aprobar. */
+  readonly metodoAbono = signal<number | null>(null);
 
   // modal cancelar
   readonly confirmAbierto = signal(false);
@@ -187,6 +189,32 @@ export class CitasComponent implements OnInit {
   abrirDetalle(c: Cita) { this.citaDetalle.set(c); this.modalDetalle.set(true); }
   cerrarDetalle() { this.modalDetalle.set(false); this.citaDetalle.set(null); }
 
+  // ── Abonos de citas que no se completaron (perfiles con depósito) ──
+  readonly puedeAbonos = computed(() => this.auth.puedeAccion('citas_abonos'));
+
+  /** ¿Tiene esta cita un abono recibido que hay que resolver (retenerlo o devolverlo)? */
+  abonoPendiente(c: Cita): 'asentar' | 'devolver' | null {
+    if (!c.monto_abono || c.pago_estado !== 'aprobado') return null;
+    if (c.estado !== 'cancelada' && c.estado !== 'no_show') return null;
+    return c.id_caja_abono ? 'devolver' : 'asentar';
+  }
+
+  resolverAbono(c: Cita, accion: 'asentar' | 'devolver') {
+    const obs = accion === 'asentar'
+      ? this.api.asentarAbono(c.id_cita, this.idNegocio())
+      : this.api.devolverAbono(c.id_cita, this.idNegocio());
+    obs.subscribe({
+      next: r => {
+        if (r?.success) {
+          this.toast.success(accion === 'asentar' ? 'Abono retenido registrado en la caja' : 'Devolución registrada en la caja');
+          this.cerrarDetalle();
+          this.recargar();
+        } else this.toast.error(r?.message || 'No se pudo registrar.');
+      },
+      error: e => this.toast.error(e?.error?.message || 'No se pudo registrar el abono.'),
+    });
+  }
+
   // ── Acciones ──
 
   /**
@@ -313,7 +341,8 @@ export class CitasComponent implements OnInit {
 
   aprobarPago() {
     const c = this.citaPago(); if (!c) return;
-    this.api.aprobarPago(c.id_cita, this.idNegocio()).subscribe({
+    if (c.monto_abono != null && !this.metodoAbono()) { this.toast.error('Indica por dónde llegó el abono.'); return; }
+    this.api.aprobarPago(c.id_cita, this.idNegocio(), c.monto_abono != null ? this.metodoAbono() : null).subscribe({
       next: r => {
         if (r?.success) { this.toast.success('Pago aprobado'); this.recargar(); this.bus.publish('cita_pago_aprobado', r.data); }
         else this.toast.error(r?.message || 'Error.');

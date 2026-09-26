@@ -5,7 +5,7 @@ import { LucideAngularModule } from 'lucide-angular';
 
 import { VitrinaStore } from '../vitrina.store';
 import { ReservaApiService } from '../../../core/services/reserva-api.service';
-import { CitaPublica } from '../../../core/models';
+import { CitaPublica, EstanciaPublica } from '../../../core/models';
 import { aHora12 } from '../../../core/utils/hora';
 import { normalizarEntradaCodigo } from '../../../core/utils/codigo-cita';
 import { MonedaPipe } from '../../../shared/moneda.pipe';
@@ -42,7 +42,18 @@ export class PublicoMiCitaComponent implements OnInit {
   readonly raiz = computed(() => `/p/${this.store.negocio()?.id_negocio ?? ''}`);
 
   readonly codigo = signal('');
-  readonly cita = signal<CitaPublica | null>(null);
+  /** Lo encontrado por el código: una cita o, en un alojamiento, una estancia. */
+  readonly reserva = signal<CitaPublica | EstanciaPublica | null>(null);
+  readonly cita = computed<CitaPublica | null>(() => {
+    const r = this.reserva();
+    return r && !('tipo' in r && r.tipo === 'estancia') ? (r as CitaPublica) : null;
+  });
+  readonly estancia = computed<EstanciaPublica | null>(() => {
+    const r = this.reserva();
+    return r && 'tipo' in r && r.tipo === 'estancia' ? r : null;
+  });
+  /** «cita», «sesión», «reserva»: como llama este negocio a lo que se consulta aquí. */
+  readonly termino = computed(() => this.store.terminos().cita.toLocaleLowerCase('es-CO'));
   readonly buscando = signal(false);
   readonly error = signal<string | null>(null);
 
@@ -54,17 +65,19 @@ export class PublicoMiCitaComponent implements OnInit {
 
   /** Una cita ya cancelada, completada o marcada como inasistencia no se puede tocar. */
   readonly cancelable = computed(() => {
-    const c = this.cita();
+    const c = this.reserva();
     return !!c && (c.estado === 'pendiente' || c.estado === 'confirmada');
   });
 
   readonly etiquetaEstado = computed(() => {
-    switch (this.cita()?.estado) {
+    switch (this.reserva()?.estado) {
+      case 'en_curso':    return 'En curso';
+      case 'finalizada':  return 'Finalizada';
       case 'pendiente':   return 'Pendiente de confirmar';
       case 'confirmada':  return 'Confirmada';
       case 'completada':  return 'Completada';
       case 'cancelada':   return 'Cancelada';
-      case 'no_show':     return 'No asististe';
+      case 'no_show':     return this.estancia() ? 'No llegaste' : 'No asististe';
       default:            return '';
     }
   });
@@ -95,12 +108,12 @@ export class PublicoMiCitaComponent implements OnInit {
     this.buscando.set(true);
     this.error.set(null);
     this.mensaje.set(null);
-    this.cita.set(null);
+    this.reserva.set(null);
 
     this.api.publicoConsultarCita(codigo).subscribe({
       next: r => {
         this.buscando.set(false);
-        if (r?.success && r.data) this.cita.set(r.data);
+        if (r?.success && r.data) this.reserva.set(r.data);
         else this.error.set(r?.message || 'No encontramos ninguna cita con ese código.');
       },
       error: err => {
@@ -124,8 +137,8 @@ export class PublicoMiCitaComponent implements OnInit {
         this.cancelando.set(false);
         this.confirmandoCancelacion.set(false);
         if (r?.success) {
-          this.mensaje.set('Tu cita quedó cancelada.');
-          this.cita.update(c => (c ? { ...c, estado: 'cancelada' } : c));
+          this.mensaje.set(`Tu ${this.termino()} quedó cancelada.`);
+          this.reserva.update(c => (c ? ({ ...c, estado: 'cancelada' } as typeof c) : c));
         } else {
           this.error.set(r?.message || 'No pudimos cancelar la cita.');
         }

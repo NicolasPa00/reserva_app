@@ -1,10 +1,12 @@
-import { ChangeDetectionStrategy, Component, Input, computed, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input, computed, inject, signal } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { LucideAngularModule } from 'lucide-angular';
 
 import { Cita, EstadoCita, PagoEstado } from '../../core/models';
 import { formatearCodigoCita } from '../../core/utils/codigo-cita';
 import { MonedaPipe } from '../moneda.pipe';
+import { AuthService } from '../../core/services/auth.service';
+import { ConsentimientoComponent } from '../consentimiento/consentimiento';
 
 export const ESTADO_LABELS: Record<EstadoCita, string> = {
   pendiente: 'Pendiente',
@@ -46,7 +48,7 @@ export function badgeEstado(e: EstadoCita): string {
 @Component({
   selector: 'reserva-cita-detalle',
   standalone: true,
-  imports: [CommonModule, LucideAngularModule, MonedaPipe, DatePipe],
+  imports: [CommonModule, LucideAngularModule, MonedaPipe, DatePipe, ConsentimientoComponent],
   template: `
     @if (cita) {
       <div class="cd">
@@ -54,7 +56,7 @@ export function badgeEstado(e: EstadoCita): string {
           <div class="cd__avatar" [style.background]="colorPro()">{{ iniciales() }}</div>
           <div class="cd__ident">
             <strong>{{ cita.cliente_nombre }}</strong>
-            <span class="cd__code">Cita #{{ cita.id_cita }}</span>
+            <span class="cd__code">{{ auth.termino('cita') }} #{{ cita.id_cita }}</span>
           </div>
           <span class="badge" [class]="badge()">{{ estadoLabel() }}</span>
         </header>
@@ -73,9 +75,25 @@ export function badgeEstado(e: EstadoCita): string {
 
         <dl class="cd__grid">
           <div>
-            <dt><lucide-icon name="user-round" [size]="13" /> Profesional</dt>
+            <dt><lucide-icon name="user-round" [size]="13" /> {{ auth.termino('profesional') }}</dt>
             <dd>{{ cita.profesional?.nombre || '—' }}</dd>
           </div>
+          @if (cita.mascota) {
+            <div>
+              <dt><lucide-icon name="paw-print" [size]="13" /> Mascota</dt>
+              <dd>
+                {{ cita.mascota.nombre }}
+                <span class="cd__empty">{{ cita.mascota.raza || cita.mascota.especie }}@if (cita.mascota.tamano) { · {{ cita.mascota.tamano | lowercase }} }</span>
+                @if (cita.mascota.comportamiento) { <em class="cd__aviso">{{ cita.mascota.comportamiento }}</em> }
+              </dd>
+            </div>
+          }
+          @if (cita.recurso) {
+            <div>
+              <dt><lucide-icon name="door-open" [size]="13" /> Cabina</dt>
+              <dd>{{ cita.recurso.nombre }}</dd>
+            </div>
+          }
           <div>
             <dt><lucide-icon name="phone" [size]="13" /> Teléfono</dt>
             <dd>
@@ -101,14 +119,16 @@ export function badgeEstado(e: EstadoCita): string {
         </dl>
 
         <section class="cd__block">
-          <h4>Servicios</h4>
+          <h4>{{ auth.termino('servicios') }}</h4>
           @if ((cita.servicios || []).length === 0) {
             <p class="cd__empty">Sin servicios registrados.</p>
           } @else {
             <ul class="cd__srv">
               @for (s of cita.servicios || []; track s.id_servicio) {
                 <li>
-                  <span>{{ s.servicio?.nombre || 'Servicio #' + s.id_servicio }}</span>
+                  <span>
+                    {{ s.servicio?.nombre || 'Servicio #' + s.id_servicio }}@if (s.variante_snapshot) { · {{ s.variante_snapshot }} }
+                  </span>
                   <em>{{ s.duracion_snapshot_min }} min</em>
                   <strong>{{ s.precio_snapshot | moneda }}</strong>
                 </li>
@@ -119,11 +139,28 @@ export function badgeEstado(e: EstadoCita): string {
             <span>Total</span>
             <strong>{{ cita.monto_total | moneda }}</strong>
           </p>
+          @if (abono() > 0) {
+            <p class="cd__abono">
+              <span>
+                Abono {{ cita.pago_estado === 'aprobado' ? 'recibido' : 'pedido' }}
+                @if (cita.pago_estado === 'aprobado') {
+                  <em>{{ cita.id_caja_abono ? '· en caja' : '· por asentar' }}</em>
+                }
+              </span>
+              <strong>− {{ abono() | moneda }}</strong>
+            </p>
+            @if (cita.pago_estado === 'aprobado') {
+              <p class="cd__total cd__total--saldo">
+                <span>Saldo por cobrar</span>
+                <strong>{{ saldo() | moneda }}</strong>
+              </p>
+            }
+          }
         </section>
 
         @if (cita.requiere_pago) {
           <section class="cd__block">
-            <h4>Pago adelantado</h4>
+            <h4>{{ abono() > 0 ? 'Abono para reservar' : 'Pago adelantado' }}</h4>
             <p class="cd__pago">
               <span class="badge"
                     [class.b-warn]="cita.pago_estado === 'pendiente_validacion'"
@@ -164,6 +201,13 @@ export function badgeEstado(e: EstadoCita): string {
           <section class="cd__block">
             <h4>Notas</h4>
             <p class="cd__notas">{{ cita.notas }}</p>
+          </section>
+        }
+
+        <!-- Solo cuando un servicio de la cita lo exige: sin él no se puede cobrar. -->
+        @if (requiereConsentimiento() && auth.negocio(); as neg) {
+          <section class="cd__block">
+            <reserva-consentimiento [idNegocio]="neg.id_negocio" [idCita]="cita.id_cita" />
           </section>
         }
 
@@ -240,6 +284,14 @@ export function badgeEstado(e: EstadoCita): string {
       strong { font-size: 1.15rem; font-weight: 800; color: var(--color-text-primary); }
     }
     .cd__pago { margin: 0; }
+    .cd__abono {
+      display: flex; justify-content: space-between; align-items: baseline; margin: .45rem 0 0;
+      font-size: .85rem; color: var(--color-text-secondary);
+      em { font-style: normal; color: var(--color-text-muted); }
+      strong { font-variant-numeric: tabular-nums; }
+    }
+    .cd__total--saldo strong { color: var(--color-primary); }
+    .cd__aviso { display: block; font-style: normal; font-size: .78rem; color: var(--color-warning, #b45309); }
     .cd__notas {
       margin: 0; font-size: .88rem; color: var(--color-text-secondary);
       background: var(--color-bg-muted); padding: .65rem .8rem; border-radius: var(--radius-md);
@@ -251,6 +303,14 @@ export function badgeEstado(e: EstadoCita): string {
 export class CitaDetalleComponent {
   /** `K3M79QXP` → `K3M7-9QXP`. Un código antiguo (UUID) se muestra tal cual. */
   readonly codigoBonito = formatearCodigoCita;
+  readonly auth = inject(AuthService);
+
+  // ── Perfil del rubro ──
+  readonly requiereConsentimiento = computed(() =>
+    this.auth.tieneFuncion('consentimiento')
+    && (this.citaSig()?.servicios ?? []).some(s => s.servicio?.requiere_consentimiento));
+  readonly abono = computed(() => Number(this.citaSig()?.monto_abono ?? 0));
+  readonly saldo = computed(() => Math.max(0, Number(this.citaSig()?.monto_total ?? 0) - this.abono()));
 
   private readonly citaSig = signal<Cita | null>(null);
 

@@ -1,0 +1,227 @@
+<section class="page unidades">
+  <header class="page__head">
+    <div>
+      <h1>{{ titulo() }}</h1>
+      <p>Tipos con su tarifa por noche, temporadas y las unidades que se reservan. Conecta Airbnb o Booking para no vender dos veces la misma noche.</p>
+    </div>
+    <div class="page__acciones">
+      @if (hayCalendarios()) {
+        <button type="button" class="btn btn-outline" (click)="sincronizar()" [disabled]="ocupado()">
+          <lucide-icon name="refresh-cw" [size]="15" /> Sincronizar ahora
+        </button>
+      }
+      @if (puedeTarifas()) {
+        <button type="button" class="btn btn-primary" (click)="nuevoTipo()">
+          <lucide-icon name="plus" [size]="16" /> Nuevo tipo
+        </button>
+      }
+    </div>
+  </header>
+
+  @if (catalogo(); as cat) {
+    <div class="card arranque">
+      <lucide-icon name="sparkles" [size]="22" />
+      <div>
+        <strong>¿Empezamos con un ejemplo?</strong>
+        <p>Cargamos {{ cat.unidades.length }} tipos de ejemplo con tarifas de referencia. Los cambias después.</p>
+      </div>
+      <button type="button" class="btn btn-primary" (click)="sembrar()" [disabled]="ocupado()">Cargar ejemplo</button>
+    </div>
+  }
+
+  @if (cargando() && tipos().length === 0) {
+    <p class="hint">Cargando…</p>
+  } @else if (tipos().length === 0 && !catalogo()) {
+    <div class="card vacio">
+      <lucide-icon name="bed-double" [size]="26" />
+      <strong>Sin tipos de unidad</strong>
+      <p>Crea un tipo (por ejemplo «Habitación doble») con cuántas unidades tienes de él.</p>
+    </div>
+  }
+
+  <div class="tipos">
+    @for (t of tipos(); track t.id_unidad_tipo) {
+      <article class="card tipo">
+        <div class="tipo__cab">
+          <label class="tipo__foto" [title]="'Cambiar imagen'">
+            @if (t.imagen_url) { <img [src]="urlImagen(t.imagen_url)" [alt]="t.nombre" /> }
+            @else { <lucide-icon name="image-plus" [size]="22" /> }
+            <input type="file" accept="image/*" hidden (change)="subirImagen(t, $event)" />
+          </label>
+          <div class="tipo__info">
+            <h3>{{ t.nombre }}</h3>
+            <p>
+              {{ t.tarifa_base | moneda }} / noche
+              @if (t.tarifa_fin_semana != null) { · fin de semana {{ t.tarifa_fin_semana | moneda }} }
+            </p>
+            <small>
+              {{ t.ocupacion_base }} incluidos · hasta {{ t.capacidad_max }}
+              @if (+t.tarifa_persona_extra > 0) { · +{{ t.tarifa_persona_extra | moneda }} por persona extra }
+              @if (t.min_noches > 1) { · mínimo {{ t.min_noches }} noches }
+            </small>
+          </div>
+          @if (puedeTarifas()) {
+            <button type="button" class="mini" (click)="editarTipo(t)" title="Editar"><lucide-icon name="pencil" [size]="14" /></button>
+          }
+        </div>
+
+        @if (t.comodidades.length) {
+          <div class="tipo__comodidades">
+            @for (c of t.comodidades; track c) { <span>{{ c }}</span> }
+          </div>
+        }
+
+        <!-- Temporadas -->
+        <section class="tipo__sec">
+          <header>
+            <h4>Temporadas</h4>
+            @if (puedeTarifas()) {
+              <button type="button" class="mini" (click)="nuevaTemporada(t)"><lucide-icon name="plus" [size]="12" /> Agregar</button>
+            }
+          </header>
+          @if (!(t.temporadas ?? []).length) {
+            <p class="hint">Sin temporadas: se cobra la tarifa de arriba todo el año.</p>
+          } @else {
+            <ul class="temporadas">
+              @for (s of t.temporadas; track s.id_tarifa) {
+                <li>
+                  <span><strong>{{ s.nombre }}</strong> {{ s.desde | date:'d MMM':'UTC':'es-CO' }} – {{ s.hasta | date:'d MMM y':'UTC':'es-CO' }}</span>
+                  <em>{{ s.precio_noche | moneda }}@if (s.min_noches) { · mín. {{ s.min_noches }} }</em>
+                  @if (puedeTarifas()) {
+                    <button type="button" class="mini" (click)="editarTemporada(t.id_unidad_tipo, s)"><lucide-icon name="pencil" [size]="12" /></button>
+                    <button type="button" class="mini mini--danger" (click)="eliminarTemporada(s)"><lucide-icon name="x" [size]="12" /></button>
+                  }
+                </li>
+              }
+            </ul>
+          }
+        </section>
+
+        <!-- Unidades y calendarios -->
+        <section class="tipo__sec">
+          <header><h4>Unidades ({{ (t.unidades ?? []).length }})</h4></header>
+          <ul class="unid">
+            @for (u of t.unidades ?? []; track u.id_unidad) {
+              <li>
+                <div class="unid__fila">
+                  <strong>{{ u.nombre }}</strong>
+                  <button type="button" class="mini" (click)="copiarIcal(u)" title="Copiar el calendario de esta unidad para Airbnb/Booking">
+                    <lucide-icon [name]="copiado() === u.id_unidad ? 'check' : 'link'" [size]="12" />
+                    {{ copiado() === u.id_unidad ? 'Copiado' : 'Exportar' }}
+                  </button>
+                  <button type="button" class="mini" (click)="abrirCalendario(u)" title="Importar un calendario externo">
+                    <lucide-icon name="calendar-range" [size]="12" /> Importar
+                  </button>
+                  @if ((t.unidades ?? []).length > 1) {
+                    <button type="button" class="mini mini--danger" (click)="quitarUnidad(u)" title="Retirar"><lucide-icon name="x" [size]="12" /></button>
+                  }
+                </div>
+                @for (c of u.calendarios ?? []; track c.id_calendario) {
+                  <div class="cal" [class.cal--error]="c.ultimo_error">
+                    <lucide-icon name="calendar-range" [size]="12" />
+                    <span>{{ c.nombre }}</span>
+                    <small>
+                      @if (c.ultimo_error) { {{ c.ultimo_error }} }
+                      @else if (c.ultima_sincronizacion) { sincronizado {{ c.ultima_sincronizacion | date:'d MMM h:mm a':'':'es-CO' }} }
+                      @else { pendiente de sincronizar }
+                    </small>
+                    <button type="button" class="mini mini--danger" (click)="desconectarCalendario(c.id_calendario)" title="Desconectar"><lucide-icon name="unlink" [size]="12" /></button>
+                  </div>
+                }
+              </li>
+            }
+          </ul>
+          <div class="unid__agregar">
+            <input class="input" type="text" maxlength="60" placeholder="Nueva unidad (ej.: 104)"
+                   [value]="unidadNueva()[t.id_unidad_tipo] ?? ''" (input)="escribirUnidad(t.id_unidad_tipo, $any($event.target).value)"
+                   (keyup.enter)="agregarUnidad(t)" />
+            <button type="button" class="btn btn-outline" (click)="agregarUnidad(t)" [disabled]="ocupado()"><lucide-icon name="plus" [size]="14" /></button>
+          </div>
+        </section>
+
+        @if (puedeTarifas()) {
+          <footer class="tipo__pie">
+            <button type="button" class="btn btn-ghost btn-sm" (click)="inactivarTipo(t)"><lucide-icon name="trash-2" [size]="13" /> Retirar tipo</button>
+          </footer>
+        }
+      </article>
+    }
+  </div>
+</section>
+
+<!-- Modal: tipo -->
+<reserva-modal [open]="modalTipo()" size="md" [title]="editandoTipo() ? 'Editar tipo' : 'Nuevo tipo'" (close)="modalTipo.set(false)">
+  <div class="fm">
+    <label class="fm__ancho"><span>Nombre *</span>
+      <input class="input" type="text" maxlength="100" placeholder="Habitación doble, Cabaña 4 personas, Canil mediano"
+             [value]="formTipo().nombre" (input)="campoTipo('nombre', $any($event.target).value)" /></label>
+    <label><span>Tarifa por noche *</span>
+      <input class="input" type="number" min="0" [value]="formTipo().tarifa_base" (input)="campoTipo('tarifa_base', +$any($event.target).value)" /></label>
+    <label><span>Viernes y sábado</span>
+      <input class="input" type="number" min="0" placeholder="Igual a la base" [value]="formTipo().tarifa_fin_semana ?? ''"
+             (input)="campoTipo('tarifa_fin_semana', $any($event.target).value === '' ? null : +$any($event.target).value)" /></label>
+    <label><span>Personas incluidas</span>
+      <input class="input" type="number" min="1" max="50" [value]="formTipo().ocupacion_base" (input)="campoTipo('ocupacion_base', +$any($event.target).value)" /></label>
+    <label><span>Capacidad máxima</span>
+      <input class="input" type="number" min="1" max="50" [value]="formTipo().capacidad_max" (input)="campoTipo('capacidad_max', +$any($event.target).value)" /></label>
+    <label><span>Por persona extra / noche</span>
+      <input class="input" type="number" min="0" [value]="formTipo().tarifa_persona_extra" (input)="campoTipo('tarifa_persona_extra', +$any($event.target).value)" /></label>
+    <label><span>Mínimo de noches</span>
+      <input class="input" type="number" min="1" max="30" [value]="formTipo().min_noches" (input)="campoTipo('min_noches', +$any($event.target).value)" /></label>
+    @if (!editandoTipo()) {
+      <label><span>Cuántas unidades</span>
+        <input class="input" type="number" min="1" max="100" [value]="formTipo().cantidad" (input)="campoTipo('cantidad', +$any($event.target).value)" /></label>
+    }
+    <label class="fm__ancho"><span>Comodidades (separadas por comas)</span>
+      <input class="input" type="text" placeholder="Wifi, Baño privado, Aire acondicionado, Desayuno"
+             [value]="formTipo().comodidades" (input)="campoTipo('comodidades', $any($event.target).value)" /></label>
+    <label class="fm__ancho"><span>Descripción</span>
+      <textarea class="textarea" rows="3" maxlength="2000" [value]="formTipo().descripcion ?? ''"
+                (input)="campoTipo('descripcion', $any($event.target).value)"></textarea></label>
+  </div>
+  <div modal-footer>
+    <button type="button" class="btn btn-outline" (click)="modalTipo.set(false)">Cancelar</button>
+    <button type="button" class="btn btn-primary" (click)="guardarTipo()" [disabled]="ocupado()">Guardar</button>
+  </div>
+</reserva-modal>
+
+<!-- Modal: temporada -->
+@if (temporada(); as x) {
+  <reserva-modal [open]="true" size="sm" [title]="x.t.id_tarifa ? 'Editar temporada' : 'Nueva temporada'"
+                 subtitle="El precio por noche de esas fechas reemplaza a la tarifa normal." (close)="temporada.set(null)">
+    <div class="fm">
+      <label class="fm__ancho"><span>Nombre</span>
+        <input class="input" type="text" maxlength="80" placeholder="Temporada alta, Semana Santa…" [value]="x.t.nombre"
+               (input)="campoTemporada('nombre', $any($event.target).value)" /></label>
+      <label><span>Desde</span><input class="input" type="date" [value]="x.t.desde" (change)="campoTemporada('desde', $any($event.target).value)" /></label>
+      <label><span>Hasta (incluida)</span><input class="input" type="date" [value]="x.t.hasta" (change)="campoTemporada('hasta', $any($event.target).value)" /></label>
+      <label><span>Precio por noche</span><input class="input" type="number" min="0" [value]="x.t.precio_noche" (input)="campoTemporada('precio_noche', +$any($event.target).value)" /></label>
+      <label><span>Mínimo de noches</span><input class="input" type="number" min="1" [value]="x.t.min_noches ?? ''"
+             (input)="campoTemporada('min_noches', $any($event.target).value ? +$any($event.target).value : null)" /></label>
+    </div>
+    <div modal-footer>
+      <button type="button" class="btn btn-outline" (click)="temporada.set(null)">Cancelar</button>
+      <button type="button" class="btn btn-primary" (click)="guardarTemporada()" [disabled]="ocupado()">Guardar</button>
+    </div>
+  </reserva-modal>
+}
+
+<!-- Modal: importar calendario -->
+@if (calendario(); as c) {
+  <reserva-modal [open]="true" size="sm" [title]="'Importar calendario · ' + c.unidad.nombre"
+                 subtitle="En Airbnb: Calendario → Disponibilidad → Exportar calendario. En Booking: Tarifas y disponibilidad → Sincronizar calendarios."
+                 (close)="calendario.set(null)">
+    <div class="fm">
+      <label><span>Plataforma</span>
+        <input class="input" type="text" maxlength="60" [value]="c.nombre" (input)="calendario.set({ unidad: c.unidad, nombre: $any($event.target).value, url: c.url })" /></label>
+      <label class="fm__ancho"><span>Dirección del calendario (.ics)</span>
+        <input class="input" type="url" placeholder="https://www.airbnb.com/calendar/ical/…" [value]="c.url"
+               (input)="calendario.set({ unidad: c.unidad, nombre: c.nombre, url: $any($event.target).value })" /></label>
+      <p class="hint fm__ancho">Se revisa cada 15 minutos. Las noches reservadas allá quedan bloqueadas aquí; si las cancelan, se liberan solas.</p>
+    </div>
+    <div modal-footer>
+      <button type="button" class="btn btn-outline" (click)="calendario.set(null)">Cancelar</button>
+      <button type="button" class="btn btn-primary" (click)="conectarCalendario()" [disabled]="ocupado()">Conectar</button>
+    </div>
+  </reserva-modal>
+}

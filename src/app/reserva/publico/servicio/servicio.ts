@@ -6,7 +6,7 @@ import { LucideAngularModule } from 'lucide-angular';
 import { VitrinaStore } from '../vitrina.store';
 import { ReservaApiService } from '../../../core/services/reserva-api.service';
 import { UrlArchivoPipe } from '../../../shared/url-archivo.pipe';
-import { CitaPublica, DiaServicio, SlotsServicio } from '../../../core/models';
+import { CitaPublica, DiaServicio, SlotsServicio, TAMANOS, VarianteServicio } from '../../../core/models';
 import { aHora12 } from '../../../core/utils/hora';
 import { ProfesionalModalComponent } from '../profesional-modal/profesional-modal';
 import { IconoWhatsappComponent } from '../../../shared/iconos-marca/iconos-marca';
@@ -65,6 +65,38 @@ export class PublicoServicioComponent implements OnInit {
   readonly idServicio = signal<number>(0);
   readonly servicio = computed(() => this.store.servicioPorId(this.idServicio()) ?? null);
   readonly descripcionAbierta = signal(false);
+  readonly terminos = this.store.terminos;
+  readonly tamanos = TAMANOS;
+
+  // ── Variantes y cotización (perfiles con esas funciones) ──
+  //
+  // Un servicio con variantes (largo del cabello, tamaño del perro, zona) cambia precio y
+  // duración según la que se elija, y la duración cambia los huecos: por eso elegir otra
+  // variante recarga el calendario. Sin variantes todo queda como siempre.
+  readonly idVarianteElegida = signal<number | null>(null);
+  readonly variantes = computed<VarianteServicio[]>(() => this.servicio()?.variantes ?? []);
+  readonly variante = computed(() => {
+    const vs = this.variantes();
+    return vs.find(v => v.id_variante === this.idVarianteElegida()) ?? vs[0] ?? null;
+  });
+  readonly idVariante = computed(() => this.variante()?.id_variante ?? null);
+  readonly precio = computed(() => Number(this.variante()?.precio ?? this.servicio()?.precio ?? 0));
+  readonly duracion = computed(() => this.variante()?.duracion_min ?? this.servicio()?.duracion_min ?? 0);
+  /** Se cotiza antes de agendar (tatuajes, estética a medida): el portal lleva a WhatsApp. */
+  readonly aCotizar = computed(() => !!this.servicio()?.a_cotizar);
+  readonly whatsappNegocio = computed(() => this.negocio()?.redes?.whatsapp ?? null);
+  readonly requiereMascota = computed(() => !!this.reglas()?.requiere_mascota);
+  /** La variante ya dice el tamaño («perro grande»): no se vuelve a preguntar. */
+  readonly tamanoPorVariante = computed(() => this.variante()?.clave ?? null);
+
+  /** Qué calendario está cargado: `servicio:variante`. Evita recargar en bucle un calendario vacío. */
+  private cargadoPara: string | null = null;
+
+  elegirVariante(id: number | undefined): void {
+    if (!id || id === this.idVariante()) return;
+    this.idVarianteElegida.set(id);
+    this.reiniciarAgenda();
+  }
 
   /** Ficha del profesional abierta desde el botón de información. `null` la cierra. */
   readonly profesionalAbierto = signal<number | null>(null);
@@ -108,6 +140,7 @@ export class PublicoServicioComponent implements OnInit {
   }
 
   readonly nombre = signal('');
+  readonly mascota = signal({ nombre: '', raza: '', tamano: '' });
   readonly telefono = signal('');
   readonly email = signal('');
   readonly notas = signal('');
@@ -126,7 +159,9 @@ export class PublicoServicioComponent implements OnInit {
     // está, se carga el calendario del servicio.
     effect(() => {
       const s = this.servicio();
-      if (s && !this.dias().length && !this.cargandoDias()) this.cargarDias();
+      if (!s || s.a_cotizar) return;
+      const clave = `${s.id_servicio}:${this.idVariante() ?? ''}`;
+      if (clave !== this.cargadoPara) { this.cargadoPara = clave; this.cargarDias(); }
     });
   }
 
@@ -141,13 +176,19 @@ export class PublicoServicioComponent implements OnInit {
   }
 
   private reiniciar(): void {
+    this.idVarianteElegida.set(null);
+    this.reiniciarAgenda();
+    this.descripcionAbierta.set(false);
+  }
+
+  private reiniciarAgenda(): void {
+    this.cargadoPara = null;
     this.dias.set([]);
     this.agenda.set(null);
     this.fecha.set(null);
     this.hora.set(null);
     this.idProfesional.set(null);
     this.semana.set(0);
-    this.descripcionAbierta.set(false);
   }
 
   // ─────────────────────── Calendario ───────────────────────
@@ -166,7 +207,7 @@ export class PublicoServicioComponent implements OnInit {
     const hasta = this.aISO(new Date(hoy.getTime() + (PublicoServicioComponent.SEMANAS * 7 - 1) * 86_400_000));
 
     this.cargandoDias.set(true);
-    this.api.publicoDiasDeServicio(idNegocio, idServicio, desde, hasta).subscribe({
+    this.api.publicoDiasDeServicio(idNegocio, idServicio, desde, hasta, this.idVariante()).subscribe({
       next: r => {
         const dias = r?.success && r.data ? r.data : [];
         this.dias.set(dias);
@@ -244,7 +285,7 @@ export class PublicoServicioComponent implements OnInit {
     if (!idNegocio) return;
 
     this.cargandoSlots.set(true);
-    this.api.publicoSlotsDeServicio(idNegocio, this.idServicio(), fechaISO).subscribe({
+    this.api.publicoSlotsDeServicio(idNegocio, this.idServicio(), fechaISO, this.idVariante()).subscribe({
       next: r => {
         const datos = r?.success && r.data ? r.data : null;
         const vacio = !datos || datos.profesionales.every(p => p.slots.length === 0);
@@ -317,7 +358,14 @@ export class PublicoServicioComponent implements OnInit {
 
   // ─────────────────────── Reserva ───────────────────────
 
-  readonly requierePago = computed(() => this.reglas()?.cobro_adelantado === true);
+  /** Pago total o abono según Configuración; el importe sale del precio de la variante. */
+  readonly requierePago = computed(() => this.store.pideComprobante(this.precio()));
+  readonly anticipo = computed(() => this.store.anticipoDe(this.precio()));
+  readonly esAbono = computed(() => this.store.pago().modo === 'abono');
+
+  setMascota(campo: 'nombre' | 'raza' | 'tamano', v: string): void {
+    this.mascota.update(m => ({ ...m, [campo]: v }));
+  }
   readonly listoParaAgendar = computed(() => !!this.fecha() && !!this.hora() && !!this.idProfesional());
 
   readonly puedeConfirmar = computed(() =>
@@ -325,6 +373,7 @@ export class PublicoServicioComponent implements OnInit {
     this.nombre().trim().length >= 3 &&
     this.telefono().trim().length >= 7 &&
     (!this.requierePago() || !!this.comprobante()) &&
+    (!this.requiereMascota() || this.mascota().nombre.trim().length > 0) &&
     !this.enviando());
 
   abrirFormulario(): void {
@@ -356,6 +405,15 @@ export class PublicoServicioComponent implements OnInit {
       cliente_email: this.email().trim() || undefined,
       notas: this.notas().trim() || undefined,
       comprobante: this.comprobante(),
+      variantes: this.idVariante() ? { [this.idServicio()]: this.idVariante()! } : null,
+      mascota: this.requiereMascota()
+        ? {
+          nombre: this.mascota().nombre.trim(),
+          raza: this.mascota().raza.trim() || undefined,
+          // Sin tamaño elegido vale el de la variante: «Baño · perro grande» ya lo dice.
+          tamano: this.mascota().tamano || this.tamanoPorVariante() || undefined,
+        }
+        : null,
     }).subscribe({
       next: r => {
         this.enviando.set(false);

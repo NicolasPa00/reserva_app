@@ -14,6 +14,8 @@ import { MayusculasDirective } from '../../shared/mayusculas.directive';
 import { TelefonoPaisComponent } from '../../shared/telefono-pais/telefono-pais';
 import { ModalComponent } from '../../shared/modal/modal';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dialog';
+import { componerInvitacion, enviarInvitacion, urlDeAcceso } from '../../core/utils/invitacion';
+import { environment } from '../../../environments/environment';
 
 type Tab = 'usuarios' | 'roles';
 
@@ -107,7 +109,10 @@ export class UsuariosComponent implements OnInit {
 
   // Credenciales recién creadas
   /** Lo que se le dicta a la persona para entrar. `usuario` es su documento, no su correo. */
-  readonly credenciales = signal<{ usuario: string; password: string } | null>(null);
+  // Lleva el nombre además del usuario y la contraseña: el saludo del mensaje de
+  // bienvenida lo necesita, y al llegar aquí el formulario ya se limpió.
+  readonly credenciales = signal<{ nombre: string; usuario: string; password: string } | null>(null);
+  readonly enviandoInvitacion = signal(false);
 
   // Estado / reset
   readonly confirmEstado = signal(false);
@@ -336,7 +341,11 @@ export class UsuariosComponent implements OnInit {
           if (temporal) {
             // Se muestran las credenciales en pantalla en vez de cerrar sin más: el admin tiene
             // que poder dictárselas al empleado, y no se vuelven a mostrar.
-            this.credenciales.set({ usuario: payload.num_identificacion, password: temporal });
+            this.credenciales.set({
+              nombre: payload.primer_nombre,
+              usuario: payload.num_identificacion,
+              password: temporal,
+            });
           } else {
             this.modalUsuario.set(false);
           }
@@ -395,7 +404,12 @@ export class UsuariosComponent implements OnInit {
       next: r => {
         this.confirmReset.set(false);
         if (r?.success && r.data) {
-          this.credenciales.set({ usuario: u.num_identificacion, password: r.data.password_temporal });
+          this.credenciales.set({
+            // El listado trae el nombre completo; para el saludo basta la primera palabra.
+            nombre: u.nombre_completo.trim().split(/\s+/)[0] ?? '',
+            usuario: u.num_identificacion,
+            password: r.data.password_temporal,
+          });
           this.modalUsuario.set(true);
           this.usuarioEditando.set(null);
           this.toast.success('Contraseña restablecida');
@@ -546,5 +560,47 @@ export class UsuariosComponent implements OnInit {
     navigator.clipboard.writeText(texto)
       .then(() => this.toast.success('Copiado'))
       .catch(() => this.toast.error('No se pudo copiar.'));
+  }
+
+  // ── Invitación ──
+
+  /**
+   * El mensaje de bienvenida completo, listo para enviar.
+   *
+   * Se compone al vuelo desde las credenciales que ya están en pantalla, así que
+   * desaparece con ellas: la contraseña no vive en ningún otro sitio.
+   */
+  readonly mensajeInvitacion = computed(() => {
+    const cred = this.credenciales();
+    if (!cred) return '';
+    return componerInvitacion({
+      nombre: cred.nombre,
+      negocio: this.auth.negocio()?.nombre ?? 'tu negocio',
+      usuario: cred.usuario,
+      // En la agenda se entra con el documento, no con el correo. Decir solo
+      // «Usuario» hacía que la persona probara con el correo y se creyera bloqueada.
+      etiquetaUsuario: 'Usuario (documento de identidad)',
+      password: cred.password,
+      url: urlDeAcceso(environment.adminUrl),
+    });
+  });
+
+  /** Abre el menú de compartir del teléfono; en escritorio copia el mensaje. */
+  async compartirInvitacion() {
+    const texto = this.mensajeInvitacion();
+    if (!texto || this.enviandoInvitacion()) return;
+
+    this.enviandoInvitacion.set(true);
+    const resultado = await enviarInvitacion(texto, 'Datos de acceso');
+    this.enviandoInvitacion.set(false);
+
+    if (resultado === 'compartido') {
+      this.toast.success('Invitación enviada');
+    } else if (resultado === 'copiado') {
+      this.toast.success('Invitación copiada. Pégala donde quieras enviarla.');
+    } else if (resultado === 'fallo') {
+      this.toast.error('No se pudo compartir. Copia el mensaje a mano.');
+    }
+    // 'cancelado' es cerrar la hoja de compartir a propósito: no se avisa nada.
   }
 }

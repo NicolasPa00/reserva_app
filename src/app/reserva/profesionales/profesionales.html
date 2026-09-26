@@ -81,6 +81,11 @@
                 <button type="button" class="btn btn-outline pro__accion" (click)="abrirServicios(p)">
                   <lucide-icon name="scissors" [size]="14" /> Servicios
                 </button>
+                @if (usaPortafolio()) {
+                  <button type="button" class="btn btn-outline pro__accion" (click)="profesionalPortafolio.set(p)">
+                    <lucide-icon name="palette" [size]="14" /> Trabajos
+                  </button>
+                }
               }
               @if (puedeEliminar()) {
                 <button type="button" class="pro__baja" (click)="pedirInactivar(p)"
@@ -214,6 +219,13 @@
     </button>
   </div>
 </reserva-modal>
+
+@if (profesionalPortafolio(); as pp) {
+  <reserva-modal [open]="true" [title]="'Trabajos de ' + pp.nombre" size="md"
+                 (close)="profesionalPortafolio.set(null)">
+    <reserva-portafolio-editor [idProfesional]="pp.id_profesional" />
+  </reserva-modal>
+}
 
 <reserva-confirm
   [open]="confirmAbierto()"

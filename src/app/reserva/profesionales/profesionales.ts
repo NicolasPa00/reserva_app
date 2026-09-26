@@ -17,6 +17,7 @@ import { ModalComponent } from '../../shared/modal/modal';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dialog';
 import { ImageCropperComponent } from '../../shared/image-cropper/image-cropper';
 import { colorDeEntidad } from '../../core/utils/color-entidad';
+import { PortafolioEditorComponent } from './portafolio-editor/portafolio-editor';
 
 @Component({
   selector: 'reserva-profesionales',
@@ -24,7 +25,7 @@ import { colorDeEntidad } from '../../core/utils/color-entidad';
   imports: [
     CommonModule, ReactiveFormsModule, LucideAngularModule,
     MayusculasDirective, ModalComponent, ConfirmDialogComponent, ImageCropperComponent,
-    TelefonoPaisComponent, TelefonoPipe,
+    TelefonoPaisComponent, TelefonoPipe, PortafolioEditorComponent,
   ],
   templateUrl: './profesionales.html',
   styleUrl: './profesionales.scss',
@@ -51,6 +52,10 @@ export class ProfesionalesComponent implements OnInit {
   readonly modalServiciosAbierto = signal(false);
   readonly profesionalServicios = signal<Profesional | null>(null);
   readonly serviciosSeleccionados = signal<Set<number>>(new Set());
+
+  /** Trabajos del profesional: solo con la función «portafolio» (tatuadores, estilistas). */
+  readonly usaPortafolio = computed(() => this.auth.tieneFuncion('portafolio'));
+  readonly profesionalPortafolio = signal<Profesional | null>(null);
 
   readonly confirmAbierto = signal(false);
   readonly profesionalAInactivar = signal<Profesional | null>(null);

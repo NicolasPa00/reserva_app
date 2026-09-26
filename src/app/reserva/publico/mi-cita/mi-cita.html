@@ -1,6 +1,6 @@
 <section class="micita">
   <header class="micita__head">
-    <h1>Mi cita</h1>
+    <h1>Mi {{ termino() }}</h1>
     <p>Escribe el código que te dimos al reservar para consultarla o cancelarla.</p>
   </header>
 
@@ -36,7 +36,10 @@
 
       <dl class="detalle__datos">
         @if (c.profesional) {
-          <div><dt>Profesional</dt><dd>{{ c.profesional.nombre }}</dd></div>
+          <div><dt>{{ store.terminos().profesional }}</dt><dd>{{ c.profesional.nombre }}</dd></div>
+        }
+        @if (c.mascota) {
+          <div><dt>Mascota</dt><dd>{{ c.mascota.nombre }}</dd></div>
         }
         <div><dt>A nombre de</dt><dd>{{ c.cliente_nombre }}</dd></div>
         @if (c.cliente_telefono) {
@@ -48,7 +51,7 @@
         <ul class="detalle__servicios">
           @for (s of c.servicios; track s.id_servicio) {
             <li>
-              <span>{{ s.nombre }}</span>
+              <span>{{ s.nombre }}@if (s.variante) { · {{ s.variante }} }</span>
               <em>{{ s.duracion_min }} min</em>
               <strong>{{ s.precio | moneda }}</strong>
             </li>
@@ -60,6 +63,12 @@
         <span>Total</span>
         <strong>{{ c.monto_total | moneda }}</strong>
       </footer>
+      @if (c.monto_abono) {
+        <p class="detalle__abono">
+          Abono para reservar: <strong>{{ c.monto_abono | moneda }}</strong>
+          @if (c.pago_estado === 'aprobado') { · recibido } @else if (c.pago_estado === 'pendiente_validacion') { · por validar }
+        </p>
+      }
 
       @if (c.notas) {
         <p class="detalle__notas"><lucide-icon name="file-text" [size]="13" /> {{ c.notas }}</p>
@@ -80,6 +89,78 @@
             <div class="confirmar__botones">
               <button type="button" class="btn btn-outline"
                       (click)="confirmandoCancelacion.set(false)" [disabled]="cancelando()">
+                No, volver
+              </button>
+              <button type="button" class="btn btn-peligro" (click)="cancelar()" [disabled]="cancelando()">
+                @if (cancelando()) { Cancelando… } @else { Sí, cancelar }
+              </button>
+            </div>
+          }
+        </div>
+      }
+    </article>
+
+    <a class="volver" [routerLink]="raiz()">
+      <lucide-icon name="arrow-left" [size]="15" /> Volver al inicio
+    </a>
+  }
+
+  <!-- Alojamiento: la misma búsqueda por código encuentra la estancia. -->
+  @if (estancia(); as e) {
+    <article class="detalle" [class.detalle--cancelada]="e.estado === 'cancelada'">
+      <header class="detalle__head">
+        <div>
+          <span class="detalle__cuando">
+            {{ e.fecha_entrada | date:'EEE d MMM':'UTC':'es-CO' }} → {{ e.fecha_salida | date:'EEE d MMM y':'UTC':'es-CO' }}
+          </span>
+          <strong>{{ e.noches }} {{ e.noches === 1 ? 'noche' : 'noches' }} · {{ e.unidad_tipo }}</strong>
+        </div>
+        <span class="chip" [attr.data-estado]="e.estado">{{ etiquetaEstado() }}</span>
+      </header>
+
+      <dl class="detalle__datos">
+        <div><dt>A nombre de</dt><dd>{{ e.cliente_nombre }}</dd></div>
+        <div><dt>Huéspedes</dt><dd>{{ e.huespedes }}</dd></div>
+        @if (e.mascota) { <div><dt>Mascota</dt><dd>{{ e.mascota.nombre }}</dd></div> }
+        @if (store.reglas()?.hora_checkin) {
+          <div><dt>Llegada / salida</dt><dd>desde las {{ store.reglas()?.hora_checkin }} · hasta las {{ store.reglas()?.hora_checkout }}</dd></div>
+        }
+      </dl>
+
+      <ul class="detalle__servicios">
+        @for (n of e.detalle_noches; track n.fecha) {
+          <li>
+            <span>Noche del {{ n.fecha | date:'EEE d MMM':'UTC':'es-CO' }}</span>
+            <em></em>
+            <strong>{{ n.precio | moneda }}</strong>
+          </li>
+        }
+      </ul>
+
+      <footer class="detalle__pie">
+        <span>Total</span>
+        <strong>{{ e.monto_total | moneda }}</strong>
+      </footer>
+      @if (e.monto_abono) {
+        <p class="detalle__abono">
+          Anticipo: <strong>{{ e.monto_abono | moneda }}</strong>
+          @if (e.pago_estado === 'aprobado') { · recibido } @else if (e.pago_estado === 'pendiente_validacion') { · por validar }
+        </p>
+      }
+
+      @if (cancelable()) {
+        <div class="detalle__acciones">
+          @if (!confirmandoCancelacion()) {
+            <button type="button" class="btn btn-outline" (click)="confirmandoCancelacion.set(true)">
+              Cancelar mi reserva
+            </button>
+            @if (ventanaHoras(); as h) {
+              <small>Puedes cancelar hasta {{ h }} horas antes de la llegada.</small>
+            }
+          } @else {
+            <p class="confirmar">¿Seguro que quieres cancelar esta reserva?</p>
+            <div class="confirmar__botones">
+              <button type="button" class="btn btn-outline" (click)="confirmandoCancelacion.set(false)" [disabled]="cancelando()">
                 No, volver
               </button>
               <button type="button" class="btn btn-peligro" (click)="cancelar()" [disabled]="cancelando()">

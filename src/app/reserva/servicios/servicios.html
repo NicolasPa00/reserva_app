@@ -2,8 +2,8 @@
   <div class="pegajoso">
   <header class="page__head">
     <div>
-      <h1>Servicios</h1>
-      <p>Catálogo de servicios que ofrece el salón.</p>
+      <h1>{{ 'servicios' | termino }}</h1>
+      <p>Lo que ofrece tu negocio: precios, tiempos y cómo se ve en tu página.</p>
     </div>
     <div class="page__acciones">
       @if (puedeEditar()) {
@@ -14,7 +14,7 @@
       }
       @if (puedeCrear()) {
         <button type="button" class="btn btn-primary" (click)="abrirCrear()">
-          <lucide-icon name="plus" [size]="16" /> Nuevo servicio
+          <lucide-icon name="plus" [size]="16" /> Nuevo {{ 'servicio' | termino:'min' }}
         </button>
       }
     </div>
@@ -34,6 +34,24 @@
     }
   </div>
   </div>
+
+  <!-- Catálogo de arranque: un negocio nuevo empieza con los servicios típicos de su oficio en
+       vez de una pantalla vacía. Solo se ofrece sin ningún servicio activo. -->
+  @if (sinServicios() && catalogo(); as cat) {
+    <div class="card arranque">
+      <lucide-icon name="sparkles" [size]="22" />
+      <div class="arranque__txt">
+        <strong>¿Empezamos con los servicios típicos de tu negocio?</strong>
+        <p>
+          Cargamos {{ cat.total_servicios }} servicios de ejemplo en {{ cat.categorias.length }} categorías
+          ({{ nombresCatalogo() }}). Los precios son de referencia: los cambias después.
+        </p>
+      </div>
+      <button type="button" class="btn btn-primary" (click)="sembrarCatalogo()" [disabled]="sembrando()">
+        @if (sembrando()) { Cargando… } @else { Cargar ejemplos }
+      </button>
+    </div>
+  }
 
   @if (cargando()) { <p class="hint">Cargando…</p> }
   @else if (serviciosFiltrados().length === 0) {
@@ -72,7 +90,29 @@
           </header>
           <div class="servicio__body">
             <strong>{{ s.nombre }}</strong>
-            <span class="servicio__precio">{{ s.precio | moneda }}</span>
+            @if (conCotizar() && s.a_cotizar) {
+              <span class="servicio__precio">A cotizar · ref. {{ s.precio | moneda }}</span>
+            } @else if (precioDesde(s); as desde) {
+              <span class="servicio__precio">Desde {{ desde | moneda }}</span>
+            } @else {
+              <span class="servicio__precio">{{ s.precio | moneda }}</span>
+            }
+            <div class="servicio__marcas">
+              @if (conProceso() && (s.proceso_min ?? 0) > 0) {
+                <span class="marca" title="La persona queda libre durante la espera">
+                  <lucide-icon name="hourglass" [size]="12" /> {{ s.proceso_min }} min de espera
+                </span>
+              }
+              @if (conVariantes() && s.variantes?.length) {
+                <span class="marca"><lucide-icon name="layers" [size]="12" /> {{ s.variantes!.length }} variantes</span>
+              }
+              @if (conConsentimiento() && s.requiere_consentimiento) {
+                <span class="marca"><lucide-icon name="shield-check" [size]="12" /> Consentimiento</span>
+              }
+              @if (conRecursos() && s.tipoRecurso) {
+                <span class="marca"><lucide-icon name="door-open" [size]="12" /> {{ s.tipoRecurso.nombre }}</span>
+              }
+            </div>
             @if (s.descripcion) { <p>{{ s.descripcion }}</p> }
           </div>
           <footer class="servicio__foot">
@@ -97,7 +137,7 @@
 </section>
 
 <reserva-modal [open]="modalAbierto()"
-               [title]="editando() ? 'Editar servicio' : 'Nuevo servicio'"
+               [title]="(editando() ? 'Editar ' : 'Nuevo ') + ('servicio' | termino:'min')"
                (close)="cerrarModal()">
   <form [formGroup]="form" (ngSubmit)="guardar()" class="form">
     <div class="form__row">
@@ -139,6 +179,105 @@
         <textarea class="textarea" formControlName="descripcion" rows="3" maxlength="500"></textarea>
       </label>
     </div>
+    <!-- ── Particularidades del oficio: solo con su función encendida ── -->
+    @if (conProceso()) {
+      <fieldset class="extra">
+        <legend><lucide-icon name="hourglass" [size]="14" /> Tiempo de espera</legend>
+        <p class="extra__hint">
+          Si el servicio tiene un rato en que el producto actúa solo (tinte, keratina), quien lo
+          presta queda libre para atender a otra persona. Déjalo en 0 si no aplica.
+        </p>
+        <div class="form__grid">
+          <label>
+            <span>Empieza a los (min)</span>
+            <input class="input" type="number" formControlName="proceso_desde_min" min="0" max="600" step="5" />
+          </label>
+          <label>
+            <span>Dura (min)</span>
+            <input class="input" type="number" formControlName="proceso_min" min="0" max="600" step="5" />
+          </label>
+        </div>
+      </fieldset>
+    }
+
+    @if (conVariantes()) {
+      <fieldset class="extra">
+        <legend><lucide-icon name="layers" [size]="14" /> Variantes</legend>
+        <p class="extra__hint">
+          El mismo servicio con otro precio y tiempo: largo del cabello, tamaño de la mascota, zona.
+          Sin variantes se cobra el precio de arriba.
+        </p>
+        @for (v of variantes(); track $index; let i = $index) {
+          <div class="variante">
+            <input class="input" type="text" placeholder="Nombre (ej. Largo)" [value]="v.nombre" maxlength="80"
+                   (input)="cambiarVariante(i, 'nombre', $any($event.target).value)" />
+            <input class="input variante__num" type="number" min="5" max="600" step="5" [value]="v.duracion_min"
+                   (input)="cambiarVariante(i, 'duracion_min', $any($event.target).value)" title="Minutos" />
+            <input class="input variante__num" type="number" min="0" [step]="pasoPrecio()" [value]="v.precio"
+                   (input)="cambiarVariante(i, 'precio', $any($event.target).value)" title="Precio" />
+            @if (conMascotas()) {
+              <select class="select variante__num" (change)="cambiarVariante(i, 'clave', $any($event.target).value)"
+                      title="Tamaño de mascota que la elige sola">
+                <option value="" [selected]="!v.clave">Tamaño…</option>
+                @for (t of tamanos; track t.clave) {
+                  <option [value]="t.clave" [selected]="v.clave === t.clave">{{ t.etiqueta }}</option>
+                }
+              </select>
+            }
+            <button type="button" class="mini mini--danger" (click)="quitarVariante(i)" title="Quitar">
+              <lucide-icon name="x" [size]="14" />
+            </button>
+          </div>
+        }
+        <button type="button" class="mini" (click)="agregarVariante()">
+          <lucide-icon name="plus" [size]="14" /> <span>Agregar variante</span>
+        </button>
+      </fieldset>
+    }
+
+    @if (conCotizar() || conConsentimiento() || conRecursos()) {
+      <fieldset class="extra">
+        <legend><lucide-icon name="settings" [size]="14" /> Condiciones</legend>
+        @if (conCotizar()) {
+          <label class="check">
+            <input type="checkbox" formControlName="a_cotizar" />
+            <span>
+              <strong>Precio a cotizar</strong>
+              <em>El precio y la duración se acuerdan con el cliente. En tu página se pide por WhatsApp.</em>
+            </span>
+          </label>
+        }
+        @if (conConsentimiento()) {
+          <label class="check">
+            <input type="checkbox" formControlName="requiere_consentimiento" />
+            <span>
+              <strong>Exige consentimiento informado</strong>
+              <em>No se podrá completar sin registrar el consentimiento firmado en la cita.</em>
+            </span>
+          </label>
+        }
+        @if (conRecursos()) {
+          <label>
+            <span>Cabina o equipo que ocupa</span>
+            <select class="select" formControlName="id_tipo_recurso">
+              <option value="" [selected]="!form.controls.id_tipo_recurso.value">Ninguno</option>
+              @for (t of tiposRecurso(); track t.id_tipo_recurso) {
+                <option [value]="t.id_tipo_recurso"
+                        [selected]="form.controls.id_tipo_recurso.value === (t.id_tipo_recurso + '')">
+                  {{ t.nombre }} ({{ t.recursos.length }})
+                </option>
+              }
+            </select>
+            @if (tiposRecurso().length === 0) {
+              <small>Crea tus cabinas o equipos en «Cabinas» para poder asignarlos.</small>
+            } @else {
+              <small>La agenda solo ofrecerá horas con uno libre.</small>
+            }
+          </label>
+        }
+      </fieldset>
+    }
+
     <div class="form__row">
       <span class="lab">Imagen del servicio</span>
       <div class="foto">

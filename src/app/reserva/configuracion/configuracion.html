@@ -293,7 +293,7 @@
       @if (tab() === 'reservas') {
       <div class="card">
         <h3>Reservas</h3>
-        <p class="hint">Tiempos y ventanas que se aplican a todas las citas.</p>
+        <p class="hint">Tiempos y ventanas que se aplican a todas las reservas.</p>
 
         <div class="grid">
           <label>
@@ -301,23 +301,47 @@
             <input class="input" type="number" formControlName="anticipacion_min_horas" min="0" max="168" />
             <small>Cuánto antes debe reservar un cliente.</small>
           </label>
+          @if (usaCitas()) {
           <label>
             <span>Buffer de limpieza (min)</span>
             <input class="input" type="number" formControlName="buffer_limpieza_min" min="0" max="240" step="5" />
             <small>Tiempo libre entre citas consecutivas.</small>
           </label>
+          }
           <label>
             <span>Ventana de cancelación (horas)</span>
             <input class="input" type="number" formControlName="ventana_cancelacion_horas" min="0" max="168" />
             <small>Tiempo mínimo para que el cliente cancele.</small>
           </label>
+          @if (usaCitas()) {
           <label>
             <span>Paso de slots (min)</span>
             <input class="input" type="number" formControlName="paso_slot_min" min="5" max="60" step="5" />
             <small>Granularidad de horarios disponibles.</small>
           </label>
+          }
         </div>
       </div>
+
+      @if (usaEstancias()) {
+      <!-- Estancias por noches: las noches no llevan hora, el negocio sí. -->
+      <div class="card">
+        <h3>Llegadas y salidas</h3>
+        <p class="hint">A qué hora se entrega y se libera la habitación o el cupo.</p>
+        <div class="grid">
+          <label>
+            <span>Hora de llegada (check-in)</span>
+            <input class="input" type="time" formControlName="hora_checkin" />
+            <small>Desde cuándo puede entrar el huésped.</small>
+          </label>
+          <label>
+            <span>Hora de salida (check-out)</span>
+            <input class="input" type="time" formControlName="hora_checkout" />
+            <small>Hasta cuándo puede quedarse el último día.</small>
+          </label>
+        </div>
+      </div>
+      }
 
       }
 
@@ -466,13 +490,36 @@
             <em>El cliente deberá adjuntar comprobante al reservar por internet.</em>
           </span>
         </label>
-        @if (form.value.cobro_adelantado) {
+        @if (depositoDisponible()) {
+          <!-- Abono (función «Abono para reservar»): un porcentaje en vez del total. -->
+          <div class="abono">
+            <label class="campo">
+              <span>Abono para reservar (%)</span>
+              <input class="input" type="number" formControlName="deposito_pct" min="0" max="100" step="5" />
+              <small>0 = sin abono. Con abono, el portal pide ese porcentaje en lugar del total.</small>
+            </label>
+            <label class="toggle">
+              <input type="checkbox" formControlName="deposito_reembolsable" />
+              <span class="toggle__txt">
+                <strong>El abono se devuelve si el cliente cancela a tiempo</strong>
+                <em>Si lo desmarcas, un abono de una cita cancelada o sin asistencia se queda en el negocio.</em>
+              </span>
+            </label>
+          </div>
+        }
+        @if (pideInstrucciones()) {
           <label class="block">
             <span>Instrucciones de pago para el cliente</span>
             <textarea class="textarea" formControlName="instrucciones_pago" rows="4"
                       placeholder="Ej: Nequi 3001234567, Bancolombia ahorros 12345..."></textarea>
             <small>El cliente verá esto al reservar y deberá adjuntar comprobante.</small>
           </label>
+          @if (depositoDisponible() && (form.value.deposito_pct ?? 0) > 0 && !form.value.instrucciones_pago?.trim()) {
+            <p class="aviso">
+              <lucide-icon name="triangle-alert" [size]="15" />
+              Sin instrucciones de pago el portal no pide el abono: tu cliente no sabría a dónde consignar.
+            </p>
+          }
         }
       </div>
 
@@ -485,6 +532,52 @@
         tampoco: ese formulario es otro (`vitrinaForm`) y ya trae el suyo — mostrar los dos a
         la vez es justo la duplicidad que no debe verse.
       -->
+      <!-- Funciones del perfil: se guardan al tocarlas, no con el botón de abajo. -->
+      @if (tab() === 'funciones') {
+      <div class="card">
+        <h3>Funciones de tu negocio</h3>
+        <p class="hint">
+          @if (rubro()) {
+            Estas son las opciones pensadas para <strong>{{ rubro() }}</strong>.
+          } @else {
+            Opciones que puedes activar según cómo trabajes.
+          }
+          Enciende solo las que uses: cada una añade campos y pantallas a la app y a tu página pública.
+        </p>
+
+        @if (funcionesConfig().length === 0) {
+          <p class="hint">Tu tipo de negocio no tiene funciones opcionales.</p>
+        } @else {
+          <ul class="funciones">
+            @for (f of funcionesConfig(); track f.clave) {
+              <li class="funcion" [class.funcion--on]="f.activa">
+                <label class="toggle" [class.toggle--off]="f.fija || !puedeTocarFunciones()">
+                  <input type="checkbox" [checked]="f.activa"
+                         [disabled]="f.fija || !puedeTocarFunciones() || funcionGuardando() !== null"
+                         (change)="alternarFuncion(f, $any($event.target).checked)" />
+                  <span class="toggle__txt">
+                    <strong>
+                      {{ f.etiqueta }}
+                      @if (f.fija) { <span class="etiqueta">Siempre activa</span> }
+                      @else if (f.de_fabrica) { <span class="etiqueta etiqueta--suave">Recomendada</span> }
+                      @if (funcionGuardando() === f.clave) { <lucide-icon name="loader" [size]="13" class="gira" /> }
+                    </strong>
+                    <em>{{ f.descripcion }}</em>
+                  </span>
+                </label>
+              </li>
+            }
+          </ul>
+          @if (!puedeTocarFunciones()) {
+            <p class="hint hint--fijo">
+              <lucide-icon name="info" [size]="14" />
+              Solo quien puede cambiar los ajustes de cobro puede encender o apagar funciones.
+            </p>
+          }
+        }
+      </div>
+      }
+
       @if (tab() === 'reservas' || tab() === 'cobros') {
         <div class="actions">
           @if (form.invalid) {

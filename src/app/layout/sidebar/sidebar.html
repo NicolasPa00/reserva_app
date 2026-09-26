@@ -15,14 +15,17 @@
   </header>
 
   <nav class="sidebar__nav">
-    @for (it of itemsPermitidos(); track it.route) {
-      <a [routerLink]="it.route"
-         routerLinkActive="active"
-         [routerLinkActiveOptions]="{ exact: false }"
-         [title]="it.label">
-        <lucide-icon [name]="it.icon" [size]="18" />
-        <span>{{ it.label }}</span>
-      </a>
+    @for (g of grupos(); track g.titulo) {
+      @if (g.titulo) { <h2 class="sidebar__grupo">{{ g.titulo }}</h2> }
+      @for (it of g.items; track it.route) {
+        <a [routerLink]="it.route"
+           routerLinkActive="active"
+           [routerLinkActiveOptions]="{ exact: false }"
+           [title]="it.label">
+          <lucide-icon [name]="it.icon" [size]="18" />
+          <span>{{ it.label }}</span>
+        </a>
+      }
     }
   </nav>
 

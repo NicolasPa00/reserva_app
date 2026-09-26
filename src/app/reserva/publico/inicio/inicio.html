@@ -8,11 +8,12 @@
         @if (n.logo_url) {
           <img class="cab__logo" [src]="n.logo_url | urlArchivo" [alt]="n.nombre" />
         } @else {
-          <span class="cab__logo cab__logo--vacio"><lucide-icon name="scissors" [size]="26" /></span>
+          <span class="cab__logo cab__logo--vacio"><lucide-icon [name]="iconoMarca()" [size]="26" /></span>
         }
         <div class="cab__titulo">
           <h1>{{ n.nombre }}</h1>
           @if (n.descripcion) { <p>{{ n.descripcion }}</p> }
+          @else if (conTitular()) { <p>{{ portal().subtitulo }}</p> }
         </div>
       </div>
 
@@ -69,6 +70,53 @@
   </header>
 
   <div class="contenido" id="catalogo">
+    <!-- ═════════ Estancias por noches (alojamiento, hotel de mascotas) ═════════ -->
+    @if (usaEstancias()) {
+      <section class="seccion estadia" id="estadias">
+        <header class="seccion__head">
+          <h2>{{ portal().titulo }}</h2>
+          <p>Elige tus fechas y mira el precio total de tu estadía.</p>
+        </header>
+        <div class="buscador-estadia">
+          <label><span>Llegada</span>
+            <input class="input" type="date" [min]="hoy" [value]="entrada()" (change)="cambiarEntrada($any($event.target).value)" /></label>
+          <label><span>Salida</span>
+            <input class="input" type="date" [min]="entrada()" [value]="salida()" (change)="salida.set($any($event.target).value)" /></label>
+          <label class="buscador-estadia__h"><span>Huéspedes</span>
+            <input class="input" type="number" min="1" max="50" [value]="huespedes()" (change)="huespedes.set(+$any($event.target).value || 1)" /></label>
+        </div>
+        @if (unidadesTipo().length === 0) {
+          <p class="vacio">Pronto publicaremos nuestras opciones de hospedaje.</p>
+        } @else {
+          <div class="rejilla">
+            @for (u of unidadesTipo(); track u.id_unidad_tipo) {
+              <article class="srv" (click)="abrirUnidad(u)" tabindex="0" (keyup.enter)="abrirUnidad(u)" role="button">
+                <div class="srv__foto">
+                  @if (u.imagen_url) {
+                    <img [src]="u.imagen_url | urlArchivo" [alt]="u.nombre" loading="lazy" />
+                  } @else {
+                    <span class="srv__sinfoto"><lucide-icon name="bed-double" [size]="22" /></span>
+                  }
+                </div>
+                <div class="srv__cuerpo">
+                  <h3>{{ u.nombre }}</h3>
+                  @if (u.descripcion) { <p>{{ u.descripcion }}</p> }
+                  @if (u.comodidades.length) {
+                    <p class="srv__comodidades">{{ u.comodidades.slice(0, 4).join(' · ') }}</p>
+                  }
+                  <footer class="srv__meta">
+                    <span class="srv__precio">Desde {{ u.tarifa_base | moneda }} <small>/ noche</small></span>
+                    <span class="srv__dur"><lucide-icon name="users" [size]="13" /> hasta {{ u.capacidad_max }}</span>
+                  </footer>
+                </div>
+              </article>
+            }
+          </div>
+        }
+      </section>
+    }
+
+    @if (usaCitas()) {
     <!-- ═════════ Índice de categorías ═════════ -->
     @if (secciones().length > 1) {
       <div class="tira-fila">
@@ -127,7 +175,13 @@
                 <h3>{{ s.nombre }}</h3>
                 @if (s.descripcion) { <p>{{ s.descripcion }}</p> }
                 <footer class="srv__meta">
-                  <span class="srv__precio">{{ s.precio | moneda }}</span>
+                  @if (s.a_cotizar) {
+                    <span class="srv__precio">A cotizar</span>
+                  } @else if (precioDesde(s); as desde) {
+                    <span class="srv__precio">Desde {{ desde | moneda }}</span>
+                  } @else {
+                    <span class="srv__precio">{{ s.precio | moneda }}</span>
+                  }
                   <span class="srv__dur"><lucide-icon name="clock" [size]="13" /> {{ s.duracion_min }} min</span>
                   @if (s.id_profesionales.length > 1) {
                     <span class="srv__pros">
@@ -150,7 +204,7 @@
       </header>
 
       @if (profesionales().length === 0) {
-        <p class="vacio">Aún no hay profesionales publicados.</p>
+        <p class="vacio">Aún no hay {{ terminos().profesionales.toLowerCase() }} publicados.</p>
       } @else {
         <div class="rejilla rejilla--equipo">
           @for (p of profesionales(); track p.id_profesional) {
@@ -173,8 +227,8 @@
                   <strong>{{ p.nombre }}</strong>
                   @if (p.especialidad) { <span>{{ p.especialidad }}</span> }
                   <em>
-                    @if (p.ofrece_todo) { Todos los servicios }
-                    @else { {{ p.id_servicios.length }} servicio{{ p.id_servicios.length === 1 ? '' : 's' }} }
+                    @if (p.ofrece_todo) { Todos los {{ terminos().servicios.toLowerCase() }} }
+                    @else { {{ p.id_servicios.length }} {{ (p.id_servicios.length === 1 ? terminos().servicio : terminos().servicios).toLowerCase() }} }
                   </em>
                 </div>
               </header>
@@ -215,6 +269,7 @@
         </div>
       }
     </section>
+    }
   </div>
 
   <reserva-profesional-modal [idProfesional]="profesionalAbierto()"

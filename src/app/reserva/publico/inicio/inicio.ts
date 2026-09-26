@@ -8,7 +8,7 @@ import { LucideAngularModule } from 'lucide-angular';
 
 import { VitrinaStore } from '../vitrina.store';
 import { UrlArchivoPipe } from '../../../shared/url-archivo.pipe';
-import { ProfesionalPublico } from '../../../core/models';
+import { ProfesionalPublico, ServicioPublico, UnidadTipoPublica } from '../../../core/models';
 import { rangoHora12 } from '../../../core/utils/hora';
 import { ProfesionalModalComponent } from '../profesional-modal/profesional-modal';
 import { colorDeEntidad } from '../../../core/utils/color-entidad';
@@ -58,6 +58,52 @@ export class PublicoInicioComponent {
   readonly secciones = this.store.secciones;
 
   readonly raiz = computed(() => `/p/${this.negocio()?.id_negocio ?? ''}`);
+
+  // ── Perfil del rubro ──
+  //
+  // La página se presenta según el oficio: términos, titular y, en un alojamiento, las
+  // habitaciones con búsqueda por fechas en lugar del catálogo de servicios. La barbería (perfil
+  // BASE) no muestra titular: su página queda exactamente como estaba.
+  readonly terminos = this.store.terminos;
+  readonly usaCitas = this.store.usaCitas;
+  readonly usaEstancias = this.store.usaEstancias;
+  readonly unidadesTipo = this.store.unidadesTipo;
+  readonly portal = this.store.portal;
+  readonly conTitular = computed(() => !!this.store.perfil() && this.store.perfil()!.clave !== 'BASE');
+  readonly iconoMarca = computed(() => this.store.perfil()?.rubro?.icono || 'scissors');
+
+  private hoyISO(): string {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+  private sumar(fecha: string, dias: number): string {
+    const d = new Date(`${fecha}T12:00:00`);
+    d.setDate(d.getDate() + dias);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+  readonly entrada = signal(this.hoyISO());
+  readonly salida = signal(this.sumar(this.hoyISO(), 1));
+  readonly huespedes = signal(2);
+  readonly hoy = this.hoyISO();
+
+  cambiarEntrada(v: string): void {
+    if (!v) return;
+    this.entrada.set(v);
+    if (this.salida() <= v) this.salida.set(this.sumar(v, 1));
+  }
+
+  /** Abre la ficha de una habitación con las fechas ya elegidas en la portada. */
+  abrirUnidad(u: UnidadTipoPublica): void {
+    this.router.navigate([this.raiz(), 'estadia', u.id_unidad_tipo], {
+      queryParams: { entrada: this.entrada(), salida: this.salida(), huespedes: this.huespedes() },
+    });
+  }
+
+  /** «Desde $X» si el servicio tiene variantes; el precio de lista si no. */
+  precioDesde(s: ServicioPublico): number | null {
+    if (!s.variantes?.length) return null;
+    return Math.min(...s.variantes.map(v => Number(v.precio)));
+  }
 
   /** Sección visible en la tira de categorías. Solo resalta; no filtra el contenido. */
   readonly seccionActiva = signal<string | null>(null);

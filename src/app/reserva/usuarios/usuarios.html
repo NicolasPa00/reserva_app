@@ -271,6 +271,19 @@
           </button>
         </div>
       </div>
+
+      <!-- Dictar los dos campos uno a uno funciona, pero en el móvil lo natural es
+           mandar el mensaje entero por WhatsApp. Esto lo compone y abre el menú de
+           compartir; en escritorio, donde casi ningún navegador lo trae, lo copia. -->
+      <button type="button" class="btn btn-primary cred__enviar"
+              [disabled]="enviandoInvitacion()"
+              (click)="compartirInvitacion()">
+        <lucide-icon name="send" [size]="15" />
+        {{ enviandoInvitacion() ? 'Abriendo…' : 'Enviar invitación de bienvenida' }}
+      </button>
+      <p class="cred__nota">
+        Incluye el saludo, sus datos de acceso y el enlace para entrar.
+      </p>
     </div>
   } @else {
     <div class="form">

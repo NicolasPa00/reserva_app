@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal, viewChild } from '@angular/core';
 import { CommonModule, DatePipe, DecimalPipe } from '@angular/common';
 import { Router } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
@@ -7,12 +7,13 @@ import { environment } from '../../../environments/environment';
 import { AuthService } from '../../core/services/auth.service';
 import { ReservaApiService } from '../../core/services/reserva-api.service';
 import { EventBusService } from '../../core/services/event-bus.service';
-import { Cita, CitaResumen, EstadoCita, ResumenDashboard } from '../../core/models';
+import { Cita, CitaResumen, EstadoCita, MotivoSinJornada, ResumenDashboard } from '../../core/models';
 import { CitaFormComponent } from '../citas/cita-form/cita-form';
 import { ESTADO_LABELS, badgeEstado } from '../../shared/cita-detalle/cita-detalle';
 import { colorDeEntidad } from '../../core/utils/color-entidad';
 import { MonedaPipe } from '../../shared/moneda.pipe';
 import { MonedaService } from '../../core/services/moneda.service';
+import { ResumenEstanciasComponent } from '../estancias/resumen-dia/resumen-dia';
 
 interface Kpi {
   label: string;
@@ -39,7 +40,10 @@ interface Kpi {
 @Component({
   selector: 'reserva-dashboard',
   standalone: true,
-  imports: [CommonModule, LucideAngularModule, MonedaPipe, DecimalPipe, DatePipe, CitaFormComponent],
+  imports: [
+    CommonModule, LucideAngularModule, MonedaPipe, DecimalPipe, DatePipe, CitaFormComponent,
+    ResumenEstanciasComponent,
+  ],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -52,6 +56,8 @@ export class DashboardComponent implements OnInit {
   private readonly router = inject(Router);
 
   readonly resumen = signal<ResumenDashboard | null>(null);
+  /** Llegadas, salidas y ocupación: solo en negocios que venden noches. */
+  private readonly resumenEstancias = viewChild(ResumenEstanciasComponent);
   readonly cargando = signal(false);
   readonly error = signal<string | null>(null);
   readonly modalNuevaCita = signal(false);
@@ -157,7 +163,7 @@ export class DashboardComponent implements OnInit {
         label: 'Ocupación',
         valor: ocup.porcentaje == null ? '—' : `${ocup.porcentaje}%`,
         detalle: ocup.porcentaje == null
-          ? 'Falta configurar horarios'
+          ? this.detalleSinJornada(ocup.motivo)
           : `${this.formatoHoras(ocup.minutos_ocupados)} de ${this.formatoHoras(ocup.minutos_disponibles)}`,
         icon: 'gauge',
         tono: 'neutro',
@@ -173,6 +179,16 @@ export class DashboardComponent implements OnInit {
       },
     ];
   });
+
+  /** La misma verdad que `sinJornada`, en las tres palabras que caben en la tarjeta. */
+  private detalleSinJornada(motivo: MotivoSinJornada | null | undefined): string {
+    switch (motivo) {
+      case 'SIN_PROFESIONALES': return `Sin ${this.auth.termino('profesionales', true)}`;
+      case 'CERRADO_HOY': return 'Hoy no se abre';
+      case 'JORNADA_BLOQUEADA': return 'Día bloqueado';
+      default: return 'Falta configurar horarios';
+    }
+  }
 
   /** Barra de ocupación: se corta en 100 aunque el solape puntual la pase. */
   readonly ocupacionPct = computed(() => this.resumen()?.ocupacion_hoy.porcentaje ?? 0);
@@ -205,19 +221,51 @@ export class DashboardComponent implements OnInit {
         ruta: '/agenda', icon: 'clock', urgente: false,
       });
     }
-    if (r.ocupacion_hoy.porcentaje == null) {
+    // Solo lo que el dueño tiene que arreglar. Que hoy sea domingo y se cierre los domingos no
+    // es una tarea pendiente: antes salía como «aún no has definido el horario» y mandaba a
+    // Horarios a mirar un horario que estaba perfecto.
+    if (r.ocupacion_hoy.porcentaje == null && r.ocupacion_hoy.motivo === 'SIN_HORARIO') {
       out.push({
-        texto: 'Aún no has definido el horario de atención',
+        texto: `Define el horario de atención de ${this.auth.negocio()?.nombre || 'tu negocio'}`,
         ruta: '/horarios', icon: 'calendar-cog', urgente: true,
       });
     }
     if (r.total_profesionales === 0) {
-      out.push({ texto: 'Registra a tu primer profesional', ruta: '/profesionales', icon: 'users', urgente: true });
+      out.push({
+        texto: `Registra a tu primer ${this.auth.termino('profesional', true)}`,
+        ruta: '/profesionales', icon: 'users', urgente: true,
+      });
     }
     if (r.total_servicios === 0) {
-      out.push({ texto: 'Crea tu primer servicio', ruta: '/servicios', icon: 'scissors', urgente: true });
+      out.push({
+        texto: `Crea tu primer ${this.auth.termino('servicio', true)}`,
+        ruta: '/servicios', icon: 'scissors', urgente: true,
+      });
     }
     return out;
+  });
+
+  /**
+   * Qué decir en «Ocupación del día» cuando no hay jornada. Cada motivo lleva al sitio donde se
+   * resuelve —y el domingo cerrado no lleva a ninguno, porque no hay nada que resolver.
+   */
+  readonly sinJornada = computed(() => {
+    const r = this.resumen();
+    if (!r || r.ocupacion_hoy.porcentaje != null) return null;
+    const pro = this.auth.termino('profesionales', true);
+    switch (r.ocupacion_hoy.motivo) {
+      case 'SIN_PROFESIONALES':
+        return { texto: `Todavía no hay ${pro} registrados, así que no hay jornada que vender.`,
+          cta: `Registrar ${pro}`, ruta: '/profesionales' };
+      case 'CERRADO_HOY':
+        return { texto: 'Hoy el negocio no abre según tu horario.', cta: 'Ver horarios', ruta: '/horarios' };
+      case 'JORNADA_BLOQUEADA':
+        return { texto: 'Hoy está bloqueado por completo (vacaciones, festivo o un bloqueo puntual).',
+          cta: 'Ver bloqueos', ruta: '/horarios' };
+      default:
+        return { texto: 'Sin horario de atención definido no se puede calcular la ocupación.',
+          cta: 'Configurar horarios', ruta: '/horarios' };
+    }
   });
 
   ngOnInit(): void {
@@ -231,6 +279,9 @@ export class DashboardComponent implements OnInit {
   cargar() {
     const idNegocio = this.idNegocio();
     if (!idNegocio) return;
+    this.resumenEstancias()?.cargar();
+    // Un alojamiento puro no agenda citas: su resumen de citas estaría siempre en cero.
+    if (!this.auth.usaCitas()) return;
     this.cargando.set(true);
     this.error.set(null);
     this.api.getResumen(idNegocio).subscribe({

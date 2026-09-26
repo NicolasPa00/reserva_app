@@ -22,6 +22,13 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./reserva/publico/servicio/servicio').then(m => m.PublicoServicioComponent),
       },
+      {
+        // Alojamiento / hotel de mascotas: reservar un tipo de unidad por noches.
+        path: 'estadia/:id_unidad_tipo',
+        title: 'Reservar estadía',
+        loadComponent: () =>
+          import('./reserva/publico/estadia/estadia').then(m => m.PublicoEstadiaComponent),
+      },
       // Enlaces antiguos a `/reservar`: al catálogo, que es donde empieza la reserva ahora.
       { path: 'reservar', redirectTo: '', pathMatch: 'full' },
       {
@@ -118,6 +125,44 @@ export const routes: Routes = [
         canActivate: [planGuard],
         loadComponent: () =>
           import('./reserva/informes/informes').then(m => m.InformesComponent),
+      },
+      // ── Vistas de los perfiles de rubro (docs/perfiles-de-reserva.md) ──
+      // Solo las ve el negocio cuyo perfil las usa: el backend las quita de los permisos y
+      // `canAccessRoute` las filtra también para sesiones guardadas antes de los perfiles.
+      {
+        path: 'mascotas',
+        title: 'Mascotas',
+        canActivate: [planGuard],
+        loadComponent: () =>
+          import('./reserva/mascotas/mascotas').then(m => m.MascotasComponent),
+      },
+      {
+        path: 'recursos',
+        title: 'Cabinas y equipos',
+        canActivate: [planGuard],
+        loadComponent: () =>
+          import('./reserva/recursos/recursos').then(m => m.RecursosComponent),
+      },
+      {
+        path: 'ocupacion',
+        title: 'Ocupación',
+        canActivate: [planGuard],
+        loadComponent: () =>
+          import('./reserva/estancias/ocupacion/ocupacion').then(m => m.OcupacionComponent),
+      },
+      {
+        path: 'estancias',
+        title: 'Estancias',
+        canActivate: [planGuard],
+        loadComponent: () =>
+          import('./reserva/estancias/lista/estancias').then(m => m.EstanciasComponent),
+      },
+      {
+        path: 'unidades',
+        title: 'Unidades',
+        canActivate: [planGuard],
+        loadComponent: () =>
+          import('./reserva/estancias/unidades/unidades').then(m => m.UnidadesComponent),
       },
       {
         path: 'configuracion',

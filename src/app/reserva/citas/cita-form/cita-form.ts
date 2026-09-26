@@ -9,7 +9,12 @@ import { forkJoin } from 'rxjs';
 import { ReservaApiService } from '../../../core/services/reserva-api.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { EventBusService } from '../../../core/services/event-bus.service';
-import { Cita, ClienteNegocio, DiaDisponible, Profesional, Servicio, Slot } from '../../../core/models';
+import {
+  Cita, ClienteNegocio, DiaDisponible, ESPECIES, Mascota, Profesional, Servicio, Slot, TAMANOS,
+} from '../../../core/models';
+import { AuthService } from '../../../core/services/auth.service';
+import { PerfilApiService } from '../../../core/services/perfil-api.service';
+import { TerminoPipe } from '../../../shared/termino.pipe';
 import { aHora12, fechaBogota, horaBogota, rangoHora12 } from '../../../core/utils/hora';
 import { ModalComponent } from '../../../shared/modal/modal';
 import { MonedaPipe } from '../../../shared/moneda.pipe';
@@ -65,7 +70,7 @@ interface DiaChip extends DiaDisponible {
 @Component({
   selector: 'reserva-cita-form',
   standalone: true,
-  imports: [CommonModule, LucideAngularModule, MonedaPipe, ModalComponent],
+  imports: [CommonModule, LucideAngularModule, MonedaPipe, ModalComponent, TerminoPipe],
   templateUrl: './cita-form.html',
   styleUrl: './cita-form.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -100,6 +105,28 @@ export class CitaFormComponent implements OnInit, OnChanges {
   private readonly api = inject(ReservaApiService);
   private readonly toast = inject(ToastService);
   private readonly bus = inject(EventBusService);
+  private readonly auth = inject(AuthService);
+  private readonly perfilApi = inject(PerfilApiService);
+
+  // ── Perfil del rubro ──
+  //
+  // Variante por servicio (largo, tamaño, zona), precio acordado en los servicios «a cotizar»
+  // y la mascota. Todo aparece solo con su función encendida: en una barbería el formulario es
+  // el de siempre y la duración es la suma de las de lista.
+  readonly conVariantes = computed(() => this.auth.tieneFuncion('variantes'));
+  readonly conCotizar = computed(() => this.auth.tieneFuncion('a_cotizar'));
+  readonly conMascotas = computed(() => this.auth.tieneFuncion('mascotas'));
+  readonly especies = ESPECIES;
+  readonly tamanos = TAMANOS;
+
+  /** Variante elegida por servicio: `{ [id_servicio]: id_variante }`. */
+  readonly variantesElegidas = signal<Record<number, number>>({});
+  /** Precio y duración acordados de los servicios a cotizar. */
+  readonly ajustes = signal<Record<number, { precio: number | null; duracion_min: number | null }>>({});
+
+  readonly mascotasCliente = signal<Mascota[]>([]);
+  readonly idMascota = signal<string | null>(null);
+  readonly mascotaNueva = signal({ nombre: '', especie: 'PERRO', tamano: '', raza: '' });
 
   readonly abierto = signal(false);
 
@@ -148,6 +175,16 @@ export class CitaFormComponent implements OnInit, OnChanges {
   private ultimaClaveSlots = '';
   private ultimaClaveDias = '';
 
+  /**
+   * La hora que el usuario eligió, al margen de la lista que haya cargada.
+   *
+   * Cambiar de profesional recarga los huecos, y hasta que llegan la selección no existe. Sin
+   * recordarla aquí, cada cambio devolvía el formulario a cero y había que volver a elegir día
+   * y hora que seguían estando libres. Se conserva mientras el nuevo profesional la tenga; si
+   * no la tiene, se suelta (ahí sí no hay nada que respetar).
+   */
+  private horaDeseada: string | null = null;
+
   readonly serviciosOfrecidos = computed<Servicio[]>(() => {
     const id = this.idProfesional();
     if (!id) return this.servicios();
@@ -157,19 +194,54 @@ export class CitaFormComponent implements OnInit, OnChanges {
     return this.servicios().filter(s => set.has(s.id_servicio));
   });
 
-  readonly duracionTotal = computed<number>(() => {
-    const set = this.idServicios();
-    return this.servicios().reduce(
-      (acc, s) => set.has(s.id_servicio) ? acc + s.duracion_min : acc, 0,
-    );
+  /** Los servicios marcados, en el orden en que se marcaron (decide dónde cae una espera). */
+  readonly serviciosElegidos = computed<Servicio[]>(() => {
+    const porId = new Map(this.servicios().map(s => [s.id_servicio, s]));
+    return Array.from(this.idServicios()).map(id => porId.get(id)).filter((s): s is Servicio => !!s);
   });
 
-  readonly montoTotal = computed<number>(() => {
-    const set = this.idServicios();
-    return this.servicios().reduce(
-      (acc, s) => set.has(s.id_servicio) ? acc + Number(s.precio) : acc, 0,
-    );
+  /** Duración y precio de un servicio con su variante o su cotización: lo que el backend cobrará. */
+  efectivo(s: Servicio): { duracion: number; precio: number } {
+    let duracion = s.duracion_min;
+    let precio = Number(s.precio);
+    const idVar = this.variantesElegidas()[s.id_servicio];
+    const v = this.conVariantes() && idVar ? s.variantes?.find(x => x.id_variante === idVar) : null;
+    if (v) { duracion = v.duracion_min; precio = Number(v.precio); }
+    const a = this.conCotizar() && s.a_cotizar ? this.ajustes()[s.id_servicio] : null;
+    if (a?.duracion_min) duracion = a.duracion_min;
+    if (a?.precio != null) precio = a.precio;
+    return { duracion, precio };
+  }
+
+  readonly duracionTotal = computed<number>(() =>
+    this.serviciosElegidos().reduce((acc, s) => acc + this.efectivo(s).duracion, 0));
+
+  readonly montoTotal = computed<number>(() =>
+    this.serviciosElegidos().reduce((acc, s) => acc + this.efectivo(s).precio, 0));
+
+  /** Lo que viaja al backend: solo de servicios marcados y con la función encendida. */
+  readonly variantesPayload = computed<Record<number, number> | null>(() => {
+    if (!this.conVariantes()) return null;
+    const salida: Record<number, number> = {};
+    for (const s of this.serviciosElegidos()) {
+      const v = this.variantesElegidas()[s.id_servicio];
+      if (v && s.variantes?.some(x => x.id_variante === v)) salida[s.id_servicio] = v;
+    }
+    return Object.keys(salida).length ? salida : null;
   });
+
+  readonly ajustesPayload = computed(() => {
+    if (!this.conCotizar()) return null;
+    const lista = this.serviciosElegidos()
+      .filter(s => s.a_cotizar && this.ajustes()[s.id_servicio])
+      .map(s => ({ id_servicio: s.id_servicio, ...this.ajustes()[s.id_servicio] }))
+      .filter(a => a.precio != null || a.duracion_min != null);
+    return lista.length ? lista : null;
+  });
+
+  /** Con la función de mascotas, la cita necesita una: elegida o descrita. */
+  readonly mascotaLista = computed(() =>
+    !this.conMascotas() || this.modoEdicion() || !!this.idMascota() || !!this.mascotaNueva().nombre.trim());
 
   readonly diasChips = computed<DiaChip[]>(() => {
     const hoy = this.hoyISO();
@@ -208,7 +280,8 @@ export class CitaFormComponent implements OnInit, OnChanges {
   readonly listoParaGuardar = computed(() =>
     this.listoParaSlots()
     && !!this.slotElegido()
-    && (this.modoEdicion() || !!this.cliente().nombre.trim()),
+    && (this.modoEdicion() || !!this.cliente().nombre.trim())
+    && this.mascotaLista(),
   );
 
   /**
@@ -249,7 +322,9 @@ export class CitaFormComponent implements OnInit, OnChanges {
     effect(() => {
       if (!this.abierto()) return;
       const ids = Array.from(this.idServicios()).sort().join(',');
-      const clave = `${this.idProfesional()}|${ids}|${this.fecha()}`;
+      // La variante y la duración acordada cambian qué horas caben: son parte de la clave.
+      const perfil = JSON.stringify([this.variantesPayload(), this.ajustesPayload()]);
+      const clave = `${this.idProfesional()}|${ids}|${this.fecha()}|${perfil}`;
       if (!this.listoParaSlots()) { this.ultimaClaveSlots = ''; this.slots.set([]); return; }
       if (clave === this.ultimaClaveSlots) return;
       this.ultimaClaveSlots = clave;
@@ -308,16 +383,33 @@ export class CitaFormComponent implements OnInit, OnChanges {
     // al primer día abierto cuando el elegido no está en la lista— la movía sola: editar una
     // cita de la semana pasada mostraba la fecha de hoy, no la suya.
     this.ventanaInicio.set(fechaCita);
-    this.slotElegido.set(horaBogota(cita.fecha_hora_inicio));
+    this.horaDeseada = horaBogota(cita.fecha_hora_inicio);
+    this.slotElegido.set(this.horaDeseada);
     this.cliente.set({
       nombre: cita.cliente_nombre || '',
       telefono: cita.cliente_telefono || '',
       email: cita.cliente_email || '',
       notas: cita.notas || '',
     });
+
+    // Lo que la cita ya tiene de su perfil: la variante de cada servicio, lo acordado en los
+    // servicios a cotizar y la mascota. Sin esto, editar la devolvería a los precios de lista.
+    const variantes: Record<number, number> = {};
+    const ajustes: Record<number, { precio: number | null; duracion_min: number | null }> = {};
+    for (const l of cita.servicios || []) {
+      if (l.id_variante) variantes[l.id_servicio] = l.id_variante;
+      if (l.servicio?.a_cotizar) {
+        ajustes[l.id_servicio] = { precio: Number(l.precio_snapshot), duracion_min: l.duracion_snapshot_min };
+      }
+    }
+    this.variantesElegidas.set(variantes);
+    this.ajustes.set(ajustes);
+    this.idMascota.set(cita.id_mascota ?? null);
+    if (this.conMascotas() && cita.id_persona_negocio) this.cargarMascotas(cita.id_persona_negocio);
   }
 
   private limpiarCampos() {
+    this.horaDeseada = null;
     this.idProfesional.set(null);
     this.idServicios.set(new Set());
     this.fecha.set(this.hoyISO());
@@ -329,6 +421,11 @@ export class CitaFormComponent implements OnInit, OnChanges {
     // sobre un formulario vacío.
     this.clienteConocido.set(null);
     if (this.buscaCliente) { clearTimeout(this.buscaCliente); this.buscaCliente = null; }
+    this.variantesElegidas.set({});
+    this.ajustes.set({});
+    this.mascotasCliente.set([]);
+    this.idMascota.set(null);
+    this.mascotaNueva.set({ nombre: '', especie: 'PERRO', tamano: '', raza: '' });
   }
 
   /** Sin negocio no hay catálogo que pedir; se reintenta cuando `idNegocio` llega. */
@@ -387,8 +484,9 @@ export class CitaFormComponent implements OnInit, OnChanges {
 
   private cargarSlots() {
     this.buscandoSlots.set(true);
-    // Al editar se conserva la hora actual como preselección mientras llega la lista.
-    const horaPrevia = this.modoEdicion() ? this.slotElegido() : null;
+    // La hora que el usuario ya había elegido —aquí o en la cita que se edita— se recupera si
+    // el nuevo profesional (o el nuevo servicio) la tiene libre.
+    const horaPrevia = this.horaDeseada ?? this.slotElegido();
     // La hora que la cita YA ocupa se acepta aunque la lista la marque no disponible: para una
     // cita pasada todos sus slots incumplen la anticipación mínima, y descartarla dejaría el
     // formulario sin la hora guardada, que es justo lo que se viene a consultar.
@@ -403,6 +501,8 @@ export class CitaFormComponent implements OnInit, OnChanges {
       fecha:         this.fecha(),
       // La cita que se edita no se estorba a sí misma.
       excluirCita:   this.citaSig()?.id_cita ?? null,
+      variantes:     this.variantesPayload(),
+      ajustes:       this.ajustesPayload(),
     }).subscribe({
       next: r => {
         const slots = r?.data?.slots ?? [];
@@ -424,10 +524,35 @@ export class CitaFormComponent implements OnInit, OnChanges {
     });
   }
 
+  /**
+   * Cambiar de profesional **no** borra lo demás.
+   *
+   * Antes sí: al cambiar de estilista se perdían los servicios y el día y la hora, aunque la
+   * otra persona los ofreciera a la misma hora. Ahora solo se sueltan los servicios que el
+   * nuevo profesional no presta —esos no puede heredarlos— y se avisa de cuáles fueron. El día
+   * se conserva siempre; la hora la reconfirma `cargarSlots` contra la agenda real del nuevo,
+   * que es quien sabe si sigue libre.
+   */
   setProfesional(idRaw: string) {
     const id = idRaw === '' ? null : Number(idRaw);
     this.idProfesional.set(id);
-    this.idServicios.set(new Set());
+
+    const ofrecidos = new Set(this.serviciosOfrecidos().map(s => s.id_servicio));
+    const previos = Array.from(this.idServicios());
+    const siguen = previos.filter(x => ofrecidos.has(x));
+
+    if (siguen.length !== previos.length) {
+      const nombres = this.servicios()
+        .filter(s => previos.includes(s.id_servicio) && !ofrecidos.has(s.id_servicio))
+        .map(s => s.nombre);
+      this.toast.warning(
+        `${nombres.join(', ')}: no lo ofrece ${this.auth.termino('profesional', true)} que elegiste.`,
+      );
+    }
+    this.idServicios.set(new Set(siguen));
+
+    // Los huecos se recalculan solos (el efecto ve el cambio de profesional). Se vacía la lista
+    // para no enseñar un instante los del anterior, pero la hora deseada sigue viva.
     this.slots.set([]);
     this.slotElegido.set(null);
   }
@@ -439,6 +564,67 @@ export class CitaFormComponent implements OnInit, OnChanges {
       return next;
     });
     this.slotElegido.set(null);
+    this.aplicarTamanoMascota();
+  }
+
+  elegirVariante(idServicio: number, idVarianteRaw: string) {
+    this.variantesElegidas.update(v => {
+      const next = { ...v };
+      if (idVarianteRaw) next[idServicio] = Number(idVarianteRaw); else delete next[idServicio];
+      return next;
+    });
+    this.slotElegido.set(null);
+  }
+
+  ajustar(idServicio: number, campo: 'precio' | 'duracion_min', valor: string) {
+    this.ajustes.update(a => {
+      const actual = a[idServicio] ?? { precio: null, duracion_min: null };
+      const n = valor === '' ? null : Number(valor);
+      return { ...a, [idServicio]: { ...actual, [campo]: Number.isFinite(n as number) ? n : null } };
+    });
+    this.slotElegido.set(null);
+  }
+
+  // ── Mascotas ──
+  private cargarMascotas(idPersona: string) {
+    this.perfilApi.mascotasDeCliente(this.idNegocio, idPersona).subscribe({
+      next: r => {
+        const lista = r?.success && r.data ? r.data : [];
+        this.mascotasCliente.set(lista);
+        // Con una sola mascota no hay nada que preguntar.
+        if (!this.idMascota() && lista.length === 1) this.elegirMascota(lista[0]);
+      },
+      error: () => this.mascotasCliente.set([]),
+    });
+  }
+
+  elegirMascota(m: Mascota | null) {
+    this.idMascota.set(m?.id_mascota ?? null);
+    this.aplicarTamanoMascota();
+  }
+
+  setMascotaNueva(campo: 'nombre' | 'especie' | 'tamano' | 'raza', valor: string) {
+    this.mascotaNueva.update(m => ({ ...m, [campo]: valor }));
+    if (campo === 'tamano') this.aplicarTamanoMascota();
+  }
+
+  /**
+   * El tamaño de la mascota elige la variante de cada servicio que tenga una con esa clave: el
+   * baño de un perro grande cuesta y dura lo del grande, sin que recepción lo adivine.
+   */
+  private aplicarTamanoMascota() {
+    if (!this.conMascotas() || !this.conVariantes()) return;
+    const elegida = this.mascotasCliente().find(m => m.id_mascota === this.idMascota());
+    const tamano = elegida?.tamano || this.mascotaNueva().tamano;
+    if (!tamano) return;
+    this.variantesElegidas.update(v => {
+      const next = { ...v };
+      for (const s of this.serviciosElegidos()) {
+        const coincide = s.variantes?.find(x => x.clave === tamano);
+        if (coincide?.id_variante) next[s.id_servicio] = coincide.id_variante;
+      }
+      return next;
+    });
   }
 
   elegirDia(d: DiaDisponible) {
@@ -455,6 +641,7 @@ export class CitaFormComponent implements OnInit, OnChanges {
 
   elegirSlot(s: Slot) {
     if (!s.disponible) return;
+    this.horaDeseada = s.hora;
     this.slotElegido.set(s.hora);
   }
 
@@ -489,7 +676,8 @@ export class CitaFormComponent implements OnInit, OnChanges {
         next: (r) => {
           const encontrado = r?.data ?? null;
           this.clienteConocido.set(encontrado);
-          if (!encontrado) return;
+          if (!encontrado) { this.mascotasCliente.set([]); this.idMascota.set(null); return; }
+          if (this.conMascotas()) this.cargarMascotas(encontrado.id_persona_negocio);
           this.cliente.update(c => ({
             ...c,
             nombre: c.nombre.trim() ? c.nombre : (encontrado.nombre ?? ''),
@@ -547,11 +735,14 @@ export class CitaFormComponent implements OnInit, OnChanges {
       id_servicios:      Array.from(this.idServicios()),
       id_profesional:    this.idProfesional(),
       fecha_hora_inicio: fechaHora,
+      variantes:         this.variantesPayload(),
+      ajustes:           this.ajustesPayload(),
+      ...(this.conMascotas() && this.idMascota() ? { id_mascota: this.idMascota() } : {}),
     }).subscribe({
       next: r => {
         this.enviando.set(false);
         if (r?.success) {
-          this.toast.success('Cita actualizada');
+          this.toast.success(`${this.auth.termino('cita')} actualizada`);
           this.bus.publish('cita_actualizada', r.data);
           this.saved.emit();
           this.cerrar();
@@ -583,11 +774,14 @@ export class CitaFormComponent implements OnInit, OnChanges {
       cliente_telefono:  c.telefono?.trim() || null,
       cliente_email:     c.email?.trim() || null,
       notas:             c.notas?.trim() || null,
+      variantes:         this.variantesPayload(),
+      ajustes:           this.ajustesPayload(),
+      ...(this.conMascotas() ? this.payloadMascota() : {}),
     }).subscribe({
       next: r => {
         this.enviando.set(false);
         if (r?.success) {
-          this.toast.success('Cita creada');
+          this.toast.success(`${this.auth.termino('cita')} creada`);
           this.bus.publish('cita_creada', r.data);
           this.saved.emit();
           this.cerrar();
@@ -605,6 +799,19 @@ export class CitaFormComponent implements OnInit, OnChanges {
         if (this.listoParaSlots()) this.cargarSlots();
       },
     });
+  }
+
+  private payloadMascota(): { id_mascota?: string; mascota?: { nombre: string; especie?: string; raza?: string; tamano?: string } } {
+    if (this.idMascota()) return { id_mascota: this.idMascota()! };
+    const m = this.mascotaNueva();
+    return {
+      mascota: {
+        nombre: m.nombre.trim(),
+        especie: m.especie || undefined,
+        raza: m.raza.trim() || undefined,
+        tamano: m.tamano || undefined,
+      },
+    };
   }
 
   cerrar() {

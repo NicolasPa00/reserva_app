@@ -34,6 +34,9 @@ export class ThemeService {
   private readonly document = inject(DOCUMENT);
   private readonly platformId = inject(PLATFORM_ID);
 
+  /** Luminancia máxima que deja leer texto blanco encima con 4.5:1, el mínimo de WCAG AA. */
+  private static readonly LUM_MAX_PARA_BLANCO = 0.183;
+
   /** Identidad por defecto de EscalApp, para poder volver atrás. */
   private static readonly POR_DEFECTO: ColoresNegocio = {
     primario: '#312E81',
@@ -57,12 +60,20 @@ export class ThemeService {
     if (!isPlatformBrowser(this.platformId)) return;
 
     const elegido = this.resolver(colores, paleta);
-    const primario = this.normalizar(elegido.primario) ?? ThemeService.POR_DEFECTO.primario;
-    const acento = this.normalizar(elegido.acento) ?? primario;
+    const marca = this.normalizar(elegido.primario) ?? ThemeService.POR_DEFECTO.primario;
+    const marcaAcento = this.normalizar(elegido.acento) ?? marca;
+
+    // El color tal cual lo eligió el dueño (para muestras de identidad) y el que de verdad pinta
+    // la interfaz, que es el mismo tono llevado hasta donde el blanco encima se lee. Ver
+    // `oscurecerHastaLegible`.
+    const primario = this.oscurecerHastaLegible(marca);
+    const acento = this.oscurecerHastaLegible(marcaAcento);
 
     const root = this.document.documentElement;
     const set = (nombre: string, valor: string) => root.style.setProperty(nombre, valor);
 
+    set('--color-brand', marca);
+    set('--color-brand-accent', marcaAcento);
     set('--color-primary', primario);
     set('--color-primary-hover', this.aclarar(primario, 0.18));
     set('--color-primary-light', this.mezclarConBlanco(primario, 0.38));
@@ -133,15 +144,40 @@ export class ThemeService {
    * Blanco o casi negro, el que más contraste dé sobre el color.
    *
    * Luminancia relativa de WCAG: linealiza cada canal y los pondera según la sensibilidad del
-   * ojo (el verde pesa el 71 %). El umbral de 0.45 se queda un poco por encima del 0.5 teórico
-   * porque el texto blanco sobre un color medio se lee peor de lo que la fórmula sugiere.
+   * ojo (el verde pesa el 71 %). Tras `oscurecerHastaLegible` el primario siempre cae del lado
+   * del blanco; esto sigue aquí para colores que no pasan por ahí.
    */
   private contraste(hex: string): string {
+    return this.luminancia(hex) > ThemeService.LUM_MAX_PARA_BLANCO ? '#0f0a2a' : '#ffffff';
+  }
+
+  private luminancia(hex: string): number {
     const [r, g, b] = this.aRgb(hex).map(v => {
       const s = v / 255;
       return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
     });
-    const luminancia = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-    return luminancia > 0.45 ? '#0f0a2a' : '#ffffff';
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  }
+
+  /**
+   * El mismo tono, oscurecido hasta que el blanco encima se lee (4.5:1 de WCAG).
+   *
+   * Un inquilino elige su color para su logo, no para una interfaz, y los pasteles de moda
+   * —salmón, beige, menta— fallan dos veces: el texto encima no se lee, y ese mismo color como
+   * icono o enlace **sobre blanco** tampoco. Antes se resolvía cambiando el texto a casi negro,
+   * y el resultado era una barra salmón con letra negra que parecía un error de maquetación.
+   *
+   * Así que se conserva el tono y se baja el brillo lo justo. El color elegido sigue intacto en
+   * `--color-brand`, que es lo que pintan las muestras de identidad: el dueño ve su color donde
+   * dice «tu color», y la interfaz usa la versión con la que se puede trabajar.
+   */
+  private oscurecerHastaLegible(hex: string): string {
+    let actual = hex;
+    // 40 pasos del 6 % llegan desde el blanco puro hasta casi negro; el `break` corta antes.
+    for (let i = 0; i < 40 && this.luminancia(actual) > ThemeService.LUM_MAX_PARA_BLANCO; i += 1) {
+      const [r, g, b] = this.aRgb(actual);
+      actual = this.aHex(r * 0.94, g * 0.94, b * 0.94);
+    }
+    return actual;
   }
 }

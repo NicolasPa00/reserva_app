@@ -1,0 +1,192 @@
+<reserva-modal [open]="!!idEstancia" size="lg"
+               [title]="estancia()?.cliente_nombre || 'Estancia'"
+               [subtitle]="estancia() ? (estancia()!.tipo?.nombre + ' · ' + estancia()!.unidad?.nombre) : ''"
+               (close)="cerrar.emit()">
+  @if (cargando() && !estancia()) {
+    <p class="hint">Cargando…</p>
+  } @else if (estancia(); as e) {
+    <div class="ed">
+      <header class="ed__cab">
+        <div class="ed__fechas">
+          <div>
+            <span>Llegada</span>
+            <strong>{{ e.fecha_entrada | date:'EEE d MMM':'UTC':'es-CO' }}</strong>
+          </div>
+          <lucide-icon name="arrow-right" [size]="16" />
+          <div>
+            <span>Salida</span>
+            <strong>{{ e.fecha_salida | date:'EEE d MMM':'UTC':'es-CO' }}</strong>
+          </div>
+          <div class="ed__noches">{{ e.noches }} {{ e.noches === 1 ? 'noche' : 'noches' }} · {{ e.huespedes }} {{ e.huespedes === 1 ? 'huésped' : 'huéspedes' }}</div>
+        </div>
+        <span class="badge" [class]="badge(e.estado)">{{ estados[e.estado] }}</span>
+      </header>
+
+      <dl class="ed__datos">
+        <div><dt>Código</dt><dd class="ed__mono">{{ codigoBonito(e.codigo_publico) }}</dd></div>
+        <div><dt>Teléfono</dt><dd>{{ e.cliente_telefono || '—' }}</dd></div>
+        @if (e.cliente_documento) { <div><dt>Documento</dt><dd>{{ e.cliente_documento }}</dd></div> }
+        @if (e.cliente_email) { <div><dt>Email</dt><dd>{{ e.cliente_email }}</dd></div> }
+        @if (e.mascota) { <div><dt>Mascota</dt><dd>{{ e.mascota.nombre }} <span class="ed__suave">{{ e.mascota.raza || e.mascota.especie }}</span></dd></div> }
+        <div><dt>Origen</dt><dd>{{ e.origen === 'portal' ? 'Página web' : 'Recepción' }}</dd></div>
+      </dl>
+      @if (e.notas) { <p class="ed__notas">{{ e.notas }}</p> }
+
+      <!-- Cuentas: noches, cargos, pagos y saldo -->
+      <section class="ed__cuenta">
+        <ul>
+          @for (n of e.detalle_noches; track n.fecha) {
+            <li><span>Noche del {{ n.fecha | date:'EEE d MMM':'UTC':'es-CO' }}</span><strong>{{ n.precio | moneda }}</strong></li>
+          }
+          @for (c of e.cargos ?? []; track c.id_cargo) {
+            <li class="ed__cargo">
+              <span>{{ c.concepto }}</span>
+              <strong>{{ c.valor | moneda }}</strong>
+              @if (viva() && puedeCheckout()) {
+                <button type="button" class="mini mini--danger" (click)="quitarCargo(c.id_cargo)" title="Quitar"><lucide-icon name="x" [size]="12" /></button>
+              }
+            </li>
+          }
+        </ul>
+        <p class="ed__linea ed__linea--total"><span>Total</span><strong>{{ e.total | moneda }}</strong></p>
+        @for (p of e.pagos ?? []; track p.id_movimiento) {
+          <p class="ed__linea ed__linea--pago">
+            <span>{{ p.tipo === 'EGRESO' ? 'Devolución' : 'Pagado' }} · {{ p.metodo || 'sin forma' }} · {{ p.fecha | date:'d MMM':'':'es-CO' }}</span>
+            <strong>{{ p.tipo === 'EGRESO' ? '+' : '−' }} {{ p.monto | moneda }}</strong>
+          </p>
+        }
+        <p class="ed__linea ed__linea--saldo"><span>Saldo</span><strong>{{ e.saldo | moneda }}</strong></p>
+      </section>
+
+      @if (e.pago_estado === 'pendiente_validacion') {
+        <p class="ed__aviso">
+          <lucide-icon name="receipt" [size]="15" />
+          Anticipo de {{ (e.monto_abono ?? e.monto_total) | moneda }} por validar.
+          <a [href]="urlComprobante()" target="_blank" rel="noopener">Ver comprobante</a>
+        </p>
+      }
+
+      <!-- Paneles de acción -->
+      @switch (panel()) {
+        @case ('pago') {
+          <div class="ed__panel">
+            <h4>Registrar un pago a cuenta</h4>
+            <div class="ed__fila">
+              <select class="select" (change)="pagoMetodo.set(+$any($event.target).value)">
+                @for (m of metodos(); track m.id_metodo_pago) { <option [value]="m.id_metodo_pago" [selected]="pagoMetodo() === m.id_metodo_pago">{{ m.nombre }}</option> }
+              </select>
+              <input class="input" type="number" min="1" [value]="pagoValor() ?? ''" (input)="pagoValor.set(+$any($event.target).value)" />
+              <button type="button" class="btn btn-primary" (click)="registrarPago()" [disabled]="ocupado()">Registrar</button>
+            </div>
+          </div>
+        }
+        @case ('cargo') {
+          <div class="ed__panel">
+            <h4>Agregar un cargo</h4>
+            <div class="ed__fila">
+              <input class="input" type="text" maxlength="150" placeholder="Concepto (minibar, lavandería…)"
+                     [value]="cargo().concepto" (input)="cargo.set({ concepto: $any($event.target).value, valor: cargo().valor })" />
+              <input class="input" type="number" min="1" placeholder="Valor"
+                     [value]="cargo().valor ?? ''" (input)="cargo.set({ concepto: cargo().concepto, valor: +$any($event.target).value })" />
+              <button type="button" class="btn btn-primary" (click)="agregarCargo()" [disabled]="ocupado()">Agregar</button>
+            </div>
+          </div>
+        }
+        @case ('checkout') {
+          <div class="ed__panel">
+            <h4>Salida</h4>
+            @if ((e.saldo ?? 0) > 0) {
+              <p class="hint">Cobra el saldo para cerrar la estancia.</p>
+              <reserva-multipago-selector [metodos]="metodos()" [total]="e.saldo ?? 0"
+                                          [permiteMultipago]="permiteMultipago()" [disabled]="ocupado()"
+                                          (seleccionChange)="seleccion.set($event)" />
+            } @else {
+              <p class="hint">No hay saldo pendiente.</p>
+            }
+            <div class="ed__fila ed__fila--fin">
+              <button type="button" class="btn btn-primary" (click)="checkout()" [disabled]="ocupado()">
+                <lucide-icon name="log-out" [size]="14" /> Registrar salida
+              </button>
+            </div>
+          </div>
+        }
+        @case ('aprobar') {
+          <div class="ed__panel">
+            <h4>Validar anticipo</h4>
+            <div class="ed__fila">
+              <select class="select" (change)="pagoMetodo.set(+$any($event.target).value)">
+                @for (m of metodos(); track m.id_metodo_pago) { <option [value]="m.id_metodo_pago" [selected]="pagoMetodo() === m.id_metodo_pago">{{ m.nombre }}</option> }
+              </select>
+              <button type="button" class="btn btn-primary" (click)="aprobar()" [disabled]="ocupado()">Aprobar</button>
+            </div>
+            <div class="ed__fila">
+              <input class="input" type="text" placeholder="Motivo si lo rechazas" [value]="motivo()" (input)="motivo.set($any($event.target).value)" />
+              <button type="button" class="btn btn-danger" (click)="rechazar()" [disabled]="ocupado()">Rechazar</button>
+            </div>
+          </div>
+        }
+        @case ('cancelar') {
+          <div class="ed__panel">
+            <h4>Cancelar la estancia</h4>
+            <div class="ed__fila">
+              <input class="input" type="text" placeholder="Motivo (opcional)" [value]="motivo()" (input)="motivo.set($any($event.target).value)" />
+              <button type="button" class="btn btn-danger" (click)="cancelar()" [disabled]="ocupado()">Cancelar estancia</button>
+            </div>
+            @if ((e.pagado ?? 0) > 0) {
+              <p class="hint">Ya pagó {{ e.pagado | moneda }}. Si le devuelves dinero, regístralo después con «Devolver».</p>
+            }
+          </div>
+        }
+        @case ('devolver') {
+          <div class="ed__panel">
+            <h4>Devolver dinero</h4>
+            <div class="ed__fila">
+              <select class="select" (change)="pagoMetodo.set(+$any($event.target).value)">
+                @for (m of metodos(); track m.id_metodo_pago) { <option [value]="m.id_metodo_pago" [selected]="pagoMetodo() === m.id_metodo_pago">{{ m.nombre }}</option> }
+              </select>
+              <input class="input" type="number" min="1" [max]="e.pagado ?? 0" [value]="pagoValor() ?? ''" (input)="pagoValor.set(+$any($event.target).value)" />
+              <button type="button" class="btn btn-danger" (click)="devolver()" [disabled]="ocupado()">Devolver</button>
+            </div>
+          </div>
+        }
+      }
+    </div>
+  }
+
+  <div modal-footer class="ed__pie">
+    @if (estancia(); as e) {
+      @if (viva()) {
+        @if (puedeCancelar() && e.estado !== 'en_curso') {
+          <button type="button" class="btn btn-ghost" (click)="abrirPanel('cancelar')">Cancelar</button>
+        }
+        @if (puedeCheckin() && e.estado !== 'en_curso' && llegaHoyOAntes()) {
+          <button type="button" class="btn btn-ghost" (click)="noShow()" [disabled]="ocupado()">No llegó</button>
+        }
+        @if (puedeValidar() && e.pago_estado === 'pendiente_validacion') {
+          <button type="button" class="btn btn-outline" (click)="abrirPanel('aprobar')">Validar anticipo</button>
+        }
+        @if (puedeCheckout()) {
+          <button type="button" class="btn btn-outline" (click)="abrirPanel('cargo')"><lucide-icon name="plus" [size]="13" /> Cargo</button>
+          <button type="button" class="btn btn-outline" (click)="abrirPanel('pago')"><lucide-icon name="wallet" [size]="13" /> Pago</button>
+        }
+        @if (puedeCrear() && e.estado === 'pendiente') {
+          <button type="button" class="btn btn-outline" (click)="confirmar()" [disabled]="ocupado()">Confirmar</button>
+        }
+        @if (puedeCheckin() && e.estado !== 'en_curso') {
+          <button type="button" class="btn btn-primary" (click)="checkin()" [disabled]="ocupado() || !llegaHoyOAntes()"
+                  [title]="llegaHoyOAntes() ? '' : 'La llegada es a partir de la fecha de entrada'">
+            <lucide-icon name="log-in" [size]="14" /> Llegada
+          </button>
+        }
+        @if (puedeCheckout() && e.estado === 'en_curso') {
+          <button type="button" class="btn btn-primary" (click)="abrirPanel('checkout')">
+            <lucide-icon name="log-out" [size]="14" /> Salida
+          </button>
+        }
+      } @else if (puedeCancelar() && (e.estado === 'cancelada' || e.estado === 'no_show') && (e.pagado ?? 0) > 0) {
+        <button type="button" class="btn btn-outline" (click)="abrirPanel('devolver'); pagoValor.set(e.pagado ?? 0)">Devolver dinero</button>
+      }
+    }
+    <button type="button" class="btn btn-ghost" (click)="cerrar.emit()">Cerrar</button>
+  </div>
+</reserva-modal>

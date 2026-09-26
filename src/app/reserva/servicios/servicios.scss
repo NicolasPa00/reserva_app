@@ -224,3 +224,74 @@
 // Altura fija en los dos botones: sin ella, el icono de uno quedaba a distinta altura que el
 // del otro y la pareja parecía descuadrada.
 
+
+// ── Perfiles de rubro ──
+.arranque {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  border: 1px dashed color-mix(in srgb, var(--color-primary) 40%, transparent);
+  background: color-mix(in srgb, var(--color-primary) 5%, transparent);
+
+  > lucide-icon { color: var(--color-primary); flex-shrink: 0; }
+  &__txt { flex: 1; p { margin: .25rem 0 0; font-size: .85rem; color: var(--color-text-secondary); } }
+
+  @media (max-width: 640px) { flex-direction: column; align-items: flex-start; }
+}
+
+.servicio__marcas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .3rem;
+  margin: .35rem 0 .1rem;
+}
+
+.marca {
+  display: inline-flex;
+  align-items: center;
+  gap: .25rem;
+  padding: .1rem .45rem;
+  border-radius: 999px;
+  font-size: .7rem;
+  background: color-mix(in srgb, var(--color-primary) 9%, transparent);
+  color: var(--color-primary);
+}
+
+.extra {
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: .75rem .9rem .9rem;
+  margin: 0 0 .9rem;
+
+  legend {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    padding: 0 .35rem;
+    font-size: .8rem;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+  }
+
+  &__hint { margin: 0 0 .6rem; font-size: .78rem; color: var(--color-text-muted); }
+
+  .check {
+    display: flex;
+    gap: .5rem;
+    align-items: flex-start;
+    margin-bottom: .6rem;
+    span { display: grid; gap: .1rem; }
+    em { font-style: normal; font-size: .75rem; color: var(--color-text-muted); }
+  }
+}
+
+.variante {
+  display: flex;
+  gap: .4rem;
+  align-items: center;
+  margin-bottom: .45rem;
+
+  .input:first-child { flex: 1; min-width: 0; }
+  &__num { width: 6.5rem; flex-shrink: 0; }
+}

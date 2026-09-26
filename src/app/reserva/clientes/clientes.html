@@ -1,7 +1,7 @@
 <section class="page clientes">
   <header class="page__head">
     <div>
-      <h1>Clientes</h1>
+      <h1>{{ 'clientes' | termino }}</h1>
       <p>
         Quién ha pasado por aquí. Se crean solos al agendar —desde la página pública o desde
         el mostrador— y el teléfono es lo que identifica a cada uno.
@@ -145,7 +145,45 @@
         }
       }
 
-      <h4 class="ficha__sub">Historial de citas</h4>
+      <!-- Mascotas del cliente (perfil mascotas). -->
+      @if (conMascotas()) {
+        <h4 class="ficha__sub">Mascotas</h4>
+        <div class="mascotas">
+          @for (m of mascotas(); track m.id_mascota) {
+            <span class="mascota">
+              <lucide-icon name="paw-print" [size]="13" />
+              <strong>{{ m.nombre }}</strong>
+              <em>{{ m.raza || m.especie }}@if (m.tamano) { · {{ m.tamano | lowercase }} }</em>
+            </span>
+          } @empty {
+            <span class="hint">Sin mascotas registradas.</span>
+          }
+          @if (!nuevaMascota()) {
+            <button type="button" class="btn btn-outline btn-sm" (click)="nuevaMascota.set({ nombre: '', especie: 'PERRO', raza: '', tamano: '' })">
+              <lucide-icon name="plus" [size]="13" /> Agregar
+            </button>
+          }
+        </div>
+        @if (nuevaMascota(); as nm) {
+          <div class="mascota-form">
+            <input class="input" type="text" placeholder="Nombre" maxlength="80" [value]="nm.nombre"
+                   (input)="editarNuevaMascota('nombre', $any($event.target).value)" />
+            <input class="input" type="text" placeholder="Raza" maxlength="80" [value]="nm.raza"
+                   (input)="editarNuevaMascota('raza', $any($event.target).value)" />
+            <select class="input" (change)="editarNuevaMascota('especie', $any($event.target).value)">
+              @for (e of especies; track e.clave) { <option [value]="e.clave" [selected]="nm.especie === e.clave">{{ e.etiqueta }}</option> }
+            </select>
+            <select class="input" (change)="editarNuevaMascota('tamano', $any($event.target).value)">
+              <option value="" [selected]="!nm.tamano">Tamaño…</option>
+              @for (t of tamanos; track t.clave) { <option [value]="t.clave" [selected]="nm.tamano === t.clave">{{ t.etiqueta }}</option> }
+            </select>
+            <button type="button" class="btn btn-ghost" (click)="nuevaMascota.set(null)">Cancelar</button>
+            <button type="button" class="btn btn-primary" (click)="guardarMascota()" [disabled]="!nm.nombre.trim()">Guardar</button>
+          </div>
+        }
+      }
+
+      <h4 class="ficha__sub">Historial de {{ 'citas' | termino:'min' }}</h4>
       @if (cargandoFicha()) {
         <p class="hint">Cargando…</p>
       } @else if (citas().length === 0) {

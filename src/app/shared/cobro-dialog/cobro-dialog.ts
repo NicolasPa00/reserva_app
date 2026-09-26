@@ -34,7 +34,7 @@ import { MonedaPipe } from '../moneda.pipe';
 })
 export class CobroDialogComponent {
   private readonly api = inject(ReservaApiService);
-  private readonly auth = inject(AuthService);
+  readonly auth = inject(AuthService);
   private readonly toast = inject(ToastService);
 
   @Input({ required: true }) idNegocio!: number;
@@ -61,8 +61,23 @@ export class CobroDialogComponent {
 
   readonly total = computed(() => Number(this.citaSig()?.monto_total ?? 0));
 
+  /**
+   * Abono ya recibido (perfiles con depósito). Solo cuenta si el comprobante se aprobó: uno
+   * pendiente o rechazado no es dinero del negocio. Sin abono —el caso de siempre— es 0 y todo
+   * lo de abajo es lo de antes.
+   */
+  readonly abono = computed(() => {
+    const c = this.citaSig();
+    if (!c || c.monto_abono == null || c.pago_estado !== 'aprobado') return 0;
+    return Math.min(Number(c.monto_abono), this.total());
+  });
+  /** Lo que falta por cobrar ahora: el total menos el abono. */
+  readonly aCobrar = computed(() => Math.max(0, this.total() - this.abono()));
+  /** Un abono aprobado con la caja cerrada entra a la caja al completar la cita. */
+  readonly abonoPorAsentar = computed(() => this.abono() > 0 && !this.citaSig()?.id_caja_abono);
+
   /** Una cita de importe cero no necesita forma de pago: no hay nada que cobrar. */
-  readonly requierePago = computed(() => this.total() > 0);
+  readonly requierePago = computed(() => this.aCobrar() > 0);
 
   /**
    * Sin turno abierto no se cobra, y no hay ajuste que lo permita.
@@ -72,7 +87,7 @@ export class CobroDialogComponent {
    * con `CAJA_CERRADA` pase lo que pase; esto es la mitad amable, para que el botón esté apagado
    * antes de intentarlo. Una cita de importe cero no mueve dinero, así que sí se puede completar.
    */
-  readonly bloqueadoPorCaja = computed(() => this.requierePago() && !this.cajaAbierta());
+  readonly bloqueadoPorCaja = computed(() => (this.requierePago() || this.abonoPorAsentar()) && !this.cajaAbierta());
 
   /**
    * ¿Puede ESTE usuario abrir el turno, o tiene que pedírselo a alguien?
@@ -113,7 +128,7 @@ export class CobroDialogComponent {
       next: r => {
         this.enviando.set(false);
         if (r?.success) {
-          this.toast.success('Cita completada y cobrada');
+          this.toast.success(`${this.auth.termino('cita')} completada y cobrada`);
           this.cobrada.emit(r.data as Cita);
           this.cerrar();
         } else {

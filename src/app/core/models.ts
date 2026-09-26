@@ -1,3 +1,9 @@
+import type {
+  FuncionConfig, Mascota, PerfilReserva, PoliticaPago, UnidadTipoPublica, VarianteServicio,
+} from './models-perfil';
+
+export * from './models-perfil';
+
 // ────────────────────── Tipos compartidos ──────────────────────
 export interface ApiResponse<T> {
   success: boolean;
@@ -111,6 +117,10 @@ export interface NegocioReserva {
   permisos_subnivel: PermisoSubnivel[];
   /** Opcional: las sesiones guardadas antes de que el backend lo enviara no lo traen. */
   plan_activo?: boolean;
+  /** Oficio que dijo ser el negocio. Opcional por la misma razón que el plan. */
+  rubro?: { nombre: string; etiqueta: string; icono: string | null } | null;
+  /** Perfil del rubro. Sin él, la app se comporta como siempre (perfil BASE). */
+  perfil?: PerfilReserva | null;
 }
 
 export interface SesionReserva {
@@ -145,6 +155,14 @@ export interface Servicio {
   estado: 'A' | 'I';
   fecha_creacion?: string;
   fecha_actualizacion?: string;
+  // Perfiles de rubro. Con sus valores por defecto, el servicio es el de siempre.
+  proceso_desde_min?: number;
+  proceso_min?: number;
+  a_cotizar?: boolean;
+  requiere_consentimiento?: boolean;
+  id_tipo_recurso?: number | null;
+  tipoRecurso?: { id_tipo_recurso: number; nombre: string } | null;
+  variantes?: VarianteServicio[];
 }
 
 export interface Profesional {
@@ -196,7 +214,9 @@ export interface CitaServicioDetalle {
   id_servicio: number;
   precio_snapshot: number | string;
   duracion_snapshot_min: number;
-  servicio?: { id_servicio: number; nombre: string };
+  id_variante?: number | null;
+  variante_snapshot?: string | null;
+  servicio?: { id_servicio: number; nombre: string; requiere_consentimiento?: boolean; a_cotizar?: boolean };
 }
 
 export interface Cita {
@@ -226,6 +246,16 @@ export interface Cita {
   profesional?: Pick<Profesional, 'id_profesional' | 'nombre' | 'foto_url' | 'color_hex' | 'especialidad'>;
   servicios?: CitaServicioDetalle[];
   negocio?: { id_negocio: number; nombre: string };
+  // Perfiles de rubro. Nulos en una barbería.
+  id_persona_negocio?: string | null;
+  proceso_tramos?: number[][] | null;
+  monto_abono?: number | string | null;
+  id_metodo_pago_abono?: number | null;
+  id_caja_abono?: number | null;
+  id_mascota?: string | null;
+  mascota?: Pick<Mascota, 'id_mascota' | 'nombre' | 'especie' | 'raza' | 'tamano' | 'comportamiento'> | null;
+  id_recurso?: number | null;
+  recurso?: { id_recurso: number; nombre: string } | null;
 }
 
 export interface ConfigReserva {
@@ -253,6 +283,16 @@ export interface ConfigReserva {
   moneda?: Moneda;
   /** Catálogo del backend para el selector. Sin copia local que se quede vieja. */
   paises?: PaisDisponible[];
+  // Perfiles de rubro.
+  funciones?: Record<string, boolean>;
+  deposito_pct?: number;
+  deposito_reembolsable?: boolean;
+  hora_checkin?: string;
+  hora_checkout?: string;
+  /** El perfil ya resuelto, para refrescar la sesión al cambiar una función. */
+  perfil?: PerfilReserva;
+  /** Las funciones que el dueño puede encender o apagar. */
+  funciones_config?: FuncionConfig[];
 }
 
 // ────────────────────── Usuarios y permisos ──────────────────────
@@ -531,6 +571,7 @@ export interface InfoNegocioPublico {
   instrucciones_pago: string | null;
   anticipacion_min_horas: number;
   ventana_cancelacion_horas: number;
+  pago?: PoliticaPago;
 }
 
 /**
@@ -563,6 +604,13 @@ export interface CitaResumen {
   servicios: string[];
 }
 
+/** Por qué hoy no hay jornada que vender. Ver `dashboardService.motivoSinJornada`. */
+export type MotivoSinJornada =
+  | 'SIN_PROFESIONALES'
+  | 'SIN_HORARIO'
+  | 'CERRADO_HOY'
+  | 'JORNADA_BLOQUEADA';
+
 export interface ResumenDashboard {
   fecha: string;
 
@@ -577,11 +625,13 @@ export interface ResumenDashboard {
   citas_completadas_hoy: number;
   citas_canceladas_hoy: number;
 
-  /** `porcentaje` es `null` cuando no hay horario configurado: «no sé» ≠ «vacío». */
+  /** `porcentaje` es `null` cuando hoy no hay jornada que vender: «no sé» ≠ «vacío». */
   ocupacion_hoy: {
     minutos_disponibles: number;
     minutos_ocupados: number;
     porcentaje: number | null;
+    /** Por qué no hay jornada. Solo viene con `porcentaje: null`. */
+    motivo?: MotivoSinJornada | null;
   };
 
   semana: {
@@ -627,6 +677,9 @@ export interface ServicioPublico {
   imagen_url: string | null;
   id_categoria: number | null;
   id_profesionales: number[];
+  /** Precio y duración se acuerdan con el negocio: en el portal se piden por WhatsApp. */
+  a_cotizar?: boolean;
+  variantes?: VarianteServicio[];
 }
 
 export interface ProfesionalPublico {
@@ -647,6 +700,8 @@ export interface ProfesionalPublico {
   ofrece_todo: boolean;
   id_servicios: number[];
   horario: DiaHorario[];
+  /** Trabajos del profesional (función portafolio). */
+  portafolio?: { url: string; descripcion: string | null }[];
 }
 
 export interface NegocioPublico {
@@ -679,7 +734,16 @@ export interface Vitrina {
     paso_slot_min: number;
     cobro_adelantado: boolean;
     instrucciones_pago: string | null;
+    /** Abono o total: qué se paga por adelantado. Sin él, manda `cobro_adelantado`. */
+    pago?: PoliticaPago;
+    requiere_mascota?: boolean;
+    hora_checkin?: string;
+    hora_checkout?: string;
   };
+  /** Perfil del rubro: términos, titular y funciones que cambian la página. */
+  perfil?: Pick<PerfilReserva, 'clave' | 'rubro' | 'modos' | 'funciones' | 'terminos' | 'portal'>;
+  /** Alojamiento y hotel de mascotas: lo que se reserva por noches. */
+  unidades_tipo?: UnidadTipoPublica[];
   horario_negocio: DiaHorario[];
   /** Plano, para buscar un servicio por id sin recorrer las secciones. */
   servicios: ServicioPublico[];
@@ -724,8 +788,10 @@ export interface CitaPublica {
   cliente_email: string | null;
   notas: string | null;
   monto_total: number;
+  monto_abono?: number | null;
+  mascota?: { nombre: string; especie: string } | null;
   profesional?: { id_profesional: number; nombre: string; color_hex?: string | null } | null;
-  servicios: { id_servicio: number; nombre: string; precio: number; duracion_min: number }[];
+  servicios: { id_servicio: number; nombre: string; precio: number; duracion_min: number; variante?: string | null }[];
   negocio?: { id_negocio: number; nombre: string };
 }
 

@@ -3,7 +3,9 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { ReservaApiService } from '../../core/services/reserva-api.service';
 import { ThemeService } from '../../core/theme/theme.service';
 import { MonedaService } from '../../core/services/moneda.service';
-import { ProfesionalPublico, ServicioPublico, Vitrina } from '../../core/models';
+import {
+  Funcion, PoliticaPago, ProfesionalPublico, ServicioPublico, TERMINOS_BASE, Terminos, Vitrina,
+} from '../../core/models';
 
 /**
  * Estado de la página pública de un negocio.
@@ -39,6 +41,46 @@ export class VitrinaStore {
   readonly secciones = computed(() => this._vitrina()?.secciones ?? []);
   readonly profesionales = computed(() => this._vitrina()?.profesionales ?? []);
   readonly reglas = computed(() => this._vitrina()?.reglas ?? null);
+
+  // ── Perfil del rubro ──
+  //
+  // Cómo se presenta la página según el oficio: los términos («Estilista», «Sesión»,
+  // «Huésped»), el titular y qué muestra. Sin perfil (una vitrina servida antes de que
+  // existiera) es la página de siempre.
+  readonly perfil = computed(() => this._vitrina()?.perfil ?? null);
+  readonly terminos = computed<Terminos>(() => ({ ...TERMINOS_BASE, ...(this.perfil()?.terminos ?? {}) }));
+  readonly funciones = computed(() => new Set<Funcion>(this.perfil()?.funciones ?? []));
+  readonly usaCitas = computed(() => this.perfil()?.modos?.includes('CITA') ?? true);
+  readonly usaEstancias = computed(() => this.perfil()?.modos?.includes('ESTANCIA') ?? false);
+  readonly unidadesTipo = computed(() => this._vitrina()?.unidades_tipo ?? []);
+  readonly portal = computed(() => this.perfil()?.portal ?? {
+    titulo: 'Reserva tu cita', subtitulo: 'Elige el servicio y la hora que mejor te queden.',
+  });
+  /**
+   * Qué se paga por adelantado: el abono de un perfil con depósito, el total del cobro
+   * adelantado de siempre, o nada. Una vitrina vieja sin `pago` cae al booleano de antes.
+   */
+  readonly pago = computed<PoliticaPago>(() => {
+    const r = this.reglas();
+    if (r?.pago) return r.pago;
+    return r?.cobro_adelantado
+      ? { modo: 'total', porcentaje: 100, reembolsable: true }
+      : { modo: 'ninguno', porcentaje: 0, reembolsable: true };
+  });
+
+  /** Lo que hay que pagar para reservar algo de `monto`. 0 = no se pide comprobante. */
+  anticipoDe(monto: number): number {
+    const p = this.pago();
+    if (p.modo === 'ninguno') return 0;
+    if (p.modo === 'total') return monto;
+    return Math.round((monto * p.porcentaje) / 100);
+  }
+
+  /** ¿Pide comprobante una reserva de `monto`? El cobro total lo pide siempre, como antes. */
+  pideComprobante(monto: number): boolean {
+    const p = this.pago();
+    return p.modo === 'total' || (p.modo === 'abono' && this.anticipoDe(monto) > 0);
+  }
 
   /** Días en los que atiende alguien. Es lo que la portada resume como «horario». */
   readonly diasAbiertos = computed(() => {

@@ -12,9 +12,15 @@
         <lucide-icon name="refresh-cw" [size]="15" />
         Actualizar
       </button>
-      <button type="button" class="btn btn-primary" (click)="modalNuevaCita.set(true)">
-        <lucide-icon name="plus" [size]="16" /> Nueva cita
-      </button>
+      @if (auth.usaCitas()) {
+        <button type="button" class="btn btn-primary" (click)="modalNuevaCita.set(true)">
+          <lucide-icon name="plus" [size]="16" /> Nueva {{ auth.termino('cita', true) }}
+        </button>
+      } @else {
+        <button type="button" class="btn btn-primary" (click)="ir('/estancias')">
+          <lucide-icon name="plus" [size]="16" /> Nueva reserva
+        </button>
+      }
     </div>
   </header>
 
@@ -36,7 +42,13 @@
     </aside>
   }
 
-  @if (cargando() && !resumen()) {
+  @if (auth.usaEstancias()) {
+    <reserva-resumen-estancias />
+  }
+
+  @if (!auth.usaCitas()) {
+    <!-- Alojamiento puro: el día se resume arriba, en llegadas y salidas. -->
+  } @else if (cargando() && !resumen()) {
     <div class="cards">
       @for (i of [1,2,3,4]; track i) { <div class="kpi kpi--skeleton"></div> }
     </div>
@@ -155,10 +167,10 @@
           <header class="panel__head">
             <div><h2>Ocupación del día</h2></div>
           </header>
-          @if (r.ocupacion_hoy.porcentaje == null) {
+          @if (sinJornada(); as sj) {
             <p class="hint">
-              Sin horario de atención definido no se puede calcular la ocupación.
-              <button type="button" class="link" (click)="ir('/horarios')">Configurar horarios</button>
+              {{ sj.texto }}
+              <button type="button" class="link" (click)="ir(sj.ruta)">{{ sj.cta }}</button>
             </p>
           } @else {
             <div class="ocup">

@@ -11,12 +11,22 @@
           <strong>{{ resumenServicios() || 'Sin servicios' }}</strong>
         </div>
         <div class="cb__linea">
-          <span>Profesional</span>
+          <span>{{ auth.termino('profesional') }}</span>
           <strong>{{ c.profesional?.nombre || '—' }}</strong>
         </div>
+        @if (abono() > 0) {
+          <div class="cb__linea">
+            <span>Total</span>
+            <strong>{{ total() | moneda }}</strong>
+          </div>
+          <div class="cb__linea">
+            <span>Abono recibido{{ abonoPorAsentar() ? ' (entra a la caja ahora)' : '' }}</span>
+            <strong>− {{ abono() | moneda }}</strong>
+          </div>
+        }
         <div class="cb__total">
-          <span>Total a cobrar</span>
-          <strong>{{ total() | moneda }}</strong>
+          <span>{{ abono() > 0 ? 'Saldo a cobrar' : 'Total a cobrar' }}</span>
+          <strong>{{ aCobrar() | moneda }}</strong>
         </div>
       </div>
 
@@ -39,7 +49,11 @@
       @if (!requierePago()) {
         <p class="cb__aviso">
           <lucide-icon name="info" [size]="15" />
-          Esta cita no tiene importe, así que se completa sin registrar cobro.
+          @if (abono() > 0) {
+            El abono cubre el total: se completa sin cobrar nada más.
+          } @else {
+            Esta cita no tiene importe, así que se completa sin registrar cobro.
+          }
         </p>
       } @else if (metodos.length === 0) {
         <p class="cb__aviso cb__aviso--error">
@@ -52,7 +66,7 @@
           <span>¿Cómo pagó el cliente?</span>
           <reserva-multipago-selector
             [metodos]="metodos"
-            [total]="total()"
+            [total]="aCobrar()"
             [permiteMultipago]="permiteMultipago"
             [disabled]="enviando()"
             (seleccionChange)="onSeleccion($event)" />

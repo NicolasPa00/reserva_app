@@ -12,7 +12,7 @@
       </div>
       <a class="volver" [routerLink]="raiz()">
         <lucide-icon name="arrow-left" [size]="15" />
-        Ver otros servicios
+        Ver otros {{ terminos().servicios.toLowerCase() }}
       </a>
     </nav>
 
@@ -51,23 +51,69 @@
 
         <!-- Lo contratado. El nombre a la izquierda y el importe a la derecha: alineados los dos
              a la izquierda, la tarjeta dejaba media anchura vacía. -->
-        <div class="opcion">
-          <span class="opcion__que">
-            <strong>{{ s.nombre }}</strong>
-            <em>Servicio</em>
-          </span>
-          <span class="opcion__cuanto">
-            <span class="opcion__precio">{{ s.precio | moneda }}</span>
-            <span class="opcion__dur"><lucide-icon name="clock" [size]="13" /> {{ s.duracion_min }} min</span>
-          </span>
-        </div>
+        @if (aCotizar()) {
+          <div class="opcion">
+            <span class="opcion__que">
+              <strong>{{ s.nombre }}</strong>
+              <em>{{ terminos().servicio }}</em>
+            </span>
+            <span class="opcion__cuanto">
+              <span class="opcion__precio">A cotizar</span>
+            </span>
+          </div>
+        } @else if (variantes().length) {
+          <!-- Cada variante es una opción con su precio y su duración: elegirla cambia los huecos. -->
+          <div class="variantes" role="radiogroup" aria-label="Opciones">
+            @for (v of variantes(); track v.id_variante) {
+              <button type="button" class="opcion opcion--elegible" role="radio"
+                      [class.opcion--on]="v.id_variante === idVariante()"
+                      [attr.aria-checked]="v.id_variante === idVariante()"
+                      (click)="elegirVariante(v.id_variante)">
+                <span class="opcion__que">
+                  <strong>{{ v.nombre }}</strong>
+                  <em>{{ s.nombre }}</em>
+                </span>
+                <span class="opcion__cuanto">
+                  <span class="opcion__precio">{{ v.precio | moneda }}</span>
+                  <span class="opcion__dur"><lucide-icon name="clock" [size]="13" /> {{ v.duracion_min }} min</span>
+                </span>
+              </button>
+            }
+          </div>
+        } @else {
+          <div class="opcion">
+            <span class="opcion__que">
+              <strong>{{ s.nombre }}</strong>
+              <em>{{ terminos().servicio }}</em>
+            </span>
+            <span class="opcion__cuanto">
+              <span class="opcion__precio">{{ s.precio | moneda }}</span>
+              <span class="opcion__dur"><lucide-icon name="clock" [size]="13" /> {{ s.duracion_min }} min</span>
+            </span>
+          </div>
+        }
       </div>
 
       <!-- ═════════ Columna derecha: cuándo y con quién ═════════ -->
       <div class="panel">
         <h2 class="titulo">Disponibilidad</h2>
 
-        @if (cargandoDias()) {
+        @if (aCotizar()) {
+          <div class="cotizar">
+            <lucide-icon name="message-circle" [size]="22" />
+            <p>
+              El precio y la duración dependen de lo que quieras hacerte. Cuéntanos tu idea
+              —si tienes una referencia, mejor— y te damos precio y fecha.
+            </p>
+            @if (whatsappNegocio(); as wa) {
+              <a class="btn btn-primary" [href]="wa" target="_blank" rel="noopener noreferrer">
+                <icono-whatsapp [size]="16" /> Cotizar por WhatsApp
+              </a>
+            } @else if (negocio()?.telefono) {
+              <a class="btn btn-primary" [href]="'tel:' + negocio()?.telefono">Llamar para cotizar</a>
+            }
+          </div>
+        } @else if (cargandoDias()) {
           <p class="cargando"><span class="spinner"></span> Buscando días con hueco…</p>
         } @else if (dias().length === 0) {
           <p class="vacio">Este servicio no tiene horarios publicados todavía.</p>
@@ -177,17 +223,19 @@
     <div class="barra__caja">
       <dl class="barra__datos">
         <div>
-          <dt>Servicio</dt>
-          <dd>{{ s.nombre }}</dd>
+          <dt>{{ terminos().servicio }}</dt>
+          <dd>{{ s.nombre }}@if (variante(); as v) { · {{ v.nombre }} }</dd>
         </div>
         <div>
           <dt>Precio</dt>
-          <dd class="barra__precio">{{ s.precio | moneda }}</dd>
+          <dd class="barra__precio">@if (aCotizar()) { A cotizar } @else { {{ precio() | moneda }} }</dd>
         </div>
-        <div class="barra__ocultable">
-          <dt>Duración</dt>
-          <dd>{{ s.duracion_min }} min</dd>
-        </div>
+        @if (!aCotizar()) {
+          <div class="barra__ocultable">
+            <dt>Duración</dt>
+            <dd>{{ duracion() }} min</dd>
+          </div>
+        }
         <div>
           <dt>Cuándo</dt>
           @if (listoParaAgendar()) {
@@ -201,10 +249,16 @@
         </div>
       </dl>
 
-      <button type="button" class="btn btn-primary barra__cta"
-              [disabled]="!listoParaAgendar()" (click)="abrirFormulario()">
-        Agendar
-      </button>
+      @if (aCotizar()) {
+        @if (whatsappNegocio(); as wa) {
+          <a class="btn btn-primary barra__cta" [href]="wa" target="_blank" rel="noopener noreferrer">Cotizar</a>
+        }
+      } @else {
+        <button type="button" class="btn btn-primary barra__cta"
+                [disabled]="!listoParaAgendar()" (click)="abrirFormulario()">
+          Agendar
+        </button>
+      }
     </div>
   </div>
 }
@@ -221,7 +275,7 @@
       </header>
 
       <p class="hoja__resumen">
-        <strong>{{ servicio()?.nombre }}</strong>
+        <strong>{{ servicio()?.nombre }}@if (variante(); as v) { · {{ v.nombre }} }</strong>
         {{ fecha() + 'T00:00:00' | date:'EEEE d \'de\' MMMM':'':'es-CO' }}
         a las {{ hora12(hora()) }} con {{ profesionalElegido()?.nombre }}.
       </p>
@@ -250,9 +304,37 @@
                     placeholder="Algo que debamos saber antes de tu cita"></textarea>
         </label>
 
+        @if (requiereMascota()) {
+          <div class="mascota campo--ancho">
+            <h3><lucide-icon name="paw-print" [size]="15" /> Tu mascota</h3>
+            <input class="input" type="text" maxlength="80" placeholder="Nombre *" [value]="mascota().nombre"
+                   (input)="setMascota('nombre', $any($event.target).value)" />
+            <input class="input" type="text" maxlength="80" placeholder="Raza" [value]="mascota().raza"
+                   (input)="setMascota('raza', $any($event.target).value)" />
+            @if (!tamanoPorVariante()) {
+              <select class="select" (change)="setMascota('tamano', $any($event.target).value)">
+                <option value="" [selected]="!mascota().tamano">Tamaño…</option>
+                @for (t of tamanos; track t.clave) {
+                  <option [value]="t.clave" [selected]="mascota().tamano === t.clave">{{ t.etiqueta }}</option>
+                }
+              </select>
+            }
+          </div>
+        }
+
         @if (requierePago()) {
           <div class="pago campo--ancho">
-            <h3><lucide-icon name="credit-card" [size]="15" /> Pago por adelantado</h3>
+            <h3>
+              <lucide-icon name="credit-card" [size]="15" />
+              @if (esAbono()) { Abono de {{ anticipo() | moneda }} para reservar }
+              @else { Pago por adelantado · {{ anticipo() | moneda }} }
+            </h3>
+            @if (esAbono()) {
+              <p class="pago__nota">
+                El resto ({{ precio() - anticipo() | moneda }}) lo pagas el día de tu cita.
+                @if (!store.pago().reembolsable) { El abono no es reembolsable si cancelas. }
+              </p>
+            }
             @if (reglas()?.instrucciones_pago; as instr) { <p>{{ instr }}</p> }
             <label class="pago__archivo">
               <input type="file" accept="image/jpeg,image/png,image/webp" (change)="archivoElegido($event)" />

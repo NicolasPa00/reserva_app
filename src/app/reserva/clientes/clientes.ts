@@ -9,7 +9,9 @@ import { finalize } from 'rxjs';
 import { AuthService } from '../../core/services/auth.service';
 import { ReservaApiService } from '../../core/services/reserva-api.service';
 import { ToastService } from '../../core/services/toast.service';
-import { ClienteCita, ClienteNegocio } from '../../core/models';
+import { ClienteCita, ClienteNegocio, ESPECIES, Mascota, TAMANOS } from '../../core/models';
+import { PerfilApiService } from '../../core/services/perfil-api.service';
+import { TerminoPipe } from '../../shared/termino.pipe';
 import { ModalComponent } from '../../shared/modal/modal';
 import { MonedaPipe } from '../../shared/moneda.pipe';
 
@@ -37,7 +39,7 @@ const PAGINA = 50;
 @Component({
   selector: 'reserva-clientes',
   standalone: true,
-  imports: [MonedaPipe, CommonModule, LucideAngularModule, ModalComponent],
+  imports: [MonedaPipe, CommonModule, LucideAngularModule, ModalComponent, TerminoPipe],
   templateUrl: './clientes.html',
   styleUrl: './clientes.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -60,6 +62,50 @@ export class ClientesComponent implements OnInit {
 
   // Ficha de un cliente
   readonly seleccionado = signal<ClienteNegocio | null>(null);
+
+  // ── Perfil del rubro: mascotas y ficha ──
+  private readonly perfilApi = inject(PerfilApiService);
+  readonly conMascotas = computed(() => this.auth.tieneFuncion('mascotas'));
+  readonly conFicha = computed(() =>
+    this.auth.tieneFuncion('ficha') || this.auth.tieneFuncion('consentimiento') || this.auth.tieneFuncion('mascotas'));
+  readonly puedeVerFicha = computed(() => this.auth.puedeAccion('clientes_ficha_ver'));
+  readonly mascotas = signal<Mascota[]>([]);
+  readonly nuevaMascota = signal<{ nombre: string; especie: string; raza: string; tamano: string } | null>(null);
+  readonly especies = ESPECIES;
+  readonly tamanos = TAMANOS;
+
+  private cargarMascotas(idPersona: string) {
+    if (!this.conMascotas()) { this.mascotas.set([]); return; }
+    this.perfilApi.mascotasDeCliente(this.idNegocioActivo(), idPersona).subscribe({
+      next: r => this.mascotas.set(r?.success && r.data ? r.data : []),
+      error: () => this.mascotas.set([]),
+    });
+  }
+
+  editarNuevaMascota(campo: 'nombre' | 'especie' | 'raza' | 'tamano', valor: string) {
+    this.nuevaMascota.update(m => (m ? { ...m, [campo]: valor } : m));
+  }
+
+  guardarMascota() {
+    const c = this.seleccionado();
+    const m = this.nuevaMascota();
+    if (!c || !m?.nombre.trim()) return;
+    this.perfilApi.crearMascota(this.idNegocioActivo(), c.id_persona_negocio, {
+      nombre: m.nombre.trim(), especie: m.especie as Mascota['especie'],
+      raza: m.raza.trim() || null, tamano: (m.tamano || null) as Mascota['tamano'],
+    }).subscribe({
+      next: r => {
+        if (!r?.success) return;
+        this.nuevaMascota.set(null);
+        this.cargarMascotas(c.id_persona_negocio);
+      },
+      error: e => this.toast.error(e?.error?.message || 'No se pudo registrar la mascota.'),
+    });
+  }
+
+  idNegocioActivo(): number {
+    return this.auth.negocio()?.id_negocio ?? 0;
+  }
   readonly citas = signal<ClienteCita[]>([]);
   readonly cargandoFicha = signal(false);
   readonly guardando = signal(false);
@@ -153,6 +199,8 @@ export class ClientesComponent implements OnInit {
     if (!id) return;
 
     this.seleccionado.set(cliente);
+    this.nuevaMascota.set(null);
+    this.cargarMascotas(cliente.id_persona_negocio);
     this.formNombre.set(cliente.nombre ?? '');
     this.formNotas.set(cliente.notas ?? '');
     this.citas.set([]);

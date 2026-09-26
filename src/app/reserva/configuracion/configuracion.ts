@@ -7,7 +7,7 @@ import { forkJoin } from 'rxjs';
 import { AuthService } from '../../core/services/auth.service';
 import { ReservaApiService } from '../../core/services/reserva-api.service';
 import { ToastService } from '../../core/services/toast.service';
-import { ColoresNegocio, MarcaNegocio, MetodoPago, Moneda, PaisDisponible } from '../../core/models';
+import { ColoresNegocio, FuncionConfig, MarcaNegocio, MetodoPago, Moneda, PaisDisponible } from '../../core/models';
 import { ThemeService } from '../../core/theme/theme.service';
 import { MonedaService } from '../../core/services/moneda.service';
 import { ImageCropperComponent } from '../../shared/image-cropper/image-cropper';
@@ -59,8 +59,23 @@ export class ConfiguracionComponent implements OnInit {
     { id: 'publica'   as const, label: 'Página pública', icono: 'globe' },
     { id: 'reservas'  as const, label: 'Reservas',      icono: 'calendar-clock' },
     { id: 'cobros'    as const, label: 'Cobros y pagos', icono: 'wallet' },
+    { id: 'funciones' as const, label: 'Funciones',      icono: 'layers' },
   ];
-  readonly tab = signal<'identidad' | 'publica' | 'reservas' | 'cobros'>('identidad');
+  readonly tab = signal<'identidad' | 'publica' | 'reservas' | 'cobros' | 'funciones'>('identidad');
+
+  // ── Funciones del perfil ──
+  //
+  // Lo que un negocio del mismo oficio puede querer o no: un salón puede no usar la ficha, una
+  // barbería puede querer cobrar abono. Cada interruptor se guarda al tocarlo (no espera al botón
+  // de guardar) porque cambia la app entera —menú, formularios, portal— y el dueño tiene que
+  // verlo en el acto. Ver `admin_ws/app_reserva_api/perfiles/definiciones.js`.
+  readonly funcionesConfig = signal<FuncionConfig[]>([]);
+  readonly funcionGuardando = signal<string | null>(null);
+  readonly rubro = computed(() => this.auth.perfil().rubro?.etiqueta ?? null);
+  readonly usaCitas = computed(() => this.auth.usaCitas());
+  readonly usaEstancias = computed(() => this.auth.usaEstancias());
+  readonly depositoDisponible = computed(() => this.auth.tieneFuncion('deposito'));
+  readonly puedeTocarFunciones = computed(() => this.auth.puedeAccion('configuracion_cobros'));
 
   // ── Identidad visual ──
   readonly marca = signal<MarcaNegocio | null>(null);
@@ -163,9 +178,22 @@ export class ConfiguracionComponent implements OnInit {
     instrucciones_pago:        [''],
     permite_cobro_profesional: [false],
     permite_multipago:         [false],
+    deposito_pct:              [0, [Validators.min(0), Validators.max(100)]],
+    deposito_reembolsable:     [true],
+    hora_checkin:              ['15:00'],
+    hora_checkout:             ['12:00'],
   });
 
+  /** Hay que pedir pago por adelantado de alguna forma: el total de siempre o un abono. */
+  readonly pideInstrucciones = computed(() =>
+    !!this.valoresForm()?.cobro_adelantado || (this.depositoDisponible() && Number(this.valoresForm()?.deposito_pct) > 0));
+  private readonly valoresForm = signal<{ cobro_adelantado?: boolean; deposito_pct?: number | null } | null>(null);
+
   constructor() {
+    // El formulario reactivo no es una señal: se refleja en una para que `pideInstrucciones`
+    // (que decide si se ven las instrucciones de pago) reaccione al marcar el cobro o el abono.
+    this.form.valueChanges.subscribe(v => this.valoresForm.set(v));
+
     // El multipago necesita al menos dos formas activas entre las que repartir. Se refleja
     // deshabilitando el control —no con `[disabled]` en la plantilla, que en formularios
     // reactivos avisa Angular y puede dar 'changed after checked'—, y se desmarca al caer por
@@ -224,6 +252,15 @@ export class ConfiguracionComponent implements OnInit {
             permite_cobro_profesional: cfg.data.permite_cobro_profesional ?? false,
             permite_multipago:         cfg.data.permite_multipago ?? false,
           });
+          this.form.patchValue({
+            deposito_pct:          cfg.data.deposito_pct ?? 0,
+            deposito_reembolsable: cfg.data.deposito_reembolsable ?? true,
+            hora_checkin:          String(cfg.data.hora_checkin ?? '15:00').slice(0, 5),
+            hora_checkout:         String(cfg.data.hora_checkout ?? '12:00').slice(0, 5),
+          });
+          this.valoresForm.set(this.form.getRawValue());
+          this.funcionesConfig.set(cfg.data.funciones_config ?? []);
+          if (cfg.data.perfil) this.auth.actualizarNegocioActivo({ perfil: cfg.data.perfil });
           this.paises.set(cfg.data.paises ?? []);
           this.paisElegido.set(cfg.data.pais ?? 'CO');
         }
@@ -248,7 +285,13 @@ export class ConfiguracionComponent implements OnInit {
       ventana_cancelacion_horas: Number(v.ventana_cancelacion_horas),
       paso_slot_min:             Number(v.paso_slot_min),
       cobro_adelantado:          v.cobro_adelantado,
-      instrucciones_pago:        v.cobro_adelantado ? (v.instrucciones_pago?.trim() || null) : null,
+      // Las instrucciones sirven al cobro adelantado de siempre y al abono: solo se borran si
+      // ninguno de los dos las necesita.
+      instrucciones_pago:        this.pideInstrucciones() ? (v.instrucciones_pago?.trim() || null) : null,
+      deposito_pct:              Number(v.deposito_pct) || 0,
+      deposito_reembolsable:     v.deposito_reembolsable,
+      hora_checkin:              v.hora_checkin,
+      hora_checkout:             v.hora_checkout,
       permite_cobro_profesional: v.permite_cobro_profesional,
       // Guardar multipago activo sin formas suficientes dejaría una opción que no se puede
       // usar; se corrige en el envío en vez de dejar que el usuario lo descubra al cobrar.
@@ -269,6 +312,29 @@ export class ConfiguracionComponent implements OnInit {
       error: e => {
         this.guardando.set(false);
         this.toast.error(e?.error?.message || 'Error al guardar.');
+      },
+    });
+  }
+
+  /**
+   * Enciende o apaga una función. Guarda en el acto y refresca el perfil de la sesión con lo
+   * que devuelve el servidor, para que el menú y los formularios cambien sin volver a entrar.
+   */
+  alternarFuncion(f: FuncionConfig, activar: boolean) {
+    const idNegocio = this.auth.negocio()?.id_negocio;
+    if (!idNegocio || f.fija || this.funcionGuardando()) return;
+    this.funcionGuardando.set(f.clave);
+    this.api.actualizarConfig({ id_negocio: idNegocio, funciones: { [f.clave]: activar } }).subscribe({
+      next: r => {
+        this.funcionGuardando.set(null);
+        if (!r?.success || !r.data) { this.toast.error(r?.message || 'No se pudo cambiar.'); return; }
+        this.funcionesConfig.set(r.data.funciones_config ?? []);
+        if (r.data.perfil) this.auth.actualizarNegocioActivo({ perfil: r.data.perfil });
+        this.toast.success(`${f.etiqueta}: ${activar ? 'activada' : 'desactivada'}`);
+      },
+      error: e => {
+        this.funcionGuardando.set(null);
+        this.toast.error(e?.error?.message || 'No se pudo cambiar la función.');
       },
     });
   }
