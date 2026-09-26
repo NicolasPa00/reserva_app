@@ -27,7 +27,7 @@
       <header class="detalle__head">
         <div>
           <span class="detalle__cuando">
-            {{ c.fecha_hora_inicio | date:'EEEE d \'de\' MMMM':'':'es-CO' }}
+            {{ c.fecha_hora_inicio | date:'EEEE d \'de\' MMMM':'-0500':'es-CO' }}
           </span>
           <strong>{{ hora12(c.fecha_hora_inicio) }} – {{ hora12(c.fecha_hora_fin) }}</strong>
         </div>

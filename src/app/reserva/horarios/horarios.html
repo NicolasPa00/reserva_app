@@ -155,9 +155,9 @@
             <div class="bloqueos__txt">
               <strong>{{ nombreProfesional(b.id_profesional) }}</strong>
               <span>
-                {{ b.fecha_inicio | date:'dd MMM yyyy, HH:mm':'':'es-CO' }}
+                {{ b.fecha_inicio | date:'dd MMM yyyy, HH:mm':'-0500':'es-CO' }}
                 →
-                {{ b.fecha_fin    | date:'dd MMM yyyy, HH:mm':'':'es-CO' }}
+                {{ b.fecha_fin    | date:'dd MMM yyyy, HH:mm':'-0500':'es-CO' }}
               </span>
               @if (b.motivo) { <em>{{ b.motivo }}</em> }
             </div>

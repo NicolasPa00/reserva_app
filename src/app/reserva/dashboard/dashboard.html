@@ -119,8 +119,8 @@
               <li class="tl" [class.tl--pasada]="esPasada(c)"
                   [class.tl--proxima]="proximaCita()?.id_cita === c.id_cita">
                 <div class="tl__hora">
-                  <strong>{{ c.fecha_hora_inicio | date:'HH:mm':'':'es-CO' }}</strong>
-                  <span>{{ c.fecha_hora_fin | date:'HH:mm':'':'es-CO' }}</span>
+                  <strong>{{ c.fecha_hora_inicio | date:'HH:mm':'-0500':'es-CO' }}</strong>
+                  <span>{{ c.fecha_hora_fin | date:'HH:mm':'-0500':'es-CO' }}</span>
                 </div>
                 <span class="tl__barra" [style.background]="colorPro(c.profesional?.id_profesional)"></span>
                 <div class="tl__info">
