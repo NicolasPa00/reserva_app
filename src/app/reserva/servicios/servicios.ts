@@ -1,4 +1,6 @@
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy, Component, OnInit, computed, inject, signal, viewChild,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
@@ -82,6 +84,9 @@ export class ServiciosComponent implements OnInit {
   readonly guardando = signal(false);
 
   // Imagen pendiente de subir: el recorte vive en memoria hasta que se guarda el servicio.
+  /** El editor de fotos del modal: al crear, guarda en memoria lo que haya que subir después. */
+  private readonly galeria = viewChild(GaleriaServicioEditorComponent);
+
   readonly cropperAbierto = signal(false);
   readonly archivoImagen = signal<File | null>(null);
   readonly imagenBlob = signal<Blob | null>(null);
@@ -112,6 +117,9 @@ export class ServiciosComponent implements OnInit {
     proceso_desde_min:       [0, [Validators.min(0), Validators.max(600)]],
     proceso_min:             [0, [Validators.min(0), Validators.max(600)]],
     a_cotizar:               [false],
+    // Solo del formulario: en la base el rango son las dos columnas, y «lo usa» es simplemente
+    // que alguna tenga valor. Aquí es un interruptor para que apagarlo borre las dos de una.
+    usa_rango:               [false],
     precio_min:              [''],
     precio_max:              [''],
     requiere_consentimiento: [false],
@@ -355,7 +363,8 @@ export class ServiciosComponent implements OnInit {
     this.form.reset({
       nombre: '', duracion_min: 30, precio: 0, descripcion: '',
       imagen_url: '', id_categoria: '',
-      proceso_desde_min: 0, proceso_min: 0, a_cotizar: false, precio_min: '', precio_max: '',
+      proceso_desde_min: 0, proceso_min: 0, a_cotizar: false,
+      usa_rango: false, precio_min: '', precio_max: '',
       requiere_consentimiento: false, id_tipo_recurso: '',
     });
     this.variantes.set([]);
@@ -376,6 +385,8 @@ export class ServiciosComponent implements OnInit {
       proceso_desde_min: s.proceso_desde_min ?? 0,
       proceso_min: s.proceso_min ?? 0,
       a_cotizar: !!s.a_cotizar,
+      // «Usa rango» no es una columna: es que alguna de las dos tenga valor.
+      usa_rango: s.precio_min != null || s.precio_max != null,
       precio_min: s.precio_min != null ? String(Number(s.precio_min)) : '',
       precio_max: s.precio_max != null ? String(Number(s.precio_max)) : '',
       requiere_consentimiento: !!s.requiere_consentimiento,
@@ -508,16 +519,27 @@ export class ServiciosComponent implements OnInit {
         return;
       }
     }
-    if (this.conCotizar()) {
-      payload.a_cotizar = v.a_cotizar;
+    if (this.conCotizar()) payload.a_cotizar = v.a_cotizar;
+
+    // El rango va aparte de «a cotizar» y no depende de ninguna función del rubro: es una forma
+    // de presentar el precio que cualquier negocio puede querer. Apagado, se limpian las dos
+    // columnas para que la página deje de enseñarlo.
+    if (v.usa_rango) {
       const precioMin = v.precio_min?.trim() ? Number(v.precio_min) : null;
       const precioMax = v.precio_max?.trim() ? Number(v.precio_max) : null;
+      if (precioMin == null && precioMax == null) {
+        this.toast.error('Escribe al menos uno de los dos precios del rango, o apaga el rango.');
+        return;
+      }
       if (precioMin != null && precioMax != null && precioMin > precioMax) {
         this.toast.error('El precio "desde" no puede ser mayor que "hasta".');
         return;
       }
       payload.precio_min = precioMin;
       payload.precio_max = precioMax;
+    } else {
+      payload.precio_min = null;
+      payload.precio_max = null;
     }
     if (this.conConsentimiento()) payload.requiere_consentimiento = v.requiere_consentimiento;
     if (this.conRecursos()) payload.id_tipo_recurso = v.id_tipo_recurso ? Number(v.id_tipo_recurso) : null;
@@ -542,6 +564,14 @@ export class ServiciosComponent implements OnInit {
         }
         const idServicio = editando?.id_servicio ?? r.data?.id_servicio;
         await this.sincronizarImagen(idServicio, idNegocio);
+        // Las fotos que se eligieron antes de que el servicio existiera: ahora ya hay id con el
+        // que nombrarlas. Igual que la portada, un fallo aquí no invalida el guardado.
+        if (idServicio) {
+          const fallidas = await this.galeria()?.subirPendientes(idServicio, idNegocio) ?? 0;
+          if (fallidas > 0) {
+            this.toast.warning(`El servicio se guardó, pero ${fallidas} foto(s) no se pudieron subir.`);
+          }
+        }
         this.guardando.set(false);
         this.toast.success(editando ? 'Servicio actualizado' : 'Servicio creado');
         this.cerrarModal();

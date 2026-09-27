@@ -175,18 +175,21 @@
                 <h3>{{ s.nombre }}</h3>
                 @if (s.descripcion) { <p>{{ s.descripcion }}</p> }
                 <footer class="srv__meta">
-                  @if (s.a_cotizar) {
+                  <!-- El rango manda sobre el precio único, lo haya encendido un servicio «a
+                       cotizar» o uno normal: si el negocio se tomó el trabajo de acotarlo, es
+                       más informativo que una sola cifra. -->
+                  @if (s.precio_min != null || s.precio_max != null) {
                     <span class="srv__precio">
                       @if (s.precio_min != null && s.precio_max != null) {
                         {{ s.precio_min | moneda }} - {{ s.precio_max | moneda }}
                       } @else if (s.precio_min != null) {
                         Desde {{ s.precio_min | moneda }}
-                      } @else if (s.precio_max != null) {
-                        Hasta {{ s.precio_max | moneda }}
                       } @else {
-                        A cotizar
+                        Hasta {{ s.precio_max | moneda }}
                       }
                     </span>
+                  } @else if (s.a_cotizar) {
+                    <span class="srv__precio">A cotizar</span>
                   } @else if (precioDesde(s); as desde) {
                     <span class="srv__precio">Desde {{ desde | moneda }}</span>
                   } @else {

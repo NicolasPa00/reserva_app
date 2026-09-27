@@ -90,7 +90,17 @@
           </header>
           <div class="servicio__body">
             <strong>{{ s.nombre }}</strong>
-            @if (conCotizar() && s.a_cotizar) {
+            @if (s.precio_min != null || s.precio_max != null) {
+              <span class="servicio__precio">
+                @if (s.precio_min != null && s.precio_max != null) {
+                  {{ s.precio_min | moneda }} - {{ s.precio_max | moneda }}
+                } @else if (s.precio_min != null) {
+                  Desde {{ s.precio_min | moneda }}
+                } @else {
+                  Hasta {{ s.precio_max | moneda }}
+                }
+              </span>
+            } @else if (conCotizar() && s.a_cotizar) {
               <span class="servicio__precio">A cotizar · ref. {{ s.precio | moneda }}</span>
             } @else if (precioDesde(s); as desde) {
               <span class="servicio__precio">Desde {{ desde | moneda }}</span>
@@ -155,6 +165,37 @@
         <span>Precio ({{ codigoMoneda() }}) *</span>
         <input class="input" type="number" formControlName="precio" min="0" [step]="pasoPrecio()" />
       </label>
+    </div>
+
+    <!-- Rango de precio: una forma de PRESENTAR el precio en la página pública, no un precio
+         distinto. El de arriba sigue siendo el que se cobra al facturar la cita. -->
+    <div class="form__row">
+      <label class="check">
+        <input type="checkbox" formControlName="usa_rango" />
+        <span>
+          <strong>Mostrar un rango de precio</strong>
+          <em>Para servicios cuyo valor cambia (largo del cabello, tamaño, zona). En tu página
+              se ve «$25.000 - $40.000» en vez de un solo valor.</em>
+        </span>
+      </label>
+      @if (form.controls.usa_rango.value) {
+        <div class="form__grid">
+          <label>
+            <span>Precio desde <small>(opcional)</small></span>
+            <input class="input" type="number" min="0" [step]="pasoPrecio()" formControlName="precio_min"
+                   placeholder="25.000" />
+          </label>
+          <label>
+            <span>Precio hasta <small>(opcional)</small></span>
+            <input class="input" type="number" min="0" [step]="pasoPrecio()" formControlName="precio_max"
+                   placeholder="40.000" />
+          </label>
+        </div>
+        <small class="hint">
+          Con uno solo se lee «Desde $25.000» o «Hasta $40.000». Al facturar la cita se cobra el
+          precio de arriba, o el que escribas en ese momento.
+        </small>
+      }
     </div>
     <div class="form__row">
       <label>
@@ -246,22 +287,10 @@
               <em>El precio y la duración se acuerdan con el cliente. En tu página se pide por WhatsApp.</em>
             </span>
           </label>
-          @if (form.controls.a_cotizar.value) {
-            <div class="grid">
-              <label>
-                <span>Precio desde <small>(opcional)</small></span>
-                <input class="input" type="number" min="0" step="1000" formControlName="precio_min"
-                       placeholder="80.000" />
-              </label>
-              <label>
-                <span>Precio hasta <small>(opcional)</small></span>
-                <input class="input" type="number" min="0" step="1000" formControlName="precio_max"
-                       placeholder="150.000" />
-              </label>
-            </div>
+          @if (form.controls.a_cotizar.value && !form.controls.usa_rango.value) {
             <small class="hint">
-              Se muestra como rango orientativo en tu página pública («$80.000 - $150.000»). Al
-              facturar la cita tendrás que escribir el precio exacto que se cobró.
+              Si quieres orientar con un rango («$80.000 - $150.000»), enciende
+              «Mostrar un rango de precio» arriba.
             </small>
           }
         }
@@ -328,17 +357,12 @@
       </div>
     </div>
 
-    @if (editando(); as s) {
-      <div class="form__row">
-        <span class="lab">Más fotos</span>
-        <reserva-galeria-servicio-editor [idServicio]="s.id_servicio" />
-      </div>
-    } @else {
-      <div class="form__row">
-        <span class="lab">Más fotos</span>
-        <small class="hint">Guarda el servicio primero; luego podrás añadir varias fotos aquí mismo.</small>
-      </div>
-    }
+    <!-- Creando, `idServicio` es null y las fotos esperan en memoria hasta que el servicio
+         tenga id; el propio editor las sube al terminar de guardar. -->
+    <div class="form__row">
+      <span class="lab">Más fotos</span>
+      <reserva-galeria-servicio-editor [idServicio]="editando()?.id_servicio ?? null" />
+    </div>
   </form>
 
   <div modal-footer style="display:flex; gap:.5rem;">
