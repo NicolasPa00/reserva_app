@@ -10,21 +10,28 @@
   <div class="card barra">
     <label class="barra__target">
       <span>Aplicar a</span>
-      <select class="select"
-              [value]="profesionalSeleccionado() == null ? '' : profesionalSeleccionado()"
-              (change)="cambiarTarget($any($event.target).value)">
-        <option [value]="''">Horario general del negocio</option>
-        @for (p of profesionales(); track p.id_profesional) {
-          <option [value]="p.id_profesional">{{ p.nombre }}</option>
-        }
-      </select>
-      <em>
-        @if (profesionalSeleccionado() == null) {
-          Se usa para todo profesional que no tenga horario propio.
-        } @else {
-          Sobrescribe el horario general para {{ nombreTarget() }}.
-        }
-      </em>
+      @if (soloPropio()) {
+        <select class="select" disabled>
+          <option [selected]="true">{{ nombreTarget() }}</option>
+        </select>
+        <em>Solo puedes editar tu propio horario.</em>
+      } @else {
+        <select class="select"
+                [value]="profesionalSeleccionado() == null ? '' : profesionalSeleccionado()"
+                (change)="cambiarTarget($any($event.target).value)">
+          <option [value]="''">Horario general del negocio</option>
+          @for (p of profesionales(); track p.id_profesional) {
+            <option [value]="p.id_profesional">{{ p.nombre }}</option>
+          }
+        </select>
+        <em>
+          @if (profesionalSeleccionado() == null) {
+            Se usa para todo profesional que no tenga horario propio.
+          } @else {
+            Sobrescribe el horario general para {{ nombreTarget() }}.
+          }
+        </em>
+      }
     </label>
 
     <div class="barra__stats">
@@ -120,7 +127,7 @@
         Descartar
       </button>
       <button type="button" class="btn btn-primary" (click)="guardar()"
-              [disabled]="guardando() || hayErrores() || !puedeEditarHorario()">
+              [disabled]="guardando() || hayErrores() || !puedeGuardar()">
         <lucide-icon name="save" [size]="16" />
         @if (guardando()) { Guardando… } @else { Guardar horario }
       </button>

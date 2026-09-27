@@ -82,7 +82,12 @@
     .btn { flex: 1; justify-content: center; }
   }
 
-  .pie-cita__grupo:not(.pie-cita__grupo--baja) { flex: 1 1 100%; }
+  // Hasta cuatro botones (Editar / Completar y cobrar / Validar pago / Confirmar): sin envolver,
+  // el último quedaba fuera de la pantalla en vez de bajar a su propia fila.
+  .pie-cita__grupo:not(.pie-cita__grupo--baja) {
+    flex: 1 1 100%; flex-wrap: wrap;
+    .btn { flex: 1 1 auto; justify-content: center; }
+  }
 }
 
 // ── Validar pago ──
@@ -221,6 +226,29 @@
       width: 8px; height: 8px; border-radius: 50%; background: var(--color-error);
     }
   }
+}
+
+// En móvil, `--hours-col: 62px` y `--pro-col-min: 190px` (pensados para escritorio) se comían
+// media pantalla entre la columna de horas y una sola columna de profesional, dejando la
+// siguiente cortada a la mitad — se ve en la franja vertical de la segunda columna en un
+// iPhone SE. Se estrechan las dos y se reduce el relleno y la letra de la cabecera para que
+// quepa algo más de un profesional y medio en vez de uno solo: más amplitud para ver horarios,
+// menos para repetir el nombre.
+@media (max-width: 767px) {
+  .cal {
+    --hours-col: 46px;
+    --pro-col-min: 132px;
+  }
+
+  .cal__pro { padding: .45rem .5rem; gap: .35rem; }
+  .cal__punto { width: 7px; height: 7px; }
+  .cal__pro-txt {
+    strong { font-size: .8rem; }
+    span { font-size: .63rem; }
+  }
+  .cal__conteo { min-width: 17px; padding: 0 5px; font-size: .65rem; }
+
+  .cal__hour span { font-size: .65rem; right: 5px; }
 }
 
 // ── Cita ──

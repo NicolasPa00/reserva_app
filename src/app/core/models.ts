@@ -61,6 +61,8 @@ export interface MarcaNegocio {
   banner_url: string | null;
   colores: ColoresNegocio | null;
   id_paleta: number | null;
+  /** URL propia (`<slug>.escalapp.cloud`). `null` en negocios anteriores a esta función. */
+  slug: string | null;
   paletas: { id_paleta: number; nombre: string; colores: Record<string, string> }[];
 }
 
@@ -123,6 +125,9 @@ export interface NegocioReserva {
   perfil?: PerfilReserva | null;
   /** Detalle del plan: vencimiento y días de gracia. Ver `EstadoPlan`. */
   plan?: EstadoPlan | null;
+  /** La ficha de agenda de quien inició sesión en este negocio, si tiene una. `null` si no
+   *  atiende citas (dueño puro, recepcionista…). La usa `horarios_editar_propio`. */
+  mi_profesional?: { id_profesional: number; nombre: string } | null;
 }
 
 /**
@@ -179,6 +184,9 @@ export interface Servicio {
   proceso_desde_min?: number;
   proceso_min?: number;
   a_cotizar?: boolean;
+  /** Rango de referencia de un servicio a cotizar («$80.000 - $150.000»). NULL = sin pista de precio. */
+  precio_min?: number | string | null;
+  precio_max?: number | string | null;
   requiere_consentimiento?: boolean;
   id_tipo_recurso?: number | null;
   tipoRecurso?: { id_tipo_recurso: number; nombre: string } | null;
@@ -435,10 +443,24 @@ export interface MovimientoCaja {
   monto: number | string;
   concepto: string | null;
   fecha: string;
-  cita?: { id_cita: number; cliente_nombre: string } | null;
+  /** Anulado: se queda en la lista del turno (trazabilidad) pero ya no suma en los totales. */
+  anulado: boolean;
+  fecha_anulado?: string | null;
+  cita?: {
+    id_cita: number;
+    cliente_nombre: string;
+    cliente_telefono?: string | null;
+    fecha_hora_inicio?: string;
+    servicios?: {
+      precio_snapshot: number | string;
+      duracion_snapshot_min: number;
+      servicio?: { nombre: string } | null;
+    }[];
+  } | null;
   profesional?: { id_profesional: number; nombre: string; color_hex: string | null } | null;
   metodoPago?: { id_metodo_pago: number; nombre: string } | null;
   usuario?: { id_usuario: number; primer_nombre: string; primer_apellido: string } | null;
+  usuarioAnulo?: { id_usuario: number; primer_nombre: string; primer_apellido: string } | null;
 }
 
 export interface CajaTotales {
@@ -585,6 +607,7 @@ export interface Informe {
 export interface InfoNegocioPublico {
   id_negocio: number;
   nombre: string;
+  slug: string | null;
   email_contacto: string | null;
   paleta: PaletaColor | null;
   cobro_adelantado: boolean;
@@ -699,7 +722,12 @@ export interface ServicioPublico {
   id_profesionales: number[];
   /** Precio y duración se acuerdan con el negocio: en el portal se piden por WhatsApp. */
   a_cotizar?: boolean;
+  /** Rango de referencia de un servicio a cotizar. NULL/ambos ausentes = sin pista de precio. */
+  precio_min?: number | string | null;
+  precio_max?: number | string | null;
   variantes?: VarianteServicio[];
+  /** Fotos aparte de la portada (`imagen_url`), para el carrusel del detalle. */
+  galeria?: { url: string; descripcion: string | null }[];
 }
 
 export interface ProfesionalPublico {
@@ -727,6 +755,8 @@ export interface ProfesionalPublico {
 export interface NegocioPublico {
   id_negocio: number;
   nombre: string;
+  /** URL propia (`<slug>.escalapp.cloud`). `null` en negocios anteriores a esta función. */
+  slug: string | null;
   descripcion: string | null;
   logo_url: string | null;
   banner_url: string | null;
@@ -743,6 +773,8 @@ export interface NegocioPublico {
   };
   /** El portal no tiene sesión de la que sacarla, así que viaja con la vitrina. */
   moneda?: Moneda | null;
+  /** ISO 3166-1 alfa-2. Por lo mismo que la moneda: sin sesión, viaja con la vitrina. */
+  pais?: string;
 }
 
 /** Todo lo que la portada pública necesita, en una sola respuesta. */
@@ -777,6 +809,8 @@ export interface VitrinaEdicion {
   id_negocio: number;
   nombre: string;
   email_contacto: string | null;
+  /** ISO 3166-1 alfa-2. Decide el indicativo del teléfono y del WhatsApp de contacto. */
+  pais?: string;
   telefono: string | null;
   direccion: string | null;
   url_whatsapp: string | null;

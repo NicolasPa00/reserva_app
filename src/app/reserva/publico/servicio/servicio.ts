@@ -1,15 +1,20 @@
-import { ChangeDetectionStrategy, Component, OnInit, computed, effect, inject, signal } from '@angular/core';
-import { DatePipe } from '@angular/common';
+import {
+  ChangeDetectionStrategy, Component, OnInit, PLATFORM_ID, computed, effect, inject, signal,
+} from '@angular/core';
+import { DatePipe, isPlatformBrowser } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
 
 import { VitrinaStore } from '../vitrina.store';
 import { ReservaApiService } from '../../../core/services/reserva-api.service';
+import { PaisesService } from '../../../core/services/paises.service';
 import { UrlArchivoPipe } from '../../../shared/url-archivo.pipe';
 import { CitaPublica, DiaServicio, SlotsServicio, TAMANOS, VarianteServicio } from '../../../core/models';
 import { aHora12 } from '../../../core/utils/hora';
+import { paisPorMetadatos } from '../../../core/utils/pais-detectado';
 import { ProfesionalModalComponent } from '../profesional-modal/profesional-modal';
 import { IconoWhatsappComponent } from '../../../shared/iconos-marca/iconos-marca';
+import { TelefonoPaisComponent } from '../../../shared/telefono-pais/telefono-pais';
 import { colorDeEntidad } from '../../../core/utils/color-entidad';
 import { esHojaMovil } from '../../../core/utils/pantalla';
 import { formatearCodigoCita } from '../../../core/utils/codigo-cita';
@@ -46,7 +51,7 @@ const SLOTS_VISIBLES = 12;
   standalone: true,
   imports: [
     LucideAngularModule, MonedaPipe, DatePipe, RouterLink, UrlArchivoPipe,
-    ProfesionalModalComponent, IconoWhatsappComponent,
+    ProfesionalModalComponent, IconoWhatsappComponent, TelefonoPaisComponent,
   ],
   templateUrl: './servicio.html',
   styleUrl: './servicio.scss',
@@ -56,6 +61,8 @@ export class PublicoServicioComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly api = inject(ReservaApiService);
+  private readonly paisesSrv = inject(PaisesService);
+  private readonly platformId = inject(PLATFORM_ID);
   readonly store = inject(VitrinaStore);
 
   readonly negocio = this.store.negocio;
@@ -65,6 +72,30 @@ export class PublicoServicioComponent implements OnInit {
   readonly idServicio = signal<number>(0);
   readonly servicio = computed(() => this.store.servicioPorId(this.idServicio()) ?? null);
   readonly descripcionAbierta = signal(false);
+
+  /**
+   * La portada primero, luego la galería. Sin galería es solo la portada — la misma foto de
+   * siempre, sin flechas ni puntos que no llevan a ningún sitio.
+   */
+  readonly fotos = computed(() => {
+    const s = this.servicio();
+    if (!s) return [];
+    const lista: { url: string; descripcion: string | null }[] = [];
+    if (s.imagen_url) lista.push({ url: s.imagen_url, descripcion: null });
+    for (const g of s.galeria ?? []) if (g.url !== s.imagen_url) lista.push(g);
+    return lista;
+  });
+  readonly indiceFoto = signal(0);
+  readonly fotoActual = computed(() => this.fotos()[this.indiceFoto()] ?? null);
+
+  fotoAnterior(): void {
+    const total = this.fotos().length;
+    if (total) this.indiceFoto.update(i => (i - 1 + total) % total);
+  }
+  fotoSiguiente(): void {
+    const total = this.fotos().length;
+    if (total) this.indiceFoto.update(i => (i + 1) % total);
+  }
   readonly terminos = this.store.terminos;
   readonly tamanos = TAMANOS;
 
@@ -84,6 +115,16 @@ export class PublicoServicioComponent implements OnInit {
   readonly duracion = computed(() => this.variante()?.duracion_min ?? this.servicio()?.duracion_min ?? 0);
   /** Se cotiza antes de agendar (tatuajes, estética a medida): el portal lleva a WhatsApp. */
   readonly aCotizar = computed(() => !!this.servicio()?.a_cotizar);
+  /** Rango de referencia de un servicio a cotizar, si el negocio lo puso. `null` = sin pista. */
+  readonly precioMinCotizar = computed(() => {
+    const v = this.servicio()?.precio_min;
+    return v != null ? Number(v) : null;
+  });
+  readonly precioMaxCotizar = computed(() => {
+    const v = this.servicio()?.precio_max;
+    return v != null ? Number(v) : null;
+  });
+  readonly tieneRangoPrecio = computed(() => this.precioMinCotizar() != null || this.precioMaxCotizar() != null);
   readonly whatsappNegocio = computed(() => this.negocio()?.redes?.whatsapp ?? null);
   readonly requiereMascota = computed(() => !!this.reglas()?.requiere_mascota);
   /** La variante ya dice el tamaño («perro grande»): no se vuelve a preguntar. */
@@ -142,6 +183,12 @@ export class PublicoServicioComponent implements OnInit {
   readonly nombre = signal('');
   readonly mascota = signal({ nombre: '', raza: '', tamano: '' });
   readonly telefono = signal('');
+  /**
+   * País del teléfono del cliente, no el del negocio: quien agenda puede estar de paso.
+   * Por defecto se adivina por zona horaria/idioma del navegador; el negocio es solo el
+   * respaldo cuando el navegador no dice nada reconocible.
+   */
+  readonly paisCliente = signal('CO');
   readonly email = signal('');
   readonly notas = signal('');
   readonly comprobante = signal<File | null>(null);
@@ -173,12 +220,27 @@ export class PublicoServicioComponent implements OnInit {
       this.idServicio.set(id);
       this.reiniciar();
     });
+
+    // El país del cliente por defecto: primero el del negocio (razonable — la mayoría de
+    // quienes agendan viven donde el negocio atiende), y si el navegador reconoce uno
+    // soportado se prefiere ese, porque es el dato más cercano al propio cliente.
+    if (isPlatformBrowser(this.platformId)) {
+      this.paisesSrv.cargar().subscribe(paises => {
+        if (!paises.length) return;
+        const soportados = paises.map(p => p.codigo);
+        const delNegocio = this.negocio()?.pais;
+        this.paisCliente.set(
+          paisPorMetadatos(soportados) ?? (delNegocio && soportados.includes(delNegocio) ? delNegocio : soportados[0]),
+        );
+      });
+    }
   }
 
   private reiniciar(): void {
     this.idVarianteElegida.set(null);
     this.reiniciarAgenda();
     this.descripcionAbierta.set(false);
+    this.indiceFoto.set(0);
   }
 
   private reiniciarAgenda(): void {
@@ -402,6 +464,7 @@ export class PublicoServicioComponent implements OnInit {
       fecha_hora_inicio: `${this.fecha()}T${this.hora()}:00`,
       cliente_nombre: this.nombre().trim(),
       cliente_telefono: this.telefono().trim(),
+      cliente_pais: this.paisCliente(),
       cliente_email: this.email().trim() || undefined,
       notas: this.notas().trim() || undefined,
       comprobante: this.comprobante(),

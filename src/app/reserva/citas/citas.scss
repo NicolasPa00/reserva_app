@@ -110,5 +110,11 @@
     .btn { flex: 1; justify-content: center; }
   }
 
-  .pie-cita__grupo:not(.pie-cita__grupo--baja) { flex: 1 1 100%; }
+  // El grupo que avanza la cita (Editar / Completar y cobrar / Confirmar / Validar pago) puede
+  // traer hasta cuatro botones: sin envolver, «Confirmar» quedaba fuera de la pantalla en vez de
+  // bajar a una fila propia (el pie no tiene `overflow-x: hidden`, solo el cuerpo del modal).
+  .pie-cita__grupo:not(.pie-cita__grupo--baja) {
+    flex: 1 1 100%; flex-wrap: wrap;
+    .btn { flex: 1 1 auto; justify-content: center; }
+  }
 }

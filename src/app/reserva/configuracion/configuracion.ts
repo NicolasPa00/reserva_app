@@ -1,5 +1,7 @@
-import { ChangeDetectionStrategy, Component, OnInit, computed, effect, inject, signal } from '@angular/core';
-import { CommonModule, Location } from '@angular/common';
+import {
+  ChangeDetectionStrategy, Component, OnInit, PLATFORM_ID, computed, effect, inject, signal,
+} from '@angular/core';
+import { CommonModule, Location, isPlatformBrowser } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
 import { forkJoin } from 'rxjs';
@@ -10,10 +12,13 @@ import { ToastService } from '../../core/services/toast.service';
 import { ColoresNegocio, FuncionConfig, MarcaNegocio, MetodoPago, Moneda, PaisDisponible } from '../../core/models';
 import { ThemeService } from '../../core/theme/theme.service';
 import { MonedaService } from '../../core/services/moneda.service';
+import { PaisesService } from '../../core/services/paises.service';
+import { paisPorMetadatos } from '../../core/utils/pais-detectado';
 import { ImageCropperComponent } from '../../shared/image-cropper/image-cropper';
 import { ModalComponent } from '../../shared/modal/modal';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dialog';
 import { IconoTiktokComponent } from '../../shared/iconos-marca/iconos-marca';
+import { TelefonoPaisComponent } from '../../shared/telefono-pais/telefono-pais';
 
 /**
  * Configuración del vertical.
@@ -29,6 +34,7 @@ import { IconoTiktokComponent } from '../../shared/iconos-marca/iconos-marca';
   imports: [
     CommonModule, ReactiveFormsModule, LucideAngularModule,
     ModalComponent, ConfirmDialogComponent, ImageCropperComponent, IconoTiktokComponent,
+    TelefonoPaisComponent,
   ],
   templateUrl: './configuracion.html',
   styleUrl: './configuracion.scss',
@@ -42,6 +48,8 @@ export class ConfiguracionComponent implements OnInit {
   private readonly fb    = inject(FormBuilder);
   private readonly theme = inject(ThemeService);
   private readonly monedas = inject(MonedaService);
+  private readonly paisesSrv = inject(PaisesService);
+  private readonly platformId = inject(PLATFORM_ID);
 
   readonly cargando = signal(false);
   readonly guardando = signal(false);
@@ -93,6 +101,10 @@ export class ConfiguracionComponent implements OnInit {
   readonly primario = signal('#312E81');
   readonly acento = signal('#6366F1');
   readonly coloresSucios = signal(false);
+
+  /** URL propia (`<slug>.escalapp.cloud`) en edición. */
+  readonly slugInput = signal('');
+  readonly guardandoSlug = signal(false);
 
   // ── Formas de pago ──
   readonly metodos = signal<MetodoPago[]>([]);
@@ -155,15 +167,23 @@ export class ConfiguracionComponent implements OnInit {
   /**
    * Enlace que el negocio comparte con sus clientes.
    *
-   * Se arma con `Location.prepareExternalUrl`, que antepone el baseHref del build
-   * (`/reserva/`). Antes se concatenaba `origin + /p/:id` a mano, y el enlace
-   * resultante caía en una ruta que el servidor no sirve: el cliente veía una
-   * página en blanco. El baseHref no se escribe a mano para que un cambio de
-   * despliegue no vuelva a romperlo.
+   * Con URL propia (`slug`), es el subdominio a secas: `https://dalex-barberia.escalapp.cloud`.
+   * `subdominio.guard.ts` es quien lo traduce de vuelta a `/p/:id` en el navegador de quien lo
+   * visite — aquí no hace falta saber eso, solo mostrar el enlace bonito.
+   *
+   * Sin `slug` (negocios de antes de esta función, o mientras carga), se arma con
+   * `Location.prepareExternalUrl`, que antepone el baseHref del build (`/reserva/`). Antes se
+   * concatenaba `origin + /p/:id` a mano, y el enlace resultante caía en una ruta que el
+   * servidor no sirve: el cliente veía una página en blanco. El baseHref no se escribe a mano
+   * para que un cambio de despliegue no vuelva a romperlo.
    */
   readonly urlPublica = computed(() => {
     const id = this.auth.negocio()?.id_negocio;
     if (!id) return '';
+
+    const slug = this.marca()?.slug;
+    if (slug) return `https://${slug}.escalapp.cloud`;
+
     // `location` no existe en SSR; se compone sin él y se completa en el navegador.
     const origen = typeof window !== 'undefined' ? window.location.origin : '';
     return `${origen}${this.location.prepareExternalUrl(`/p/${id}`)}`;
@@ -221,12 +241,34 @@ export class ConfiguracionComponent implements OnInit {
       vitrina: this.api.getVitrinaEdicion(idNegocio),
     }).subscribe({
       next: ({ cfg, metodos, marca, vitrina }) => {
+        // El país se resuelve una sola vez, antes de repartir la respuesta: lo necesitan tanto
+        // el selector de Cobros como los teléfonos de Página pública, que llegan guardados sin
+        // indicativo y hay que partirlos con el país correcto (`PaisesService.partir`).
+        const catalogo = cfg?.data?.paises ?? [];
+        this.paises.set(catalogo);
+        const paisGuardado = cfg?.data?.pais ?? 'CO';
+        // 'CO' es el valor con el que nace todo negocio (defaultValue de la columna): si nadie
+        // lo tocó nunca, es más una ausencia que una elección. Se sugiere el país que delata el
+        // navegador de quien está configurando, sin pisar un 'CO' que sí fue explícito.
+        const soportados = catalogo.map((p: PaisDisponible) => p.codigo);
+        const sugerido = paisGuardado === 'CO' && isPlatformBrowser(this.platformId)
+          ? paisPorMetadatos(soportados)
+          : null;
+        const paisResuelto = sugerido ?? paisGuardado;
+        this.paisElegido.set(paisResuelto);
+
         if (vitrina?.success && vitrina.data) {
           const v = vitrina.data;
+          this.paisesSrv.cargar().subscribe(() => {
+            const whatsappCrudo = v.url_whatsapp?.replace(/^https?:\/\/wa\.me\//, '') ?? '';
+            this.vitrinaForm.patchValue({
+              telefono:     this.paisesSrv.partir(v.telefono, paisResuelto).numero,
+              url_whatsapp: this.paisesSrv.partir(whatsappCrudo, paisResuelto).numero,
+            });
+            this.vitrinaForm.markAsPristine();
+          });
           this.vitrinaForm.patchValue({
-            telefono:            v.telefono ?? '',
             direccion:           v.direccion ?? '',
-            url_whatsapp:        v.url_whatsapp ?? '',
             url_facebook:        v.url_facebook ?? '',
             url_instagram:       v.url_instagram ?? '',
             url_tiktok:          v.url_tiktok ?? '',
@@ -240,6 +282,7 @@ export class ConfiguracionComponent implements OnInit {
           this.primario.set(marca.data.colores?.primario ?? '#312E81');
           this.acento.set(marca.data.colores?.acento ?? '#6366F1');
           this.coloresSucios.set(false);
+          this.slugInput.set(marca.data.slug ?? '');
         }
         if (cfg?.success && cfg.data) {
           this.form.patchValue({
@@ -261,8 +304,6 @@ export class ConfiguracionComponent implements OnInit {
           this.valoresForm.set(this.form.getRawValue());
           this.funcionesConfig.set(cfg.data.funciones_config ?? []);
           if (cfg.data.perfil) this.auth.actualizarNegocioActivo({ perfil: cfg.data.perfil });
-          this.paises.set(cfg.data.paises ?? []);
-          this.paisElegido.set(cfg.data.pais ?? 'CO');
         }
         if (metodos?.success && metodos.data) this.metodos.set(metodos.data);
         this.cargando.set(false);
@@ -350,6 +391,7 @@ export class ConfiguracionComponent implements OnInit {
     this.api.guardarVitrina({
       id_negocio: idNegocio,
       telefono:            v.telefono.trim(),
+      pais:                this.paisElegido(),
       direccion:           v.direccion.trim(),
       url_whatsapp:        v.url_whatsapp.trim(),
       url_facebook:        v.url_facebook.trim(),
@@ -361,13 +403,16 @@ export class ConfiguracionComponent implements OnInit {
       next: r => {
         this.guardandoVitrina.set(false);
         if (!r?.success || !r.data) { this.toast.error(r?.message || 'No se pudo guardar.'); return; }
-        // El backend normaliza («@usuario» acaba siendo una URL completa); se refresca el
-        // formulario con lo guardado para que se vea exactamente lo que quedó.
+        // El backend normaliza («@usuario» acaba siendo una URL completa, el WhatsApp un
+        // `wa.me/<e164>`); se refresca el formulario con lo guardado para que se vea exactamente
+        // lo que quedó. El teléfono y el WhatsApp vuelven a partirse: el selector quiere el
+        // número nacional, no la URL completa ni el indicativo pegado.
         const d = r.data;
+        const whatsappCrudo = d.url_whatsapp?.replace(/^https?:\/\/wa\.me\//, '') ?? '';
         this.vitrinaForm.patchValue({
-          telefono:      d.telefono ?? '',
+          telefono:      this.paisesSrv.partir(d.telefono, this.paisElegido()).numero,
           direccion:     d.direccion ?? '',
-          url_whatsapp:  d.url_whatsapp ?? '',
+          url_whatsapp:  this.paisesSrv.partir(whatsappCrudo, this.paisElegido()).numero,
           url_facebook:  d.url_facebook ?? '',
           url_instagram: d.url_instagram ?? '',
           url_tiktok:    d.url_tiktok ?? '',
@@ -394,6 +439,33 @@ export class ConfiguracionComponent implements OnInit {
       // copiarlo a mano; avisar de un fallo técnico no le sirve de nada al usuario.
       this.toast.info('Copia el enlace manualmente.');
     }
+  }
+
+  /** ¿Cambió el slug de edición respecto al guardado? Es lo que habilita «Guardar». */
+  readonly slugSucio = computed(() => {
+    const actual = this.marca()?.slug ?? '';
+    return this.slugInput().trim().toLowerCase() !== actual;
+  });
+
+  guardarSlug() {
+    const id = this.auth.negocio()?.id_negocio;
+    const slug = this.slugInput().trim().toLowerCase();
+    if (!id || !slug || this.guardandoSlug()) return;
+
+    this.guardandoSlug.set(true);
+    this.api.actualizarSlug(id, slug).subscribe({
+      next: r => {
+        this.guardandoSlug.set(false);
+        if (!r?.success || !r.data) { this.toast.error(r?.message || 'No se pudo guardar.'); return; }
+        this.slugInput.set(r.data.slug);
+        this.marca.update(m => m ? { ...m, slug: r.data!.slug } : m);
+        this.toast.success('Tu URL propia se actualizó');
+      },
+      error: e => {
+        this.guardandoSlug.set(false);
+        this.toast.error(e?.error?.message || 'Error al guardar la URL.');
+      },
+    });
   }
 
   // ── Identidad visual ──

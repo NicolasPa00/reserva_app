@@ -95,6 +95,8 @@ export class AuthService {
     if (!s?.negocios?.length) return null;
     return s.negocios[this._negocioIdx()] ?? s.negocios[0];
   });
+  /** La ficha de agenda de quien inició sesión, en el negocio activo. `null` si no atiende citas. */
+  readonly miProfesionalId = computed(() => this.negocio()?.mi_profesional?.id_profesional ?? null);
   readonly rolPrincipal = computed(() => {
     const s = this.session();
     if (!s) return '';

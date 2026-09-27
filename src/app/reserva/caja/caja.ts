@@ -11,6 +11,7 @@ import { CajaHistorial, EstadoCaja, MetodoPago, MovimientoCaja } from '../../cor
 import { ModalComponent } from '../../shared/modal/modal';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dialog';
 import { colorDeEntidad } from '../../core/utils/color-entidad';
+import { aHora12, horaBogota } from '../../core/utils/hora';
 import { MonedaPipe } from '../../shared/moneda.pipe';
 import { MonedaService } from '../../core/services/moneda.service';
 
@@ -103,6 +104,41 @@ export class CajaComponent implements OnInit {
   readonly movimientos = computed<MovimientoCaja[]>(() => this.estado()?.movimientos ?? []);
   readonly liquidaPorProfesional = computed(() => this.estado()?.permite_cobro_profesional === true);
 
+  /**
+   * Acordeón de la tabla del turno: solo despliega detalle un movimiento de una cita (a quién se
+   * atendió, con qué servicio). Un ingreso o egreso manual no tiene más que su concepto, así que
+   * no se ofrece — no hay nada que desplegar y el cursor de "clic aquí" mentiría.
+   */
+  readonly filaExpandida = signal<number | null>(null);
+
+  alternarFila(m: MovimientoCaja): void {
+    if (!m.cita) return;
+    this.filaExpandida.update(id => (id === m.id_movimiento ? null : m.id_movimiento));
+  }
+
+  /**
+   * La hora de un movimiento (se abrió la caja, se registró el cobro) es un instante real, no la
+   * hora de pared de un negocio: se lee a la hora de quien mira, en 12 horas para no obligar a
+   * nadie a hacer la resta de si "14:00" es después de comer o de cenar. Con negocios en varios
+   * países no hay una sola zona "del negocio" que fijar aquí, a diferencia de una cita.
+   */
+  horaMovimiento(fecha: string | null | undefined): string {
+    if (!fecha) return '';
+    const d = new Date(fecha);
+    if (Number.isNaN(d.getTime())) return '';
+    return aHora12(`${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`);
+  }
+
+  /** La hora en que EMPEZÓ la cita sí es de pared del negocio: igual que en toda la agenda. */
+  horaCita(iso: string | null | undefined): string {
+    return iso ? aHora12(horaBogota(iso)) : '';
+  }
+
+  /** Lo que se cobró por la cita, sumando sus líneas — el mismo total que ya se cobró en caja. */
+  totalServicios(m: MovimientoCaja): number {
+    return (m.cita?.servicios ?? []).reduce((acc, l) => acc + Number(l.precio_snapshot ?? 0), 0);
+  }
+
   readonly totalAEntregar = computed(() =>
     this.porProfesional().reduce((a, p) => a + p.total, 0),
   );
@@ -124,9 +160,12 @@ export class CajaComponent implements OnInit {
     return !this.guardando() && m != null && Number.isFinite(m) && m >= 0;
   });
 
+  // Sin forma de pago el movimiento no se puede restar ni sumar a ningún método al cuadrar el
+  // cajón: por eso es obligatoria tanto en ingreso como en egreso, igual que ya lo es al cobrar
+  // una cita.
   readonly puedeGuardarMovimiento = computed(() => {
     const m = this.movMonto();
-    return !this.guardando() && m != null && Number.isFinite(m) && m > 0;
+    return !this.guardando() && m != null && Number.isFinite(m) && m > 0 && this.movMetodo() != null;
   });
 
   ngOnInit() {
@@ -267,9 +306,13 @@ export class CajaComponent implements OnInit {
     });
   }
 
-  // ── Borrar un movimiento del turno ──
+  // ── Anular un movimiento del turno ──
+  //
+  // No se borra: el backend lo marca `anulado` y se queda en la lista (tachado) para no perder
+  // trazabilidad, pero deja de sumar en los totales y en el desglose por forma de pago.
 
   pedirEliminarMovimiento(m: MovimientoCaja) {
+    if (m.anulado) return;
     this.movAEliminar.set(m);
     this.confirmEliminar.set(true);
   }
@@ -287,13 +330,13 @@ export class CajaComponent implements OnInit {
       next: r => {
         this.guardando.set(false);
         this.cancelarEliminarMovimiento();
-        if (r?.success) { this.toast.success('Movimiento eliminado'); this.cargar(); }
-        else this.toast.error(r?.message || 'No se pudo eliminar.');
+        if (r?.success) { this.toast.success('Movimiento anulado'); this.cargar(); }
+        else this.toast.error(r?.message || 'No se pudo anular.');
       },
       error: e => {
         this.guardando.set(false);
         this.cancelarEliminarMovimiento();
-        this.toast.error(e?.error?.message || 'Error al eliminar el movimiento.');
+        this.toast.error(e?.error?.message || 'Error al anular el movimiento.');
       },
     });
   }

@@ -22,8 +22,22 @@
            metro de blanco bajo la foto y empujaban el calendario fuera de la primera pantalla. -->
       <div class="ficha">
         <div class="foto">
-          @if (s.imagen_url) {
-            <img [src]="s.imagen_url | urlArchivo" [alt]="s.nombre" />
+          @if (fotoActual(); as f) {
+            <img [src]="f.url | urlArchivo" [alt]="f.descripcion || s.nombre" />
+            @if (fotos().length > 1) {
+              <button type="button" class="foto__nav foto__nav--izq" (click)="fotoAnterior()" aria-label="Foto anterior">
+                <lucide-icon name="chevron-left" [size]="20" />
+              </button>
+              <button type="button" class="foto__nav foto__nav--der" (click)="fotoSiguiente()" aria-label="Foto siguiente">
+                <lucide-icon name="chevron-right" [size]="20" />
+              </button>
+              <div class="foto__puntos">
+                @for (fo of fotos(); track fo.url; let i = $index) {
+                  <button type="button" class="foto__punto" [class.foto__punto--on]="i === indiceFoto()"
+                          (click)="indiceFoto.set(i)" [attr.aria-label]="'Ver foto ' + (i + 1)"></button>
+                }
+              </div>
+            }
           } @else {
             <span class="foto__vacia">
               <lucide-icon name="image-off" [size]="44" />
@@ -58,7 +72,19 @@
               <em>{{ terminos().servicio }}</em>
             </span>
             <span class="opcion__cuanto">
-              <span class="opcion__precio">A cotizar</span>
+              <span class="opcion__precio">
+                @if (tieneRangoPrecio()) {
+                  @if (precioMinCotizar() != null && precioMaxCotizar() != null) {
+                    {{ precioMinCotizar() | moneda }} - {{ precioMaxCotizar() | moneda }}
+                  } @else if (precioMinCotizar() != null) {
+                    Desde {{ precioMinCotizar() | moneda }}
+                  } @else {
+                    Hasta {{ precioMaxCotizar() | moneda }}
+                  }
+                } @else {
+                  A cotizar
+                }
+              </span>
             </span>
           </div>
         } @else if (variantes().length) {
@@ -228,7 +254,19 @@
         </div>
         <div>
           <dt>Precio</dt>
-          <dd class="barra__precio">@if (aCotizar()) { A cotizar } @else { {{ precio() | moneda }} }</dd>
+          <dd class="barra__precio">
+            @if (aCotizar()) {
+              @if (precioMinCotizar() != null && precioMaxCotizar() != null) {
+                {{ precioMinCotizar() | moneda }} - {{ precioMaxCotizar() | moneda }}
+              } @else if (precioMinCotizar() != null) {
+                Desde {{ precioMinCotizar() | moneda }}
+              } @else if (precioMaxCotizar() != null) {
+                Hasta {{ precioMaxCotizar() | moneda }}
+              } @else {
+                A cotizar
+              }
+            } @else { {{ precio() | moneda }} }
+          </dd>
         </div>
         @if (!aCotizar()) {
           <div class="barra__ocultable">
@@ -289,8 +327,10 @@
         </label>
         <label class="campo">
           <span>Teléfono *</span>
-          <input class="input" type="tel" [value]="telefono()" maxlength="30"
-                 (input)="telefono.set($any($event.target).value)" placeholder="300 000 0000" />
+          <reserva-telefono-pais
+            [pais]="paisCliente()" [numero]="telefono()"
+            (paisChange)="paisCliente.set($event)"
+            (numeroChange)="telefono.set($event)" />
         </label>
         <label class="campo">
           <span>Correo <small>(opcional)</small></span>

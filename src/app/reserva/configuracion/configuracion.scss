@@ -317,6 +317,16 @@
   &__botones .mini { text-decoration: none; }
 }
 
+// ── URL propia (slug) ──
+.slug-editor {
+  display: flex; align-items: center; gap: .4rem; flex-wrap: wrap;
+  margin-top: .35rem;
+
+  &__fijo { font-size: .85rem; color: var(--color-text-muted); flex-shrink: 0; }
+  .input { flex: 1 1 160px; min-width: 120px; }
+  .mini { flex-shrink: 0; }
+}
+
 .publica .grid label > span {
   display: inline-flex; align-items: center; gap: .35rem;
   // `icono-tiktok` va junto a los de Lucide: el logo no existe en ese juego y se dibuja aparte,

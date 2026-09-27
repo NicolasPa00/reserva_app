@@ -7,11 +7,13 @@ import { ActivatedRoute, Router, RouterLink, RouterLinkActive, RouterOutlet } fr
 import { LucideAngularModule } from 'lucide-angular';
 
 import { FaviconService } from '../../core/services/favicon.service';
+import { ManifestNegocioService } from '../../core/services/manifest-negocio.service';
 import { VitrinaStore } from '../../reserva/publico/vitrina.store';
 import { UrlArchivoPipe } from '../../shared/url-archivo.pipe';
 import { ServicioPublico } from '../../core/models';
 import { MonedaPipe } from '../../shared/moneda.pipe';
 import { MonedaService } from '../../core/services/moneda.service';
+import { environment } from '../../../environments/environment';
 
 /**
  * Marco del portal público: la página que ve un cliente que llega por un enlace o un QR.
@@ -39,6 +41,7 @@ export class PublicoShellComponent implements OnInit, OnDestroy {
   private readonly document = inject(DOCUMENT);
   private readonly router = inject(Router);
   private readonly favicon = inject(FaviconService);
+  private readonly manifest = inject(ManifestNegocioService);
   private readonly urlArchivo = inject(UrlArchivoPipe);
   readonly store = inject(VitrinaStore);
   private readonly monedas = inject(MonedaService);
@@ -53,6 +56,9 @@ export class PublicoShellComponent implements OnInit, OnDestroy {
 
   // ── Datos de EscalApp para el pie ──
   readonly escalappSitio = 'https://escalapp.cloud/admin/';
+
+  /** El mismo login al que `authGuard` manda a un usuario sin sesión (ver core/guards/auth.guard.ts). */
+  readonly ingresarUrl = `${environment.adminUrl}/auth/login`;
 
   // ── Buscador ──
   readonly termino = signal('');
@@ -136,6 +142,19 @@ export class PublicoShellComponent implements OnInit, OnDestroy {
     // cabecera, así que sale de la caché del navegador: ni petición extra ni trabajo de CPU.
     effect(() => this.favicon.aplicar(this.urlArchivo.transform(this.negocio()?.logo_url)));
 
+    // «Añadir a la pantalla de inicio» = el icono y el nombre del negocio, no el pulpo de
+    // EscalApp. Ver `ManifestNegocioService`.
+    effect(() => {
+      const neg = this.negocio();
+      if (!neg) return;
+      this.manifest.aplicar({
+        manifestUrl: `${environment.apiUrl}/publico/${neg.id_negocio}/manifest.webmanifest`,
+        iconoUrl: this.urlArchivo.transform(neg.logo_url),
+        colorTema: neg.colores?.primario ?? (neg.paleta?.colores?.['primario'] ?? null),
+        nombre: neg.nombre,
+      });
+    });
+
     // Va en un `effect` sobre la señal del `viewChild`, no en `ngAfterViewInit`: la cabecera
     // vive dentro de un `@if` que espera a la vitrina, así que cuando ese gancho se dispara el
     // elemento todavía no existe y no se llegaría a medir nunca.
@@ -158,6 +177,7 @@ export class PublicoShellComponent implements OnInit, OnDestroy {
     this.observador?.disconnect();
     // Fuera del portal el icono vuelve a ser el de EscalApp (la consola vive en la misma app).
     this.favicon.restaurar();
+    this.manifest.restaurar();
     // La variable es global: dejarla puesta descuadraría cualquier otra pantalla.
     this.document.documentElement.style.removeProperty('--alto-cabecera');
     // Y la moneda, igual: la consola y el portal viven en la misma aplicación, así que un

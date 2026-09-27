@@ -76,6 +76,14 @@ export class HorariosComponent implements OnInit {
   // Editar la jornada semanal afecta a lo que se puede reservar; los bloqueos son del día a día.
   readonly puedeEditarHorario = computed(() => this.auth.puedeAccion('horarios_editar'));
   readonly puedeBloqueos      = computed(() => this.auth.puedeAccion('horarios_bloqueos'));
+  /** El profesional que solo puede tocar SU horario, no el del negocio ni el de un compañero. */
+  readonly puedeEditarPropio  = computed(() => this.auth.puedeAccion('horarios_editar_propio'));
+  /** Sin el permiso general, el selector queda fijo en la propia ficha. */
+  readonly soloPropio         = computed(() => !this.puedeEditarHorario() && this.puedeEditarPropio());
+  // Con solo el permiso propio, hace falta además una ficha de agenda que editar: el permiso
+  // sin ficha (un administrativo al que se lo dieron por error) no habilita nada.
+  readonly puedeGuardar       = computed(() =>
+    this.puedeEditarHorario() || (this.puedeEditarPropio() && this.auth.miProfesionalId() != null));
 
   readonly diasSemana = DIAS;
   readonly diasCortos = DIAS_CORTOS;
@@ -128,6 +136,8 @@ export class HorariosComponent implements OnInit {
   ngOnInit() {
     const idNegocio = this.auth.negocio()?.id_negocio;
     if (!idNegocio) return;
+    // Con permiso solo para lo propio, el destino no se elige: es la propia ficha, siempre.
+    if (this.soloPropio()) this.profesionalSeleccionado.set(this.auth.miProfesionalId());
     this.cargando.set(true);
     forkJoin({
       pros: this.api.listarProfesionales(idNegocio),
@@ -162,6 +172,7 @@ export class HorariosComponent implements OnInit {
   }
 
   cambiarTarget(idRaw: string) {
+    if (this.soloPropio()) return; // el selector está bloqueado; ver ngOnInit.
     this.profesionalSeleccionado.set(idRaw === '' ? null : Number(idRaw));
     this.cargarHorario();
   }
@@ -232,7 +243,10 @@ export class HorariosComponent implements OnInit {
 
   guardar() {
     const idNegocio = this.auth.negocio()?.id_negocio;
-    if (!idNegocio) return;
+    if (!idNegocio || !this.puedeGuardar()) return;
+    // Defensa en profundidad: el backend vuelve a comprobarlo (horarioController.puedeReemplazar),
+    // pero que el botón mande el destino correcto evita un 403 que el usuario no entendería.
+    if (this.soloPropio()) this.profesionalSeleccionado.set(this.auth.miProfesionalId());
 
     const errores = this.erroresPorDia();
     if (errores.size > 0) {

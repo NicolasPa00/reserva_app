@@ -60,8 +60,8 @@
                   <span class="celda-turno">
                     <strong>{{ h.fecha_apertura | date:'d MMM yyyy':'':'es-CO' }}</strong>
                     <em>
-                      {{ h.fecha_apertura | date:'HH:mm':'':'es-CO' }} –
-                      {{ h.fecha_cierre ? (h.fecha_cierre | date:'HH:mm':'':'es-CO') : '—' }}
+                      {{ horaMovimiento(h.fecha_apertura) }} –
+                      {{ h.fecha_cierre ? horaMovimiento(h.fecha_cierre) : '—' }}
                     </em>
                   </span>
                 </td>
@@ -128,7 +128,7 @@
         <strong class="rk__val">{{ totales()?.apertura | moneda }}</strong>
         <span class="rk__pie">
           Abrió {{ caja()?.usuario?.nombre || '—' }} ·
-          {{ caja()?.fecha_apertura | date:'HH:mm':'':'es-CO' }}
+          {{ horaMovimiento(caja()?.fecha_apertura) }}
         </span>
       </article>
       <article class="rk rk--exito">
@@ -237,33 +237,120 @@
       @if (movimientos().length === 0) {
         <p class="hint">Todavía no hay movimientos.</p>
       } @else {
-        <ul class="movs">
-          @for (m of movimientos(); track m.id_movimiento) {
-            <li>
-              <span class="movs__tipo" [class.movs__tipo--in]="m.tipo === 'INGRESO'"
-                    [class.movs__tipo--out]="m.tipo === 'EGRESO'">
-                <lucide-icon [name]="m.tipo === 'INGRESO' ? 'plus' : 'minus'" [size]="13" />
-              </span>
-              <div class="movs__txt">
-                <strong>{{ m.concepto || (m.tipo === 'INGRESO' ? 'Ingreso' : 'Egreso') }}</strong>
-                <span>
-                  {{ m.fecha | date:'HH:mm':'':'es-CO' }}
-                  @if (m.metodoPago) { · {{ m.metodoPago.nombre }} }
-                  @if (m.profesional) { · {{ m.profesional.nombre }} }
-                </span>
-              </div>
-              <strong class="movs__monto" [class.pos]="m.tipo === 'INGRESO'" [class.neg]="m.tipo === 'EGRESO'">
-                {{ m.tipo === 'EGRESO' ? '−' : '+' }}{{ m.monto | moneda }}
-              </strong>
-              @if (permiteEliminar()) {
-                <button type="button" class="movs__borrar" (click)="pedirEliminarMovimiento(m)"
-                        [disabled]="guardando()" title="Eliminar este movimiento">
-                  <lucide-icon name="trash-2" [size]="14" />
-                </button>
+        <!--
+          Tabla, no lista: en móvil una tarjeta por movimiento recortaba el concepto y solo
+          dejaba ver dos o tres a la vez. Con columnas fijas y scroll horizontal (mismo patrón
+          que el historial, ver `.tabla-wrap`/`.tabla` arriba) cada celda queda en una sola línea
+          y se leen más registros de una pasada, que es para lo que sirve este panel: hacerles
+          seguimiento.
+        -->
+        <div class="tabla-wrap">
+          <table class="tabla tabla--movs">
+            <thead>
+              <tr>
+                <th>Hora</th>
+                <th>Tipo</th>
+                <th>Concepto</th>
+                <th>Forma de pago</th>
+                <th>Cita / Profesional</th>
+                <th class="num">Monto</th>
+                @if (permiteEliminar()) { <th class="acc"></th> }
+              </tr>
+            </thead>
+            <tbody>
+              @for (m of movimientos(); track m.id_movimiento) {
+                <!-- Solo un movimiento de cita despliega detalle: un ingreso o egreso manual no
+                     tiene más que su concepto, así que la fila no reacciona al clic. -->
+                <tr [class.fila--anulado]="m.anulado" [class.movs__fila--clic]="!!m.cita"
+                    (click)="alternarFila(m)">
+                  <td>{{ horaMovimiento(m.fecha) }}</td>
+                  <td>
+                    <span class="movs__tipo" [class.movs__tipo--in]="m.tipo === 'INGRESO'"
+                          [class.movs__tipo--out]="m.tipo === 'EGRESO'">
+                      <lucide-icon [name]="m.tipo === 'INGRESO' ? 'plus' : 'minus'" [size]="12" />
+                      {{ m.tipo === 'INGRESO' ? 'Ingreso' : 'Egreso' }}
+                    </span>
+                  </td>
+                  <td>
+                    @if (m.cita) {
+                      <lucide-icon name="chevron-right" [size]="14" class="movs__flecha"
+                                   [class.movs__flecha--abierta]="filaExpandida() === m.id_movimiento" />
+                    }
+                    {{ m.concepto || '—' }}
+                    @if (m.anulado) { <span class="badge-anulado">Anulado</span> }
+                  </td>
+                  <td>{{ m.metodoPago?.nombre || '—' }}</td>
+                  <td>
+                    @if (m.cita) { {{ m.cita.cliente_nombre }} }
+                    @else if (m.profesional) { {{ m.profesional.nombre }} }
+                    @else { — }
+                  </td>
+                  <td class="num">
+                    <strong [class.pos]="m.tipo === 'INGRESO'" [class.neg]="m.tipo === 'EGRESO'">
+                      {{ m.tipo === 'EGRESO' ? '−' : '+' }}{{ m.monto | moneda }}
+                    </strong>
+                  </td>
+                  @if (permiteEliminar()) {
+                    <td class="acc">
+                      @if (!m.anulado) {
+                        <button type="button" class="movs__borrar"
+                                (click)="pedirEliminarMovimiento(m); $event.stopPropagation()"
+                                [disabled]="guardando()" title="Anular este movimiento">
+                          <lucide-icon name="trash-2" [size]="14" />
+                        </button>
+                      }
+                    </td>
+                  }
+                </tr>
+                @if (m.cita && filaExpandida() === m.id_movimiento) {
+                  <tr class="movs__detalle">
+                    <td [attr.colspan]="permiteEliminar() ? 7 : 6">
+                      <dl class="detalle-cita">
+                        <div>
+                          <dt>Cliente</dt>
+                          <dd>{{ m.cita.cliente_nombre }}</dd>
+                        </div>
+                        @if (m.cita.cliente_telefono) {
+                          <div>
+                            <dt>Teléfono</dt>
+                            <dd>{{ m.cita.cliente_telefono }}</dd>
+                          </div>
+                        }
+                        @if (m.cita.fecha_hora_inicio) {
+                          <div>
+                            <dt>Hora de la cita</dt>
+                            <dd>{{ horaCita(m.cita.fecha_hora_inicio) }}</dd>
+                          </div>
+                        }
+                        @if (m.profesional) {
+                          <div>
+                            <dt>Profesional</dt>
+                            <dd>{{ m.profesional.nombre }}</dd>
+                          </div>
+                        }
+                        @if (m.cita.servicios?.length) {
+                          <div class="detalle-cita__servicios">
+                            <dt>Servicio(s)</dt>
+                            <dd>
+                              <ul>
+                                @for (l of m.cita.servicios; track $index) {
+                                  <li>
+                                    {{ l.servicio?.nombre || 'Servicio' }}
+                                    <span>{{ l.precio_snapshot | moneda }} · {{ l.duracion_snapshot_min }} min</span>
+                                  </li>
+                                }
+                              </ul>
+                            </dd>
+                          </div>
+                        }
+                      </dl>
+                    </td>
+                  </tr>
+                }
               }
-            </li>
-          }
-        </ul>
+            </tbody>
+          </table>
+        </div>
       }
     </section>
   }
@@ -369,12 +456,17 @@
              [value]="movConcepto()"
              (input)="movConcepto.set($any($event.target).value)" />
     </label>
-    @if (movTipo() === 'INGRESO' && metodos().length > 0) {
+    <!--
+      Obligatoria en los dos tipos: sin forma de pago el movimiento no tiene de qué método restar
+      o sumar al cuadrar el cajón (ver `getDesglosePorMetodo` en el backend). Antes solo se
+      pedía en ingreso, así que ningún egreso descontaba del efectivo ni de ningún otro método.
+    -->
+    @if (metodos().length > 0) {
       <label class="campo">
-        <span>Forma de pago</span>
+        <span>Forma de pago *</span>
         <select class="select" [value]="movMetodo() ?? ''"
                 (change)="setMovMetodo($any($event.target).value)">
-          <option [value]="''">Sin especificar</option>
+          <option [value]="''" disabled>Elige una forma de pago</option>
           @for (m of metodos(); track m.id_metodo_pago) {
             <option [value]="m.id_metodo_pago" [selected]="movMetodo() === m.id_metodo_pago">
               {{ m.nombre }}
@@ -382,6 +474,11 @@
           }
         </select>
       </label>
+    } @else {
+      <p class="hint">
+        Este negocio no tiene formas de pago activas. Configura al menos una en
+        Configuración antes de registrar movimientos.
+      </p>
     }
   </div>
   <div modal-footer>
@@ -403,13 +500,14 @@
 
 <!--
   Se dice el importe: el cuadre del turno cambia justo en esa cifra, y es lo único que permite
-  a quien confirma darse cuenta de que iba a borrar el movimiento equivocado.
+  a quien confirma darse cuenta de que iba a anular el movimiento equivocado. Se anula, no se
+  borra: el movimiento se queda en la lista del turno (tachado) para no perder trazabilidad.
 -->
 <reserva-confirm
   [open]="confirmEliminar()"
-  title="Eliminar el movimiento"
-  [message]="'Se borrará el ' + descripcionMovimiento(movAEliminar()) + '. El turno se recalcula sin él y la acción queda registrada en auditoría. No se puede deshacer.'"
-  confirmText="Eliminar"
+  title="Anular el movimiento"
+  [message]="'Se anulará el ' + descripcionMovimiento(movAEliminar()) + '. Queda registrado en la lista del turno, pero deja de sumar en el total y en el desglose por forma de pago. La acción queda en auditoría y no se puede deshacer.'"
+  confirmText="Anular"
   kind="danger"
   (cancel)="cancelarEliminarMovimiento()"
   (confirm)="eliminarMovimientoConfirmado()" />

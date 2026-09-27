@@ -147,47 +147,105 @@
 }
 
 // ── Movimientos ──
-.movs {
-  list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column;
+//
+// Tabla, no lista de tarjetas: en móvil una celda por dato en una sola línea, con scroll
+// horizontal si hace falta, deja ver más registros de una pasada que una tarjeta que envuelve el
+// texto y recorta el concepto. Reutiliza `.tabla`/`.tabla-wrap` del historial, con extras propios.
+// `.tabla.tabla--movs`, no `.tabla--movs` a secas: el `min-width: 820px` de `.tabla` (definido
+// más abajo) tiene la misma especificidad y, por orden de aparición, se lo comería.
+.tabla.tabla--movs {
+  min-width: 640px;
+
+  // Una sola línea por celda: el concepto puede ser largo («Domicilio, insumos, adelanto…») y
+  // sin esto envolvía, disparando el alto de la fila y con ella el de todo el panel. Que
+  // desborde a los lados y arrastre scroll, no que crezca hacia abajo.
+  td { white-space: nowrap; }
+
+  .num { white-space: nowrap; }
+  .acc { width: 40px; padding-left: 0; }
+
+  .pos { font-weight: 700; }
+  .neg { font-weight: 700; }
+}
+
+.movs__tipo {
+  display: inline-flex; align-items: center; gap: .3rem;
+  padding: .2rem .55rem; border-radius: var(--radius-full);
+  font-size: .76rem; font-weight: 600; white-space: nowrap;
+  &--in  { background: var(--color-success-bg); color: var(--color-success); }
+  &--out { background: var(--color-error-bg);   color: var(--color-error); }
+}
+
+// Discreto hasta que se pasa el ratón: es un botón de borrado en una tabla que se recorre
+// leyendo cifras, y no debe pedir atención en cada fila.
+.movs__borrar {
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  width: 28px; height: 28px; padding: 0; cursor: pointer;
+  border: 1px solid transparent; border-radius: var(--radius-md);
+  background: transparent; color: var(--color-text-muted);
+  transition: color var(--transition-fast), border-color var(--transition-fast),
+              background var(--transition-fast);
+
+  &:hover:not(:disabled) {
+    color: var(--color-error);
+    border-color: var(--color-error);
+    background: color-mix(in srgb, var(--color-error) 8%, transparent);
+  }
+  &:disabled { opacity: .5; cursor: not-allowed; }
+}
+
+// Un movimiento anulado se queda en la tabla (trazabilidad) pero ya no cuenta: se lee tachado y
+// apagado, para que no se confunda con uno que sí suma al cuadre.
+.fila--anulado {
+  opacity: .55;
+  td:not(.acc) { text-decoration: line-through; }
+}
+.badge-anulado {
+  display: inline-block; margin-left: .4rem; padding: .05rem .4rem;
+  border-radius: var(--radius-full); font-size: .68rem; font-weight: 700;
+  text-decoration: none; text-transform: uppercase; letter-spacing: .03em;
+  background: var(--color-bg-muted); color: var(--color-text-muted);
+}
+
+// Solo la fila de una cita reacciona al clic: las de ingreso/egreso manual no tienen detalle
+// que desplegar, así que ni el cursor ni el fondo al pasar el ratón las ofrecen como tal.
+.movs__fila--clic {
+  cursor: pointer;
+  &:hover td { background: var(--color-bg-muted); }
+}
+.movs__flecha {
+  display: inline-block; vertical-align: -2px; margin-right: .2rem;
+  color: var(--color-text-muted);
+  transition: transform var(--transition-fast);
+  &--abierta { transform: rotate(90deg); }
+}
+
+.tabla.tabla--movs tr.movs__detalle > td {
+  white-space: normal;
+  padding: .75rem 1rem 1rem;
+  background: var(--color-bg-muted);
+  border-top: 0;
+}
+
+.detalle-cita {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: .6rem 1.5rem;
+  margin: 0;
+
+  dt {
+    font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .02em;
+    color: var(--color-text-muted); margin-bottom: .15rem;
+  }
+  dd { margin: 0; font-size: .88rem; }
+
+  &__servicios { grid-column: 1 / -1; }
+
+  ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .25rem; }
   li {
-    display: flex; align-items: center; gap: .7rem;
-    padding: .6rem 0; border-top: 1px solid var(--color-border);
-    &:first-child { border-top: 0; }
-  }
-  &__tipo {
-    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-    width: 26px; height: 26px; border-radius: var(--radius-full);
-    &--in  { background: var(--color-success-bg); color: var(--color-success); }
-    &--out { background: var(--color-error-bg);   color: var(--color-error); }
-  }
-  &__txt {
-    display: flex; flex-direction: column; min-width: 0; flex: 1;
-    strong {
-      font-size: .87rem; color: var(--color-text-primary);
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    }
-    span { font-size: .73rem; color: var(--color-text-muted); }
-  }
-  &__monto {
-    font-size: .9rem; font-weight: 700; font-variant-numeric: tabular-nums; flex-shrink: 0;
-  }
-
-  // Discreto hasta que se pasa el ratón: es un botón de borrado en una lista que se recorre
-  // leyendo cifras, y no debe pedir atención en cada fila.
-  &__borrar {
-    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-    width: 28px; height: 28px; padding: 0; cursor: pointer;
-    border: 1px solid transparent; border-radius: var(--radius-md);
-    background: transparent; color: var(--color-text-muted);
-    transition: color var(--transition-fast), border-color var(--transition-fast),
-                background var(--transition-fast);
-
-    &:hover:not(:disabled) {
-      color: var(--color-error);
-      border-color: var(--color-error);
-      background: color-mix(in srgb, var(--color-error) 8%, transparent);
-    }
-    &:disabled { opacity: .5; cursor: not-allowed; }
+    display: flex; align-items: center; justify-content: space-between; gap: .75rem;
+    padding: .3rem .5rem; border-radius: var(--radius-md); background: var(--color-bg);
+    span { color: var(--color-text-secondary); font-size: .8rem; white-space: nowrap; }
   }
 }
 

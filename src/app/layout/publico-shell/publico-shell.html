@@ -78,10 +78,9 @@
         <a [routerLink]="raiz()" routerLinkActive="on" [routerLinkActiveOptions]="{ exact: true }">
           Inicio
         </a>
-        <a [routerLink]="[raiz(), 'mi-cita']" routerLinkActive="on">Mi cita</a>
-        <a class="btn btn-primary btn-sm" [routerLink]="raiz()" fragment="catalogo">
-          <lucide-icon name="calendar-plus" [size]="15" />
-          Reservar
+        <a class="btn btn-primary btn-sm" [href]="ingresarUrl">
+          <lucide-icon name="log-in" [size]="15" />
+          Ingresar
         </a>
       </nav>
     </header>

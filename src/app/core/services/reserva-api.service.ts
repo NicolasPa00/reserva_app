@@ -10,7 +10,7 @@ import {
   ResumenDashboard, MetodoPago, PagoLinea, EstadoCaja, CajaHistorial, MovimientoCaja,
   UsuarioNegocio, RolReserva, PermisosRol, UsuarioPayload, MarcaNegocio, ColoresNegocio,
   Vitrina, VitrinaEdicion, CitaPublica, CategoriaReserva, DiaServicio, SlotsServicio,
-  PaisDisponible, EstanciaPublica,
+  PaisDisponible, EstanciaPublica, PortafolioImagen,
 } from '../models';
 
 /** Campos de una cita que solo usan algunos perfiles (ver `composicionCita.js` en el backend). */
@@ -318,6 +318,12 @@ export class ReservaApiService {
     );
   }
 
+  actualizarSlug(idNegocio: number, slug: string) {
+    return this.http.put<ApiResponse<{ slug: string }>>(
+      `${this.base}/marca/slug`, { id_negocio: idNegocio, slug },
+    );
+  }
+
   /** El blob viene ya recortado y comprimido por `image-cropper`. */
   subirLogo(idNegocio: number, blob: Blob) {
     const fd = new FormData();
@@ -346,6 +352,25 @@ export class ReservaApiService {
   eliminarImagenServicio(idServicio: number, idNegocio: number) {
     return this.http.delete<ApiResponse<{ imagen_url: null }>>(
       `${this.base}/servicios/${idServicio}/imagen?id_negocio=${idNegocio}`,
+    );
+  }
+
+  // ── Galería de un servicio (varias fotos, aparte de la portada) ──
+  listarGaleriaServicio(idServicio: number, idNegocio: number) {
+    return this.http.get<ApiResponse<PortafolioImagen[]>>(
+      `${this.base}/servicios/${idServicio}/galeria`, { params: new HttpParams().set('id_negocio', idNegocio) },
+    );
+  }
+  agregarGaleriaServicio(idServicio: number, idNegocio: number, imagen: Blob, descripcion?: string | null) {
+    const fd = new FormData();
+    fd.append('id_negocio', String(idNegocio));
+    fd.append('imagen', imagen, 'foto.webp');
+    if (descripcion) fd.append('descripcion', descripcion);
+    return this.http.post<ApiResponse<PortafolioImagen>>(`${this.base}/servicios/${idServicio}/galeria`, fd);
+  }
+  eliminarGaleriaServicio(idImagen: number, idNegocio: number) {
+    return this.http.delete<ApiResponse<unknown>>(
+      `${this.base}/servicios/galeria/${idImagen}`, { params: new HttpParams().set('id_negocio', idNegocio) },
     );
   }
 
@@ -617,6 +642,13 @@ export class ReservaApiService {
     return this.http.get<ApiResponse<Vitrina>>(`${this.base}/publico/${idNegocio}/vitrina`);
   }
 
+  /** Traduce el subdominio propio (`dalex-barberia`) a su `id_negocio`. Ver `subdominio.guard.ts`. */
+  publicoPorDominio(slug: string) {
+    return this.http.get<ApiResponse<{ id_negocio: number }>>(
+      `${this.base}/publico/dominio/${encodeURIComponent(slug)}`,
+    );
+  }
+
   publicoInfoNegocio(idNegocio: number) {
     return this.http.get<ApiResponse<InfoNegocioPublico>>(
       `${this.base}/publico/${idNegocio}/info`,
@@ -701,7 +733,8 @@ export class ReservaApiService {
   /** Crea cita pública. Si payload contiene `comprobante` (File), envía como multipart. */
   publicoCrearCita(idNegocio: number, payload: {
     id_profesional: number; id_servicios: number[]; fecha_hora_inicio: string;
-    cliente_nombre: string; cliente_telefono?: string; cliente_email?: string; notas?: string;
+    cliente_nombre: string; cliente_telefono?: string; cliente_pais?: string;
+    cliente_email?: string; notas?: string;
     comprobante?: File | null;
     /** Variante elegida (largo, tamaño, zona): `{ [id_servicio]: id_variante }`. */
     variantes?: Record<number, number> | null;
@@ -715,6 +748,7 @@ export class ReservaApiService {
       fd.append('fecha_hora_inicio', payload.fecha_hora_inicio);
       fd.append('cliente_nombre', payload.cliente_nombre);
       if (payload.cliente_telefono) fd.append('cliente_telefono', payload.cliente_telefono);
+      if (payload.cliente_pais)     fd.append('cliente_pais', payload.cliente_pais);
       if (payload.cliente_email)    fd.append('cliente_email', payload.cliente_email);
       if (payload.notas)            fd.append('notas', payload.notas);
       if (payload.variantes)        fd.append('variantes', JSON.stringify(payload.variantes));

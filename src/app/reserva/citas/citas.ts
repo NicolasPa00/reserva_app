@@ -240,8 +240,20 @@ export class CitasComponent implements OnInit {
   /**
    * Completar pasa por el diálogo de cobro: ya no es un cambio de estado, es registrar dinero.
    * El diálogo pide la forma de pago y el backend lo asienta en la caja abierta.
+   *
+   * Antes de eso: un servicio «a cotizar» (tatuajes, estética a medida) nace sin precio de
+   * lista — el catálogo solo da un rango de referencia — y si nadie escribió el precio acordado
+   * al agendar, `monto_total` sigue en 0. Cobrar eso en silencio deja la cita facturada por
+   * nada. Se bloquea el cobro y se manda a editar la cita, que es donde vive ese campo.
    */
   completar(c: Cita) {
+    const sinPrecioAcordado = (c.servicios ?? [])
+      .some(l => l.servicio?.a_cotizar && Number(l.precio_snapshot) <= 0);
+    if (sinPrecioAcordado) {
+      this.toast.error('Antes de cobrar, escribe el precio acordado del servicio a cotizar.');
+      this.editarCita(c);
+      return;
+    }
     this.refrescarCaja();
     this.citaACobrar.set(c);
   }

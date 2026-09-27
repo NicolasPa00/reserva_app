@@ -15,13 +15,14 @@ import { ModalComponent } from '../../shared/modal/modal';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dialog';
 import { MonedaPipe } from '../../shared/moneda.pipe';
 import { MonedaService } from '../../core/services/moneda.service';
+import { GaleriaServicioEditorComponent } from './galeria-editor/galeria-editor';
 
 @Component({
   selector: 'reserva-servicios',
   standalone: true,
   imports: [
     CommonModule, ReactiveFormsModule, LucideAngularModule, MonedaPipe, TerminoPipe,
-    ModalComponent, ConfirmDialogComponent, ImageCropperComponent,
+    ModalComponent, ConfirmDialogComponent, ImageCropperComponent, GaleriaServicioEditorComponent,
   ],
   templateUrl: './servicios.html',
   styleUrl: './servicios.scss',
@@ -111,6 +112,8 @@ export class ServiciosComponent implements OnInit {
     proceso_desde_min:       [0, [Validators.min(0), Validators.max(600)]],
     proceso_min:             [0, [Validators.min(0), Validators.max(600)]],
     a_cotizar:               [false],
+    precio_min:              [''],
+    precio_max:              [''],
     requiere_consentimiento: [false],
     id_tipo_recurso:         [''],
   });
@@ -352,7 +355,8 @@ export class ServiciosComponent implements OnInit {
     this.form.reset({
       nombre: '', duracion_min: 30, precio: 0, descripcion: '',
       imagen_url: '', id_categoria: '',
-      proceso_desde_min: 0, proceso_min: 0, a_cotizar: false, requiere_consentimiento: false, id_tipo_recurso: '',
+      proceso_desde_min: 0, proceso_min: 0, a_cotizar: false, precio_min: '', precio_max: '',
+      requiere_consentimiento: false, id_tipo_recurso: '',
     });
     this.variantes.set([]);
     this.cargarTiposRecurso(this.auth.negocio()?.id_negocio ?? 0);
@@ -372,6 +376,8 @@ export class ServiciosComponent implements OnInit {
       proceso_desde_min: s.proceso_desde_min ?? 0,
       proceso_min: s.proceso_min ?? 0,
       a_cotizar: !!s.a_cotizar,
+      precio_min: s.precio_min != null ? String(Number(s.precio_min)) : '',
+      precio_max: s.precio_max != null ? String(Number(s.precio_max)) : '',
       requiere_consentimiento: !!s.requiere_consentimiento,
       id_tipo_recurso: s.id_tipo_recurso != null ? String(s.id_tipo_recurso) : '',
     });
@@ -502,7 +508,17 @@ export class ServiciosComponent implements OnInit {
         return;
       }
     }
-    if (this.conCotizar()) payload.a_cotizar = v.a_cotizar;
+    if (this.conCotizar()) {
+      payload.a_cotizar = v.a_cotizar;
+      const precioMin = v.precio_min?.trim() ? Number(v.precio_min) : null;
+      const precioMax = v.precio_max?.trim() ? Number(v.precio_max) : null;
+      if (precioMin != null && precioMax != null && precioMin > precioMax) {
+        this.toast.error('El precio "desde" no puede ser mayor que "hasta".');
+        return;
+      }
+      payload.precio_min = precioMin;
+      payload.precio_max = precioMax;
+    }
     if (this.conConsentimiento()) payload.requiere_consentimiento = v.requiere_consentimiento;
     if (this.conRecursos()) payload.id_tipo_recurso = v.id_tipo_recurso ? Number(v.id_tipo_recurso) : null;
     if (this.conVariantes()) {

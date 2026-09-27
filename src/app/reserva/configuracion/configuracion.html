@@ -194,6 +194,27 @@
             </div>
           </div>
 
+          @if (puedeEditarVitrina()) {
+            <label class="block">
+              <span>Personaliza tu URL</span>
+              <div class="slug-editor">
+                <span class="slug-editor__fijo">https://</span>
+                <input class="input" type="text" [value]="slugInput()"
+                       (input)="slugInput.set($any($event.target).value)"
+                       placeholder="dalex-barberia" maxlength="50" />
+                <span class="slug-editor__fijo">.escalapp.cloud</span>
+                <button type="button" class="mini" [disabled]="!slugSucio() || guardandoSlug()"
+                        (click)="guardarSlug()">
+                  @if (guardandoSlug()) { Guardando… } @else { Guardar }
+                </button>
+              </div>
+              <small class="hint">
+                Solo minúsculas, números y guiones. Es el enlace que sale arriba: cámbialo antes
+                de compartirlo en tus redes, porque el anterior deja de funcionar.
+              </small>
+            </label>
+          }
+
           <label class="toggle block">
             <input type="checkbox" formControlName="publico_activo" />
             <span class="toggle__txt">
@@ -220,7 +241,10 @@
           <div class="grid">
             <label>
               <span>Teléfono</span>
-              <input class="input" type="tel" formControlName="telefono" placeholder="300 000 0000" />
+              <reserva-telefono-pais
+                [pais]="paisElegido()" [numero]="vitrinaForm.controls.telefono.value"
+                (paisChange)="paisElegido.set($event)"
+                (numeroChange)="vitrinaForm.controls.telefono.setValue($event)" />
               <small>Se muestra como botón «Llamar».</small>
             </label>
             <label>
@@ -242,9 +266,11 @@
           <div class="grid">
             <label>
               <span><lucide-icon name="message-circle" [size]="13" /> WhatsApp</span>
-              <input class="input" type="tel" formControlName="url_whatsapp"
-                     placeholder="300 000 0000" />
-              <small>Solo el número. Si es colombiano, añadimos el 57.</small>
+              <reserva-telefono-pais
+                [pais]="paisElegido()" [numero]="vitrinaForm.controls.url_whatsapp.value"
+                (paisChange)="paisElegido.set($event)"
+                (numeroChange)="vitrinaForm.controls.url_whatsapp.setValue($event)" />
+              <small>Solo el número. Usamos el indicativo del país de al lado.</small>
             </label>
             <label>
               <span><lucide-icon name="facebook" [size]="13" /> Facebook</span>

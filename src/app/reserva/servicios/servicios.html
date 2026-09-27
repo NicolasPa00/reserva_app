@@ -246,6 +246,24 @@
               <em>El precio y la duración se acuerdan con el cliente. En tu página se pide por WhatsApp.</em>
             </span>
           </label>
+          @if (form.controls.a_cotizar.value) {
+            <div class="grid">
+              <label>
+                <span>Precio desde <small>(opcional)</small></span>
+                <input class="input" type="number" min="0" step="1000" formControlName="precio_min"
+                       placeholder="80.000" />
+              </label>
+              <label>
+                <span>Precio hasta <small>(opcional)</small></span>
+                <input class="input" type="number" min="0" step="1000" formControlName="precio_max"
+                       placeholder="150.000" />
+              </label>
+            </div>
+            <small class="hint">
+              Se muestra como rango orientativo en tu página pública («$80.000 - $150.000»). Al
+              facturar la cita tendrás que escribir el precio exacto que se cobró.
+            </small>
+          }
         }
         @if (conConsentimiento()) {
           <label class="check">
@@ -309,6 +327,18 @@
         </div>
       </div>
     </div>
+
+    @if (editando(); as s) {
+      <div class="form__row">
+        <span class="lab">Más fotos</span>
+        <reserva-galeria-servicio-editor [idServicio]="s.id_servicio" />
+      </div>
+    } @else {
+      <div class="form__row">
+        <span class="lab">Más fotos</span>
+        <small class="hint">Guarda el servicio primero; luego podrás añadir varias fotos aquí mismo.</small>
+      </div>
+    }
   </form>
 
   <div modal-footer style="display:flex; gap:.5rem;">
