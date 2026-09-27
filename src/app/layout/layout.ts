@@ -1,4 +1,6 @@
-import { ChangeDetectionStrategy, Component, PLATFORM_ID, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy, Component, OnDestroy, PLATFORM_ID, computed, effect, inject, signal,
+} from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { RouterOutlet } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
@@ -7,6 +9,10 @@ import { SidebarComponent } from './sidebar/sidebar';
 import { ToastHostComponent } from './toast-host/toast-host';
 import { PlanAvisoComponent } from './plan-aviso';
 import { AuthService } from '../core/services/auth.service';
+import { FaviconService } from '../core/services/favicon.service';
+import { ManifestNegocioService } from '../core/services/manifest-negocio.service';
+import { ReservaApiService } from '../core/services/reserva-api.service';
+import { environment } from '../../environments/environment';
 
 /** Por debajo de esto la barra lateral arranca plegada; por encima, desplegada. */
 const ANCHO_ESCRITORIO = 1024;
@@ -159,9 +165,43 @@ const ANCHO_ESCRITORIO = 1024;
   `],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class LayoutComponent {
+export class LayoutComponent implements OnDestroy {
   protected readonly auth = inject(AuthService);
   private readonly platformId = inject(PLATFORM_ID);
+  private readonly favicon = inject(FaviconService);
+  private readonly manifest = inject(ManifestNegocioService);
+  private readonly api = inject(ReservaApiService);
+
+  constructor() {
+    // La consola también lleva la marca del negocio: la pestaña y, sobre todo, el acceso
+    // directo que el dueño y su gente se ponen en la pantalla de inicio del móvil. Es el mismo
+    // mecanismo que ya usa el portal público (`publico-shell`), con dos diferencias: los datos
+    // salen de la sesión en vez de la vitrina, y el manifest se pide con `destino=consola` para
+    // que el icono abra el panel y no la página de clientes.
+    effect(() => {
+      const neg = this.auth.negocio();
+      if (!neg) return;
+
+      const logo = neg.logo_url
+        ? (/^https?:\/\//i.test(neg.logo_url) ? neg.logo_url : this.api.origenArchivos + neg.logo_url)
+        : null;
+
+      this.favicon.aplicar(logo);
+      this.manifest.aplicar({
+        manifestUrl: `${environment.apiUrl}/publico/${neg.id_negocio}/manifest.webmanifest?destino=consola`,
+        iconoUrl: logo,
+        colorTema: neg.colores?.primario ?? (neg.paleta?.colores?.['primario'] ?? null),
+        nombre: neg.nombre,
+      });
+    });
+  }
+
+  ngOnDestroy(): void {
+    // Al salir de la consola (cerrar sesión, o asomarse al portal de otro negocio) vuelve la
+    // identidad de EscalApp: ver la misma pareja aplicar/restaurar en `publico-shell`.
+    this.favicon.restaurar();
+    this.manifest.restaurar();
+  }
 
   /**
    * Estado de la barra lateral.
