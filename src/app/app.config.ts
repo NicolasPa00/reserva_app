@@ -1,4 +1,6 @@
-import { ApplicationConfig, LOCALE_ID, provideBrowserGlobalErrorListeners } from '@angular/core';
+import {
+  ApplicationConfig, LOCALE_ID, provideAppInitializer, provideBrowserGlobalErrorListeners,
+} from '@angular/core';
 import { TitleStrategy, provideRouter, withInMemoryScrolling } from '@angular/router';
 import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
 import { provideClientHydration, withEventReplay } from '@angular/platform-browser';
@@ -8,6 +10,7 @@ import localeEsCO from '@angular/common/locales/es-CO';
 import { routes } from './app.routes';
 import { authInterceptor } from './core/interceptors/auth.interceptor';
 import { TituloVitrinaStrategy } from './core/services/titulo-vitrina.strategy';
+import { resolverPortalDeSubdominio } from './core/subdominio';
 
 import {
   LUCIDE_ICONS, LucideIconProvider,
@@ -66,6 +69,12 @@ export const icons = {
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
+    // En el subdominio propio de un negocio (dalex-barberia.escalapp.cloud) deja la URL en
+    // `/p/:id_negocio` ANTES de la primera navegación del router, para que case la ruta del
+    // portal público y no la consola. Va aquí y no en un guard porque los guards de una misma
+    // ruta corren en paralelo y `authGuard` ganaba la carrera mandando al login — ver
+    // `core/subdominio.ts`. En el dominio normal no hace nada.
+    provideAppInitializer(resolverPortalDeSubdominio),
     // `anchorScrolling` hace que un routerLink con `fragment` salte de verdad al elemento;
     // sin esto el enlace cambia la URL y la página se queda donde estaba. `scrollPositionRestoration`
     // evita que al volver del detalle de un servicio se caiga al principio del catálogo.

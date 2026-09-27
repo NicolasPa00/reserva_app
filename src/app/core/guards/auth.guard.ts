@@ -5,6 +5,7 @@ import { isPlatformBrowser } from '@angular/common';
 import { AuthService } from '../services/auth.service';
 import { ThemeService } from '../theme/theme.service';
 import { environment } from '../../../environments/environment';
+import { slugDelNavegador } from '../subdominio';
 
 export const authGuard: CanActivateFn = async () => {
   const auth = inject(AuthService);
@@ -12,6 +13,13 @@ export const authGuard: CanActivateFn = async () => {
   const platformId = inject(PLATFORM_ID);
 
   if (!isPlatformBrowser(platformId)) return true;
+
+  // Red de seguridad del portal público: en el subdominio propio de un negocio, quien llega es
+  // un cliente que viene a ver servicios y pedir cita — no tiene cuenta ni tiene por qué. Si por
+  // lo que sea la URL no se reescribió al portal en el arranque (`core/subdominio.ts`: API
+  // caída, subdominio retirado), esto corta aquí en vez de mandarlo al login de la consola, que
+  // es lo que veía el cliente y no significaba nada para él.
+  if (slugDelNavegador()) return false;
 
   if (auth.isAuthenticated()) {
     if (auth.session()?.permisos_cargados !== true) {

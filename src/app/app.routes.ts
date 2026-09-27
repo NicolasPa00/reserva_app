@@ -1,6 +1,5 @@
 import { Routes } from '@angular/router';
 import { authGuard, permissionGuard, planGuard } from './core/guards/auth.guard';
-import { subdominioGuard } from './core/guards/subdominio.guard';
 
 export const routes: Routes = [
   // ────────── Flujo público (sin sesión) ──────────
@@ -52,13 +51,14 @@ export const routes: Routes = [
 
   // ────────── Vista del negocio (con sesión) ──────────
   //
-  // `subdominioGuard` va PRIMERO: en el subdominio propio de un negocio
-  // (dalex-barberia.escalapp.cloud) redirige al portal antes de que `authGuard` llegue a pedir
-  // sesión; en el dominio normal no hace nada y deja pasar a `authGuard` tal cual.
+  // El subdominio propio de un negocio NO se resuelve aquí: para cuando el router llega, la URL
+  // ya viene reescrita a `/p/:id_negocio` desde el arranque (ver `core/subdominio.ts`). Se
+  // intentó con un guard delante de `authGuard` y no sirve — los guards de una ruta corren en
+  // paralelo, no en cadena.
   {
     path: '',
     loadComponent: () => import('./layout/layout').then(m => m.LayoutComponent),
-    canActivate: [subdominioGuard, authGuard],
+    canActivate: [authGuard],
     canActivateChild: [permissionGuard],
     children: [
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
@@ -191,14 +191,5 @@ export const routes: Routes = [
     ],
   },
 
-  // Ruta desconocida: en el dominio normal, al inicio, como siempre. En el subdominio propio de
-  // un negocio puede ser un enlace profundo (`dalex-barberia.escalapp.cloud/servicio/5`) — por
-  // eso NO es un `redirectTo` liso: `subdominioGuard` necesita ver la URL completa ANTES de que
-  // se reescriba a `''`, que es lo que perdería el `/servicio/5`. El componente no se llega a
-  // pintar nunca: el guard siempre devuelve una redirección.
-  {
-    path: '**',
-    canActivate: [subdominioGuard],
-    loadComponent: () => import('./layout/layout').then(m => m.LayoutComponent),
-  },
+  { path: '**', redirectTo: '' },
 ];
