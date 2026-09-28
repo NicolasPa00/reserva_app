@@ -7,6 +7,8 @@ import { formatearCodigoCita } from '../../core/utils/codigo-cita';
 import { MonedaPipe } from '../moneda.pipe';
 import { AuthService } from '../../core/services/auth.service';
 import { ConsentimientoComponent } from '../consentimiento/consentimiento';
+import { IconoWhatsappComponent } from '../iconos-marca/iconos-marca';
+import { PaisesService } from '../../core/services/paises.service';
 
 export const ESTADO_LABELS: Record<EstadoCita, string> = {
   pendiente: 'Pendiente',
@@ -48,7 +50,7 @@ export function badgeEstado(e: EstadoCita): string {
 @Component({
   selector: 'reserva-cita-detalle',
   standalone: true,
-  imports: [CommonModule, LucideAngularModule, MonedaPipe, DatePipe, ConsentimientoComponent],
+  imports: [CommonModule, LucideAngularModule, MonedaPipe, DatePipe, ConsentimientoComponent, IconoWhatsappComponent],
   template: `
     @if (cita) {
       <div class="cd">
@@ -100,6 +102,16 @@ export function badgeEstado(e: EstadoCita): string {
               @if (cita.cliente_telefono) {
                 <a [href]="'tel:' + cita.cliente_telefono">{{ cita.cliente_telefono }}</a>
               } @else { <span class="cd__empty">Sin teléfono</span> }
+            </dd>
+          </div>
+          <div>
+            <dt><icono-whatsapp [size]="13" /> WhatsApp</dt>
+            <dd>
+              @if (whatsappUrl(); as wa) {
+                <a class="wa-mini" [href]="wa" target="_blank" rel="noopener noreferrer">
+                  <icono-whatsapp [size]="14" /> Escribir por WhatsApp
+                </a>
+              } @else { <span class="cd__empty">Sin WhatsApp</span> }
             </dd>
           </div>
           <div>
@@ -255,6 +267,8 @@ export function badgeEstado(e: EstadoCita): string {
       dd { margin: 0; font-size: .9rem; color: var(--color-text-primary); overflow-wrap: anywhere; }
       dd a { color: var(--color-primary); text-decoration: none; }
       dd a:hover { text-decoration: underline; }
+      dd a.wa-mini { color: #128C4A; }
+      dd a.wa-mini:hover { text-decoration: none; }
     }
     .cd__mono { font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace; font-size: .85rem; }
     .cd__empty { color: var(--color-text-muted); font-size: .85rem; }
@@ -304,6 +318,38 @@ export class CitaDetalleComponent {
   /** `K3M79QXP` → `K3M7-9QXP`. Un código antiguo (UUID) se muestra tal cual. */
   readonly codigoBonito = formatearCodigoCita;
   readonly auth = inject(AuthService);
+  private readonly paises = inject(PaisesService);
+
+  constructor() {
+    // El indicativo sale del catálogo de países; se pide una vez por sesión (después es memoria).
+    this.paises.cargar().subscribe();
+  }
+
+  /**
+   * Enlace `wa.me` al cliente, o `null` si no hay un número al que enlazar.
+   *
+   * `wa.me` exige el número completo con indicativo y sin signos. Si el teléfono guardado ya
+   * viene en E.164 (`+56912345678`) se usa tal cual; si es nacional (`3001112233`, `03001112233`)
+   * se le antepone el indicativo del país de la cita o, en su defecto, el del negocio. Sin
+   * indicativo conocido no se pinta el enlace: uno sin prefijo abre el chat con un número ajeno.
+   */
+  readonly whatsappUrl = computed(() => {
+    const c = this.citaSig();
+    const tel = c?.cliente_telefono?.trim();
+    if (!c || !tel) return null;
+
+    let digitos = tel.replace(/\D/g, '');
+    if (!digitos) return null;
+
+    if (!tel.startsWith('+')) {
+      const pais = this.paises.porCodigo(c.cliente_pais || this.auth.negocio()?.pais || 'CO');
+      if (!pais) return null;
+      const cc = pais.indicativo.replace('+', '');
+      const yaInternacional = digitos.startsWith(cc) && digitos.length === cc.length + pais.largo;
+      if (!yaInternacional) digitos = cc + digitos.replace(/^0+/, '');
+    }
+    return `https://wa.me/${digitos}`;
+  });
 
   // ── Perfil del rubro ──
   readonly requiereConsentimiento = computed(() =>
