@@ -256,6 +256,8 @@ export interface Cita {
   estado: EstadoCita;
   cliente_nombre: string;
   cliente_telefono: string | null;
+  /** ISO alfa-2 del indicativo del teléfono; `null` en citas anteriores al selector de país. */
+  cliente_pais?: string | null;
   cliente_email: string | null;
   notas: string | null;
   codigo_publico: string;
