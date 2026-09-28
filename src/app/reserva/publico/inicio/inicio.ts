@@ -7,8 +7,9 @@ import { Router } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
 
 import { VitrinaStore } from '../vitrina.store';
+import { CarritoProductosService } from '../carrito-productos.service';
 import { UrlArchivoPipe } from '../../../shared/url-archivo.pipe';
-import { ProfesionalPublico, ServicioPublico, UnidadTipoPublica } from '../../../core/models';
+import { ProductoPublico, ProfesionalPublico, ServicioPublico, UnidadTipoPublica } from '../../../core/models';
 import { rangoHora12 } from '../../../core/utils/hora';
 import { ProfesionalModalComponent } from '../profesional-modal/profesional-modal';
 import { colorDeEntidad } from '../../../core/utils/color-entidad';
@@ -51,6 +52,7 @@ import { IconoTiktokComponent, IconoWhatsappComponent } from '../../../shared/ic
 export class PublicoInicioComponent {
   private readonly router = inject(Router);
   readonly store = inject(VitrinaStore);
+  readonly carrito = inject(CarritoProductosService);
 
   readonly negocio = this.store.negocio;
   readonly servicios = this.store.servicios;
@@ -69,6 +71,10 @@ export class PublicoInicioComponent {
   readonly usaEstancias = this.store.usaEstancias;
   readonly unidadesTipo = this.store.unidadesTipo;
   readonly portal = this.store.portal;
+
+  // ── Venta de productos (docs/productos-en-reserva.md) ──
+  readonly usaProductos = this.store.usaProductos;
+  readonly productoSecciones = this.store.productoSecciones;
   readonly conTitular = computed(() => !!this.store.perfil() && this.store.perfil()!.clave !== 'BASE');
   readonly iconoMarca = computed(() => this.store.perfil()?.rubro?.icono || 'scissors');
 
@@ -129,6 +135,67 @@ export class PublicoInicioComponent {
       this.secciones();
       afterNextRender(() => this.medirTira(), { injector: this.injector });
     });
+
+    // El carrito de productos es por negocio: en cuanto se sabe cuál es, se recupera lo que
+    // hubiera quedado guardado (90 días) para quien repite.
+    effect(() => {
+      const id = this.negocio()?.id_negocio;
+      if (id) this.carrito.iniciar(id);
+    });
+  }
+
+  // ── Venta de productos: carrito y pedido ──
+
+  readonly vistaCarrito = signal(false);
+  readonly pedidoConfirmado = signal<{ id_venta: number; total: number } | null>(null);
+  readonly errorEnvio = signal<string | null>(null);
+  readonly intentoEnvio = signal(false);
+
+  readonly nombreInvalido = computed(() => this.carrito.cliente().nombre.trim().length < 2);
+
+  agregarProducto(p: ProductoPublico): void {
+    this.carrito.agregar(p);
+  }
+
+  abrirCarrito(): void {
+    this.errorEnvio.set(null);
+    this.intentoEnvio.set(false);
+    this.vistaCarrito.set(true);
+  }
+
+  cerrarCarrito(): void {
+    this.vistaCarrito.set(false);
+  }
+
+  cambiarCampoCliente(campo: 'nombre' | 'telefono' | 'nota', valor: string): void {
+    this.carrito.guardarCliente({ [campo]: valor });
+  }
+
+  enviarPedido(): void {
+    this.intentoEnvio.set(true);
+    if (this.nombreInvalido() || this.carrito.vacio()) return;
+
+    this.errorEnvio.set(null);
+    this.carrito.enviar().subscribe({
+      next: (r) => {
+        if (r?.success && r.data) {
+          this.pedidoConfirmado.set({ id_venta: r.data.id_venta, total: r.data.total });
+          this.carrito.terminarEnvio(true);
+        } else {
+          this.carrito.terminarEnvio(false);
+          this.errorEnvio.set(r?.message || 'No pudimos registrar el pedido.');
+        }
+      },
+      error: (err) => {
+        this.carrito.terminarEnvio(false);
+        this.errorEnvio.set(err?.error?.message || 'No pudimos registrar el pedido. Inténtalo de nuevo.');
+      },
+    });
+  }
+
+  cerrarConfirmacion(): void {
+    this.pedidoConfirmado.set(null);
+    this.vistaCarrito.set(false);
   }
 
   @HostListener('window:resize')

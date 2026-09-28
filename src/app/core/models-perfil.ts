@@ -18,7 +18,8 @@ export type Funcion =
   | 'recursos'
   | 'mascotas'
   | 'portafolio'
-  | 'estancias';
+  | 'estancias'
+  | 'productos';
 
 export type ModoReserva = 'CITA' | 'ESTANCIA';
 
@@ -365,6 +366,87 @@ export interface UnidadTipoPublica {
   min_noches: number;
   comodidades: string[];
   imagen_url: string | null;
+}
+
+// ── Venta de productos (docs/productos-en-reserva.md) ──
+//
+// Función del perfil como recursos o mascotas: disponible en los siete oficios, apagada de
+// fábrica. Un negocio puede vender productos con o sin cita.
+
+export interface ProductoCategoria {
+  id_categoria: number;
+  id_negocio?: number;
+  nombre: string;
+  descripcion: string | null;
+  orden: number;
+  estado?: string;
+}
+
+export interface Producto {
+  id_producto: number;
+  id_negocio?: number;
+  id_categoria: number | null;
+  nombre: string;
+  descripcion: string | null;
+  precio: number | string;
+  imagen_url: string | null;
+  /** Apagado por defecto: la mayoría de negocios no mantiene un inventario al día. */
+  controla_stock: boolean;
+  stock_actual: number | string;
+  /** Se ve en el portal. `false` = solo se vende de mostrador. */
+  publico_activo: boolean;
+  estado?: string;
+  categoria?: { id_categoria: number; nombre: string } | null;
+}
+
+export type CanalVenta = 'MOSTRADOR' | 'PORTAL';
+export type EntregaVenta = 'MOSTRADOR' | 'RECOGER';
+export type EstadoVenta = 'PENDIENTE' | 'COMPLETADA' | 'CANCELADA';
+
+export interface VentaProductoDetalle {
+  id_detalle: number;
+  id_producto: number;
+  nombre_snapshot: string;
+  precio_snapshot: number | string;
+  cantidad: number | string;
+  subtotal: number | string;
+}
+
+export interface VentaProducto {
+  id_venta: number;
+  id_negocio: number;
+  id_cita: number | null;
+  id_persona_negocio: string | null;
+  id_profesional: number | null;
+  id_usuario: number | null;
+  canal: CanalVenta;
+  entrega: EntregaVenta;
+  estado: EstadoVenta;
+  total: number | string;
+  cliente_nombre: string | null;
+  cliente_telefono: string | null;
+  notas: string | null;
+  id_caja: number | null;
+  fecha_creacion: string;
+  fecha_completada: string | null;
+  detalle?: VentaProductoDetalle[];
+}
+
+/** Un producto tal como lo ve el portal público (sin costos ni stock). */
+export interface ProductoPublico {
+  id_producto: number;
+  nombre: string;
+  descripcion: string | null;
+  precio: number;
+  imagen_url: string | null;
+  id_categoria: number | null;
+}
+
+/** El catálogo de productos agrupado por categoría, igual que las secciones de servicios. */
+export interface ProductoSeccionPublica {
+  id_categoria: number | null;
+  nombre: string;
+  productos: ProductoPublico[];
 }
 
 /** Una estancia tal como la ve el huésped en «Mi reserva». */

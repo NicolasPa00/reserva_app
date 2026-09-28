@@ -33,7 +33,9 @@ import {
   Sparkles, Flower2, PenTool, PawPrint, BedDouble, DoorOpen, CalendarRange, Hotel, Dog, Syringe,
   ClipboardList, ShieldCheck, Layers, LogIn, Receipt, Link, KeyRound, Stethoscope, NotebookPen,
   Palette, Hourglass, ImagePlus, FileCheck, BadgePercent, CircleDollarSign, Tent, Building2,
-  HandHeart, Download, Unlink, CircleX, House, UsersRound, ArrowRightLeft
+  HandHeart, Download, Unlink, CircleX, House, UsersRound, ArrowRightLeft,
+  // Venta de productos (docs/productos-en-reserva.md).
+  Package, ShoppingBag, ShoppingCart, Camera,
 } from 'lucide-angular';
 
 registerLocaleData(localeEsCO);
@@ -63,7 +65,8 @@ export const icons = {
   Sparkles, Flower2, PenTool, PawPrint, BedDouble, DoorOpen, CalendarRange, Hotel, Dog, Syringe,
   ClipboardList, ShieldCheck, Layers, LogIn, Receipt, Link, KeyRound, Stethoscope, NotebookPen,
   Palette, Hourglass, ImagePlus, FileCheck, BadgePercent, CircleDollarSign, Tent, Building2,
-  HandHeart, Download, Unlink, CircleX, House, UsersRound, ArrowRightLeft
+  HandHeart, Download, Unlink, CircleX, House, UsersRound, ArrowRightLeft,
+  Package, ShoppingBag, ShoppingCart, Camera,
 };
 
 export const appConfig: ApplicationConfig = {

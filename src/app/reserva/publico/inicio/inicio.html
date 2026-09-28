@@ -283,7 +283,127 @@
       }
     </section>
     }
+
+    <!-- ═════════ Productos ═════════ -->
+    @if (usaProductos() && productoSecciones().length > 0) {
+      @for (sec of productoSecciones(); track sec.id_categoria) {
+        <section class="seccion" [id]="'prod-' + (sec.id_categoria ?? 'otros')">
+          <header class="seccion__head">
+            <h2>{{ sec.nombre }}</h2>
+          </header>
+          <div class="rejilla rejilla--productos">
+            @for (p of sec.productos; track p.id_producto) {
+              <article class="prod">
+                @if (p.imagen_url) {
+                  <img class="prod__foto" [src]="p.imagen_url | urlArchivo" [alt]="p.nombre" loading="lazy" />
+                } @else {
+                  <span class="prod__foto prod__foto--vacia"><lucide-icon name="shopping-bag" [size]="22" /></span>
+                }
+                <div class="prod__cuerpo">
+                  <strong>{{ p.nombre }}</strong>
+                  @if (p.descripcion) { <p>{{ p.descripcion }}</p> }
+                  <span class="prod__precio">{{ p.precio | moneda }}</span>
+                </div>
+                <footer class="prod__pie">
+                  @if (carrito.cantidadDe(p.id_producto) > 0) {
+                    <div class="prod__cant">
+                      <button type="button" (click)="carrito.quitarUno(p.id_producto)" aria-label="Quitar uno">−</button>
+                      <b>{{ carrito.cantidadDe(p.id_producto) }}</b>
+                      <button type="button" (click)="agregarProducto(p)" aria-label="Agregar uno">+</button>
+                    </div>
+                  } @else {
+                    <button type="button" class="prod__agregar" (click)="agregarProducto(p)">
+                      <lucide-icon name="plus" [size]="14" /> Agregar
+                    </button>
+                  }
+                </footer>
+              </article>
+            }
+          </div>
+        </section>
+      }
+    }
   </div>
+
+  <!-- ═════════ Botón flotante del carrito de productos ═════════ -->
+  @if (usaProductos() && carrito.cantidadTotal() > 0 && !vistaCarrito()) {
+    <button type="button" class="carrito-flotante" (click)="abrirCarrito()">
+      <lucide-icon name="shopping-cart" [size]="18" />
+      <span>{{ carrito.cantidadTotal() }} · {{ carrito.total() | moneda }}</span>
+    </button>
+  }
+
+  <!-- ═════════ Carrito de productos: revisar, datos y enviar ═════════ -->
+  @if (vistaCarrito()) {
+    <div class="carrito-overlay" (click)="cerrarCarrito()">
+      <div class="carrito-panel" (click)="$event.stopPropagation()">
+        @if (pedidoConfirmado(); as p) {
+          <div class="carrito-panel__ok">
+            <lucide-icon name="circle-check-big" [size]="34" />
+            <h3>¡Pedido registrado!</h3>
+            <p>
+              Pasa por {{ negocio()?.nombre }} a recogerlo y pagar
+              <strong>{{ p.total | moneda }}</strong>. Pedido #{{ p.id_venta }}.
+            </p>
+            <button type="button" class="btn-cerrar" (click)="cerrarConfirmacion()">Listo</button>
+          </div>
+        } @else {
+          <header class="carrito-panel__head">
+            <h3>Tu pedido</h3>
+            <button type="button" class="cerrar" (click)="cerrarCarrito()" aria-label="Cerrar">
+              <lucide-icon name="x" [size]="18" />
+            </button>
+          </header>
+
+          @if (carrito.vacio()) {
+            <p class="vacio">Tu carrito está vacío.</p>
+          } @else {
+            <ul class="carrito-panel__items">
+              @for (i of carrito.items(); track i.id_producto) {
+                <li>
+                  <span>{{ i.nombre }}</span>
+                  <div class="carrito-panel__cant">
+                    <button type="button" (click)="carrito.quitarUno(i.id_producto)">−</button>
+                    <b>{{ i.cantidad }}</b>
+                    <button type="button" (click)="carrito.agregarUno(i.id_producto)">+</button>
+                  </div>
+                  <strong>{{ (i.precio * i.cantidad) | moneda }}</strong>
+                </li>
+              }
+            </ul>
+            <div class="carrito-panel__total"><span>Total</span><strong>{{ carrito.total() | moneda }}</strong></div>
+
+            <p class="carrito-panel__nota">Para recoger en el local. Te avisamos cuando pases por él.</p>
+
+            <form class="carrito-panel__form" novalidate (submit)="$event.preventDefault(); enviarPedido()">
+              <label>
+                <span>Tu nombre</span>
+                <input class="input" type="text" maxlength="150" [value]="carrito.cliente().nombre"
+                       (input)="cambiarCampoCliente('nombre', $any($event.target).value)" />
+                @if (intentoEnvio() && nombreInvalido()) { <small class="error">Escribe tu nombre.</small> }
+              </label>
+              <label>
+                <span>Teléfono (opcional)</span>
+                <input class="input" type="tel" maxlength="30" [value]="carrito.cliente().telefono"
+                       (input)="cambiarCampoCliente('telefono', $any($event.target).value)" />
+              </label>
+              <label>
+                <span>Nota (opcional)</span>
+                <textarea class="input" rows="2" maxlength="300" [value]="carrito.cliente().nota"
+                          (input)="cambiarCampoCliente('nota', $any($event.target).value)"></textarea>
+              </label>
+
+              @if (errorEnvio()) { <p class="error">{{ errorEnvio() }}</p> }
+
+              <button type="submit" class="btn-enviar" [disabled]="carrito.enviando()">
+                @if (carrito.enviando()) { Enviando… } @else { Hacer pedido }
+              </button>
+            </form>
+          }
+        }
+      </div>
+    </div>
+  }
 
   <reserva-profesional-modal [idProfesional]="profesionalAbierto()"
                              (cerrar)="profesionalAbierto.set(null)" />

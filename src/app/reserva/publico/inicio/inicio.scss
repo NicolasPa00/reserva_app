@@ -381,3 +381,113 @@
 }
 .srv__comodidades { font-size: .75rem !important; color: var(--color-text-muted) !important; }
 .srv__precio small { font-weight: 400; color: var(--color-text-muted); }
+
+// ═══════════════════════════ Venta de productos ═══════════════════════════
+// (docs/productos-en-reserva.md). Tarjeta con foto arriba, a diferencia de `.srv`: aquí no se
+// compara duración ni profesionales, y una foto grande vende mejor un producto físico.
+.rejilla--productos { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: .9rem; }
+
+.prod {
+  display: flex; flex-direction: column; overflow: hidden;
+  background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg);
+
+  &__foto {
+    height: 130px; width: 100%; object-fit: cover; display: block;
+    background: var(--color-bg-muted);
+    &--vacia { display: flex; align-items: center; justify-content: center; color: var(--color-text-muted); }
+  }
+
+  &__cuerpo {
+    display: flex; flex-direction: column; gap: .2rem; padding: .7rem .8rem 0;
+    strong { font-size: .9rem; }
+    p {
+      margin: 0; font-size: .78rem; color: var(--color-text-secondary);
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    }
+  }
+
+  &__precio { font-size: .88rem; font-weight: 700; color: var(--color-primary); }
+
+  &__pie { padding: .6rem .8rem .8rem; margin-top: auto; }
+
+  &__agregar {
+    display: flex; align-items: center; justify-content: center; gap: .3rem; width: 100%;
+    padding: .4rem; border-radius: var(--radius-md); border: 1px solid var(--color-primary);
+    background: none; color: var(--color-primary); font-size: .84rem; font-weight: 600; cursor: pointer;
+    &:hover { background: color-mix(in srgb, var(--color-primary) 10%, transparent); }
+  }
+
+  &__cant {
+    display: flex; align-items: center; justify-content: space-between; gap: .5rem;
+    button {
+      width: 28px; height: 28px; border-radius: var(--radius-full); border: 1px solid var(--color-border);
+      background: var(--color-surface); font-size: 1rem; line-height: 1; cursor: pointer;
+    }
+    b { font-size: .9rem; }
+  }
+}
+
+// ── Botón flotante y panel del carrito ──
+.carrito-flotante {
+  position: fixed; right: 1.1rem; bottom: 1.1rem; z-index: 40;
+  display: flex; align-items: center; gap: .5rem;
+  padding: .75rem 1.1rem; border: none; border-radius: var(--radius-full);
+  background: var(--color-primary); color: #fff; font-weight: 600; font-size: .9rem;
+  box-shadow: var(--shadow-featured); cursor: pointer;
+}
+
+.carrito-overlay {
+  position: fixed; inset: 0; z-index: 50;
+  background: rgba(0, 0, 0, .45);
+  display: flex; justify-content: flex-end;
+}
+
+.carrito-panel {
+  width: min(380px, 100%); height: 100%; background: var(--color-surface);
+  display: flex; flex-direction: column; gap: .9rem; padding: 1.1rem; overflow-y: auto;
+
+  &__head {
+    display: flex; align-items: center; justify-content: space-between;
+    h3 { margin: 0; font-size: 1.05rem; }
+    .cerrar { border: none; background: none; color: var(--color-text-muted); cursor: pointer; }
+  }
+
+  &__items { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .6rem; }
+  &__items li { display: flex; align-items: center; gap: .6rem; font-size: .88rem; }
+  &__items li span { flex: 1; }
+
+  &__cant {
+    display: flex; align-items: center; gap: .4rem;
+    button {
+      width: 24px; height: 24px; border-radius: var(--radius-full); border: 1px solid var(--color-border);
+      background: none; cursor: pointer;
+    }
+  }
+
+  &__total {
+    display: flex; justify-content: space-between; font-size: 1.05rem;
+    padding-top: .7rem; border-top: 1px solid var(--color-border);
+  }
+
+  &__nota { margin: 0; font-size: .8rem; color: var(--color-text-muted); }
+
+  &__form {
+    display: flex; flex-direction: column; gap: .7rem;
+    label { display: flex; flex-direction: column; gap: .25rem; span { font-size: .8rem; color: var(--color-text-secondary); } }
+  }
+
+  &__ok {
+    display: flex; flex-direction: column; align-items: center; gap: .6rem; text-align: center;
+    margin: auto 0; color: var(--color-primary);
+    h3 { margin: 0; color: var(--color-text-primary); }
+    p { margin: 0; color: var(--color-text-secondary); font-size: .9rem; }
+  }
+}
+
+.btn-enviar, .btn-cerrar {
+  padding: .7rem; border: none; border-radius: var(--radius-md);
+  background: var(--color-primary); color: #fff; font-weight: 600; cursor: pointer;
+  &:disabled { opacity: .6; cursor: not-allowed; }
+}
+
+.error { color: var(--color-danger, #dc2626); font-size: .8rem; margin: 0; }

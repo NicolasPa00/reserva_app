@@ -1,0 +1,265 @@
+<section class="page productos">
+  <header class="page__head">
+    <div>
+      <h1>Productos</h1>
+      <p>Vende productos físicos junto a tus servicios, de mostrador o desde tu página pública, con o sin cita.</p>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button type="button" class="tabs__item" [class.is-active]="pestana() === 'catalogo'" (click)="cambiarPestana('catalogo')">
+      <lucide-icon name="package" [size]="15" /> Catálogo
+    </button>
+    <button type="button" class="tabs__item" [class.is-active]="pestana() === 'vender'" (click)="cambiarPestana('vender')">
+      <lucide-icon name="shopping-cart" [size]="15" /> Vender
+    </button>
+    <button type="button" class="tabs__item" [class.is-active]="pestana() === 'pedidos'" (click)="cambiarPestana('pedidos')">
+      <lucide-icon name="clipboard-list" [size]="15" /> Pedidos del portal
+    </button>
+  </nav>
+
+  @if (pestana() === 'catalogo') {
+    @if (puedeEditar()) {
+      <div class="card nuevo">
+        <label>
+          <span>Nueva categoría</span>
+          <input class="input" type="text" maxlength="120" placeholder="Ej.: Cuidado capilar, Accesorios"
+                 [value]="nuevaCategoria()" (input)="nuevaCategoria.set($any($event.target).value)"
+                 (keyup.enter)="crearCategoria()" />
+        </label>
+        <button type="button" class="btn btn-outline" (click)="crearCategoria()" [disabled]="ocupado() || !nuevaCategoria().trim()">
+          <lucide-icon name="plus" [size]="14" /> Crear
+        </button>
+        <button type="button" class="btn btn-primary" (click)="abrirNuevo()" [disabled]="ocupado()">
+          <lucide-icon name="plus" [size]="15" /> Nuevo producto
+        </button>
+      </div>
+    }
+
+    @if (categorias().length > 0) {
+      <ul class="categorias">
+        @for (c of categorias(); track c.id_categoria) {
+          <li>
+            @if (renombrandoCategoria()?.id === c.id_categoria) {
+              <input class="input" type="text" maxlength="120" [value]="renombrandoCategoria()!.nombre"
+                     (input)="renombrandoCategoria.set({ id: c.id_categoria, nombre: $any($event.target).value })"
+                     (keyup.enter)="guardarNombreCategoria()" />
+              <button type="button" class="mini" (click)="guardarNombreCategoria()"><lucide-icon name="check" [size]="13" /></button>
+            } @else {
+              <span>{{ c.nombre }}</span>
+              @if (puedeEditar()) {
+                <button type="button" class="mini" (click)="renombrandoCategoria.set({ id: c.id_categoria, nombre: c.nombre })" title="Renombrar">
+                  <lucide-icon name="pencil" [size]="12" />
+                </button>
+                <button type="button" class="mini mini--danger" (click)="quitarCategoria(c.id_categoria)" title="Eliminar">
+                  <lucide-icon name="x" [size]="12" />
+                </button>
+              }
+            }
+          </li>
+        }
+      </ul>
+    }
+
+    @if (formulario(); as f) {
+      <div class="card formulario">
+        <h3>{{ editandoId() ? 'Editar producto' : 'Nuevo producto' }}</h3>
+        <div class="formulario__grid">
+          <label>
+            <span>Nombre</span>
+            <input class="input" type="text" maxlength="150" [value]="f.nombre"
+                   (input)="formulario.set({ ...f, nombre: $any($event.target).value })" />
+          </label>
+          <label>
+            <span>Precio</span>
+            <input class="input" type="number" min="0" step="100" [value]="f.precio"
+                   (input)="formulario.set({ ...f, precio: +$any($event.target).value })" />
+          </label>
+          <label>
+            <span>Categoría</span>
+            <select class="input" [value]="f.id_categoria ?? ''"
+                    (change)="formulario.set({ ...f, id_categoria: $any($event.target).value ? +$any($event.target).value : null })">
+              <option value="">Sin categoría</option>
+              @for (c of categorias(); track c.id_categoria) {
+                <option [value]="c.id_categoria">{{ c.nombre }}</option>
+              }
+            </select>
+          </label>
+          <label class="formulario__check">
+            <input type="checkbox" [checked]="f.publico_activo"
+                   (change)="formulario.set({ ...f, publico_activo: $any($event.target).checked })" />
+            <span>Se ve en el portal público</span>
+          </label>
+          <label class="formulario__check">
+            <input type="checkbox" [checked]="f.controla_stock"
+                   (change)="formulario.set({ ...f, controla_stock: $any($event.target).checked })" />
+            <span>Controlar stock</span>
+          </label>
+          @if (f.controla_stock) {
+            <label>
+              <span>Stock actual</span>
+              <input class="input" type="number" min="0" step="1" [value]="f.stock_actual"
+                     (input)="formulario.set({ ...f, stock_actual: +$any($event.target).value })" />
+            </label>
+          }
+          <label class="formulario__full">
+            <span>Descripción (opcional)</span>
+            <textarea class="input" rows="2" maxlength="1000" [value]="f.descripcion"
+                      (input)="formulario.set({ ...f, descripcion: $any($event.target).value })"></textarea>
+          </label>
+        </div>
+        <div class="formulario__acciones">
+          <button type="button" class="btn btn-ghost" (click)="cerrarFormulario()">Cancelar</button>
+          <button type="button" class="btn btn-primary" (click)="guardarProducto()"
+                  [disabled]="ocupado() || !f.nombre.trim() || f.precio == null || f.precio < 0">
+            Guardar
+          </button>
+        </div>
+      </div>
+    }
+
+    @if (cargando()) {
+      <p class="hint">Cargando…</p>
+    } @else if (productos().length === 0) {
+      <div class="card vacio">
+        <lucide-icon name="shopping-bag" [size]="26" />
+        <strong>Todavía no tienes productos</strong>
+        <p>Agrega el primero: shampoo, cera, alimento, accesorios… lo que vendas junto a tus servicios.</p>
+      </div>
+    } @else {
+      <div class="grid-productos">
+        @for (p of productos(); track p.id_producto) {
+          <article class="card producto" [class.producto--oculto]="!p.publico_activo">
+            <label class="producto__foto">
+              @if (p.imagen_url) {
+                <img [src]="p.imagen_url" [alt]="p.nombre" />
+              } @else {
+                <lucide-icon name="image" [size]="22" />
+              }
+              @if (puedeEditar()) {
+                <input type="file" accept="image/*" hidden (change)="subirImagen(p, $any($event.target).files?.[0] ?? null)" />
+                <span class="producto__foto-editar"><lucide-icon name="camera" [size]="13" /></span>
+              }
+            </label>
+            <div class="producto__cuerpo">
+              <h4>{{ p.nombre }}</h4>
+              @if (p.categoria?.nombre) { <span class="producto__cat">{{ p.categoria!.nombre }}</span> }
+              <strong class="producto__precio">{{ p.precio | moneda }}</strong>
+              @if (p.controla_stock) {
+                <span class="producto__stock" [class.producto__stock--bajo]="+p.stock_actual <= 0">
+                  Stock: {{ p.stock_actual }}
+                </span>
+              }
+              @if (!p.publico_activo) { <span class="producto__badge">Solo mostrador</span> }
+            </div>
+            @if (puedeEditar()) {
+              <div class="producto__acciones">
+                <button type="button" class="mini" (click)="editar(p)" title="Editar"><lucide-icon name="pencil" [size]="13" /></button>
+                @if (confirmarBaja() === p.id_producto) {
+                  <button type="button" class="mini mini--danger" (click)="quitarProducto(p.id_producto)" title="Confirmar">Sí</button>
+                } @else {
+                  <button type="button" class="mini mini--danger" (click)="confirmarBaja.set(p.id_producto)" title="Eliminar">
+                    <lucide-icon name="trash-2" [size]="13" />
+                  </button>
+                }
+              </div>
+            }
+          </article>
+        }
+      </div>
+    }
+  }
+
+  @if (pestana() === 'vender') {
+    <div class="vender">
+      <div class="vender__catalogo">
+        @for (p of productos(); track p.id_producto) {
+          <button type="button" class="card producto-mini" (click)="agregarAlCarrito(p)">
+            <span>{{ p.nombre }}</span>
+            <strong>{{ p.precio | moneda }}</strong>
+          </button>
+        }
+      </div>
+
+      <aside class="card carrito">
+        <h3>Venta</h3>
+        @if (carrito().length === 0) {
+          <p class="hint">Toca un producto para agregarlo.</p>
+        } @else {
+          <ul class="carrito__items">
+            @for (l of carrito(); track l.producto.id_producto) {
+              <li>
+                <span>{{ l.producto.nombre }}</span>
+                <div class="carrito__cant">
+                  <button type="button" class="mini" (click)="cambiarCantidad(l.producto.id_producto, l.cantidad - 1)">−</button>
+                  <b>{{ l.cantidad }}</b>
+                  <button type="button" class="mini" (click)="cambiarCantidad(l.producto.id_producto, l.cantidad + 1)">+</button>
+                </div>
+                <strong>{{ (+l.producto.precio * l.cantidad) | moneda }}</strong>
+              </li>
+            }
+          </ul>
+          <div class="carrito__total"><span>Total</span><strong>{{ totalVenta() | moneda }}</strong></div>
+          <label>
+            <span>Forma de pago</span>
+            <select class="input" [value]="idMetodoPagoVenta() ?? ''"
+                    (change)="idMetodoPagoVenta.set($any($event.target).value ? +$any($event.target).value : null)">
+              <option value="" disabled>Elige…</option>
+              @for (m of metodosPago(); track m.id_metodo_pago) {
+                <option [value]="m.id_metodo_pago">{{ m.nombre }}</option>
+              }
+            </select>
+          </label>
+          <div class="carrito__acciones">
+            <button type="button" class="btn btn-ghost" (click)="vaciarCarrito()">Vaciar</button>
+            <button type="button" class="btn btn-primary" [disabled]="ocupado() || !idMetodoPagoVenta()" (click)="cobrarVenta()">
+              Cobrar
+            </button>
+          </div>
+        }
+      </aside>
+    </div>
+  }
+
+  @if (pestana() === 'pedidos') {
+    @if (pedidos().length === 0) {
+      <div class="card vacio">
+        <lucide-icon name="clipboard-list" [size]="26" />
+        <strong>Sin pedidos pendientes</strong>
+        <p>Aquí aparecen los pedidos de productos que hagan tus clientes desde tu página, para recoger en el local.</p>
+      </div>
+    } @else {
+      <ul class="pedidos">
+        @for (v of pedidos(); track v.id_venta) {
+          <li class="card pedido">
+            <div class="pedido__cabeza">
+              <strong>#{{ v.id_venta }} — {{ v.cliente_nombre }}</strong>
+              @if (v.cliente_telefono) { <span>{{ v.cliente_telefono }}</span> }
+              <strong class="pedido__total">{{ v.total | moneda }}</strong>
+            </div>
+            <ul class="pedido__detalle">
+              @for (d of v.detalle; track d.id_detalle) {
+                <li>{{ d.cantidad }} × {{ d.nombre_snapshot }}</li>
+              }
+            </ul>
+            @if (v.notas) { <p class="pedido__notas">«{{ v.notas }}»</p> }
+            <div class="pedido__acciones">
+              <select class="input" #sel>
+                <option value="" disabled selected>Forma de pago…</option>
+                @for (m of metodosPago(); track m.id_metodo_pago) {
+                  <option [value]="m.id_metodo_pago">{{ m.nombre }}</option>
+                }
+              </select>
+              <button type="button" class="btn btn-primary btn-sm" [disabled]="ocupado()" (click)="cobrarPedido(v, sel.value ? +sel.value : null)">
+                Cobrar y entregar
+              </button>
+              <button type="button" class="btn btn-ghost btn-sm" [disabled]="ocupado()" (click)="cancelarPedido(v)">
+                Cancelar
+              </button>
+            </div>
+          </li>
+        }
+      </ul>
+    }
+  }
+</section>

@@ -90,6 +90,7 @@ export class SidebarComponent {
       { icon: 'clock',            label: 'Horarios',        route: '/horarios',    grupo: 'gestion' },
       { icon: 'door-open',        label: 'Cabinas',         route: '/recursos',    grupo: 'gestion' },
       { icon: 'door-open',        label: perfil.clave === 'ALOJAMIENTO' ? 'Habitaciones' : 'Unidades', route: '/unidades', grupo: 'gestion' },
+      { icon: 'shopping-bag',     label: 'Productos',       route: '/productos',   grupo: 'gestion' },
       { icon: 'user-cog',         label: 'Usuarios',        route: '/usuarios',    grupo: 'gestion' },
       { icon: 'chart-column',     label: 'Informes',        route: '/informes',    grupo: 'gestion' },
       { icon: 'settings',         label: 'Configuración',   route: '/configuracion', grupo: 'gestion' },

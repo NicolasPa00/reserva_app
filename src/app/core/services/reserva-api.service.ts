@@ -760,6 +760,19 @@ export class ReservaApiService {
     return this.http.post<ApiResponse<CitaPublica>>(`${this.base}/publico/${idNegocio}/cita`, body);
   }
 
+  /**
+   * Comprar productos sin cita, para recoger en el local. El pedido queda PENDIENTE hasta que el
+   * negocio lo cobra al entregarlo (docs/productos-en-reserva.md).
+   */
+  publicoCrearVentaProducto(idNegocio: number, payload: {
+    items: { id_producto: number; cantidad: number }[];
+    cliente_nombre: string; cliente_telefono?: string | null; notas?: string | null;
+  }) {
+    return this.http.post<ApiResponse<{ id_venta: number; total: number; estado: string }>>(
+      `${this.base}/publico/${idNegocio}/venta-producto`, payload,
+    );
+  }
+
   // ── Clientes ──
   //
   // La cartera del negocio. El backend exige la vista `/clientes` en todas, así que un rol

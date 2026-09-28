@@ -4,7 +4,8 @@ import { ReservaApiService } from '../../core/services/reserva-api.service';
 import { ThemeService } from '../../core/theme/theme.service';
 import { MonedaService } from '../../core/services/moneda.service';
 import {
-  Funcion, PoliticaPago, ProfesionalPublico, ServicioPublico, TERMINOS_BASE, Terminos, Vitrina,
+  Funcion, PoliticaPago, ProductoSeccionPublica, ProfesionalPublico, ServicioPublico,
+  TERMINOS_BASE, Terminos, Vitrina,
 } from '../../core/models';
 
 /**
@@ -53,6 +54,9 @@ export class VitrinaStore {
   readonly usaCitas = computed(() => this.perfil()?.modos?.includes('CITA') ?? true);
   readonly usaEstancias = computed(() => this.perfil()?.modos?.includes('ESTANCIA') ?? false);
   readonly unidadesTipo = computed(() => this._vitrina()?.unidades_tipo ?? []);
+  /** Venta de productos: solo con la función encendida y solo si hay algo publicado. */
+  readonly usaProductos = computed(() => this.funciones().has('productos'));
+  readonly productoSecciones = computed<ProductoSeccionPublica[]>(() => this._vitrina()?.producto_secciones ?? []);
   readonly portal = computed(() => this.perfil()?.portal ?? {
     titulo: 'Reserva tu cita', subtitulo: 'Elige el servicio y la hora que mejor te queden.',
   });

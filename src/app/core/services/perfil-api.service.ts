@@ -4,8 +4,31 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import {
   ApiResponse, CatalogoVistaPrevia, FichaEntrada, Mascota, PerfilReserva, PortafolioImagen,
-  TipoFicha, TipoRecurso,
+  Producto, ProductoCategoria, TipoFicha, TipoRecurso, VentaProducto,
 } from '../models';
+
+/** Lo que llega al crear/editar un producto. `id_categoria: null` lo deja sin categoría. */
+export interface ProductoPayload {
+  nombre?: string;
+  descripcion?: string | null;
+  precio?: number;
+  id_categoria?: number | null;
+  controla_stock?: boolean;
+  stock_actual?: number;
+  publico_activo?: boolean;
+}
+
+/** Una línea del carrito de venta: solo lo que el servidor necesita, nunca el precio. */
+export interface ItemVenta {
+  id_producto: number;
+  cantidad: number;
+}
+
+/** Lo mismo que paga una cita: una forma de pago, o un desglose si el negocio admite multipago. */
+export interface PagoVenta {
+  id_metodo_pago?: number;
+  pagos?: { id_metodo_pago: number; valor: number }[];
+}
 
 /**
  * Endpoints de las funciones de los perfiles de rubro: catálogo de arranque, cabinas, mascotas,
@@ -124,5 +147,70 @@ export class PerfilApiService {
   }
   eliminarPortafolio(idImagen: number, idNegocio: number) {
     return this.http.delete<ApiResponse<unknown>>(`${this.base}/portafolio/${idImagen}`, { params: this.neg(idNegocio) });
+  }
+
+  // ── Venta de productos ──
+
+  listarCategoriasProducto(idNegocio: number) {
+    return this.http.get<ApiResponse<ProductoCategoria[]>>(`${this.base}/productos/categorias`, { params: this.neg(idNegocio) });
+  }
+  crearCategoriaProducto(idNegocio: number, nombre: string, descripcion?: string | null) {
+    return this.http.post<ApiResponse<ProductoCategoria>>(
+      `${this.base}/productos/categorias`, { id_negocio: idNegocio, nombre, descripcion });
+  }
+  actualizarCategoriaProducto(id: number, idNegocio: number, datos: { nombre?: string; descripcion?: string | null }) {
+    return this.http.put<ApiResponse<ProductoCategoria>>(`${this.base}/productos/categorias/${id}`, { id_negocio: idNegocio, ...datos });
+  }
+  inactivarCategoriaProducto(id: number, idNegocio: number) {
+    return this.http.patch<ApiResponse<ProductoCategoria>>(
+      `${this.base}/productos/categorias/${id}/inactivar`, {}, { params: this.neg(idNegocio) });
+  }
+
+  listarProductos(idNegocio: number, opts: { incluirInactivos?: boolean } = {}) {
+    let p = this.neg(idNegocio);
+    if (opts.incluirInactivos) p = p.set('incluir_inactivas', 'true');
+    return this.http.get<ApiResponse<Producto[]>>(`${this.base}/productos`, { params: p });
+  }
+  crearProducto(idNegocio: number, datos: ProductoPayload) {
+    return this.http.post<ApiResponse<Producto>>(`${this.base}/productos`, { id_negocio: idNegocio, ...datos });
+  }
+  actualizarProducto(id: number, idNegocio: number, datos: ProductoPayload) {
+    return this.http.put<ApiResponse<Producto>>(`${this.base}/productos/${id}`, { id_negocio: idNegocio, ...datos });
+  }
+  inactivarProducto(id: number, idNegocio: number) {
+    return this.http.patch<ApiResponse<Producto>>(`${this.base}/productos/${id}/inactivar`, {}, { params: this.neg(idNegocio) });
+  }
+  subirImagenProducto(id: number, idNegocio: number, imagen: Blob) {
+    const fd = new FormData();
+    fd.append('id_negocio', String(idNegocio));
+    fd.append('imagen', imagen, 'producto.webp');
+    return this.http.post<ApiResponse<{ imagen_url: string }>>(`${this.base}/productos/${id}/imagen`, fd);
+  }
+  eliminarImagenProducto(id: number, idNegocio: number) {
+    return this.http.delete<ApiResponse<unknown>>(`${this.base}/productos/${id}/imagen`, { params: this.neg(idNegocio) });
+  }
+
+  listarVentasProductos(idNegocio: number, filtro: { estado?: string; canal?: string } = {}) {
+    let p = this.neg(idNegocio);
+    if (filtro.estado) p = p.set('estado', filtro.estado);
+    if (filtro.canal) p = p.set('canal', filtro.canal);
+    return this.http.get<ApiResponse<VentaProducto[]>>(`${this.base}/ventas-productos`, { params: p });
+  }
+  /** Vender y cobrar en un solo paso: el «un clic» del mostrador. */
+  venderProductos(idNegocio: number, items: ItemVenta[], pago: PagoVenta, extra: {
+    id_profesional?: number | null; notas?: string | null; id_cita?: number | null;
+  } = {}) {
+    return this.http.post<ApiResponse<VentaProducto>>(`${this.base}/ventas-productos/vender`, {
+      id_negocio: idNegocio, items, ...pago, ...extra,
+    });
+  }
+  /** Cobra un pedido PENDIENTE (típicamente del portal, al entregarlo). */
+  cobrarVentaProducto(idVenta: number, idNegocio: number, pago: PagoVenta) {
+    return this.http.post<ApiResponse<VentaProducto>>(
+      `${this.base}/ventas-productos/${idVenta}/cobrar`, { id_negocio: idNegocio, ...pago });
+  }
+  cancelarVentaProducto(idVenta: number, idNegocio: number) {
+    return this.http.post<ApiResponse<VentaProducto>>(
+      `${this.base}/ventas-productos/${idVenta}/cancelar`, { id_negocio: idNegocio });
   }
 }

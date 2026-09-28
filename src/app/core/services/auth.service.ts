@@ -19,7 +19,7 @@ const NEGOCIO_KEY = 'reserva_negocio_activo';
 const APP_ROUTE_PRIORITY = [
   '/dashboard', '/agenda', '/citas', '/ocupacion', '/estancias',
   '/clientes', '/mascotas', '/servicios', '/profesionales', '/horarios', '/recursos', '/unidades',
-  '/caja', '/informes', '/usuarios', '/configuracion',
+  '/productos', '/caja', '/informes', '/usuarios', '/configuracion',
 ];
 
 /**
@@ -29,7 +29,7 @@ const APP_ROUTE_PRIORITY = [
  * `citas_no_show` que consultan las vistas y la acción se vería siempre denegada.
  */
 /** Vistas que solo existen para algunos oficios (ver `perfiles/definiciones.js`). */
-const VISTAS_SOLO_DE_PERFIL = new Set(['/ocupacion', '/estancias', '/unidades', '/mascotas', '/recursos']);
+const VISTAS_SOLO_DE_PERFIL = new Set(['/ocupacion', '/estancias', '/unidades', '/mascotas', '/recursos', '/productos']);
 /** Todas las vistas que el perfil puede encender o apagar. Las demás no las toca. */
 const VISTAS_DE_PERFIL = new Set([
   ...VISTAS_SOLO_DE_PERFIL,

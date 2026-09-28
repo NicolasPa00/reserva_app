@@ -1,5 +1,6 @@
 import type {
-  FuncionConfig, Mascota, PerfilReserva, PoliticaPago, UnidadTipoPublica, VarianteServicio,
+  FuncionConfig, Mascota, PerfilReserva, PoliticaPago, ProductoPublico, ProductoSeccionPublica,
+  UnidadTipoPublica, VarianteServicio,
 } from './models-perfil';
 
 export * from './models-perfil';
@@ -796,6 +797,9 @@ export interface Vitrina {
   perfil?: Pick<PerfilReserva, 'clave' | 'rubro' | 'modos' | 'funciones' | 'terminos' | 'portal'>;
   /** Alojamiento y hotel de mascotas: lo que se reserva por noches. */
   unidades_tipo?: UnidadTipoPublica[];
+  /** Venta de productos: plano y agrupado por categoría, igual que servicios/secciones. */
+  productos?: ProductoPublico[];
+  producto_secciones?: ProductoSeccionPublica[];
   horario_negocio: DiaHorario[];
   /** Plano, para buscar un servicio por id sin recorrer las secciones. */
   servicios: ServicioPublico[];

@@ -170,6 +170,13 @@ export const routes: Routes = [
           import('./reserva/estancias/unidades/unidades').then(m => m.UnidadesComponent),
       },
       {
+        path: 'productos',
+        title: 'Productos',
+        canActivate: [planGuard],
+        loadComponent: () =>
+          import('./reserva/productos/productos').then(m => m.ProductosComponent),
+      },
+      {
         path: 'configuracion',
         title: 'Configuración',
         canActivate: [planGuard],
