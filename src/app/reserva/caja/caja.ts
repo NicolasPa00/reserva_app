@@ -14,6 +14,7 @@ import { colorDeEntidad } from '../../core/utils/color-entidad';
 import { aHora12, horaBogota } from '../../core/utils/hora';
 import { MonedaPipe } from '../../shared/moneda.pipe';
 import { MonedaService } from '../../core/services/moneda.service';
+import { formatearMontoEditable, parsearMonto } from '../../core/utils/monto';
 
 type Tab = 'turno' | 'historial';
 
@@ -57,20 +58,27 @@ export class CajaComponent implements OnInit {
   readonly guardando = signal(false);
   readonly tab = signal<Tab>('turno');
 
+  // Los campos de dinero guardan el TEXTO que se escribe y el número se deriva con
+  // `parsearMonto`: con `type="number"` «1.500.000» o «50,000» llegaban vacíos y «100.000» como
+  // 100, y el botón de guardar se quedaba apagado con el campo lleno (ver `core/utils/monto.ts`).
+
   // Apertura
   readonly modalAbrir = signal(false);
-  readonly montoApertura = signal<number | null>(null);
+  readonly textoApertura = signal('');
+  readonly montoApertura = computed(() => this.monto(this.textoApertura()));
   readonly obsApertura = signal('');
 
   // Cierre
   readonly modalCerrar = signal(false);
-  readonly montoReportado = signal<number | null>(null);
+  readonly textoReportado = signal('');
+  readonly montoReportado = computed(() => this.monto(this.textoReportado()));
   readonly obsCierre = signal('');
 
   // Movimiento manual
   readonly modalMovimiento = signal(false);
   readonly movTipo = signal<'INGRESO' | 'EGRESO'>('EGRESO');
-  readonly movMonto = signal<number | null>(null);
+  readonly textoMov = signal('');
+  readonly movMonto = computed(() => this.monto(this.textoMov()));
   readonly movConcepto = signal('');
   readonly movMetodo = signal<number | null>(null);
 
@@ -155,6 +163,14 @@ export class CajaComponent implements OnInit {
     return Math.round((rep - esperado) * 100) / 100;
   });
 
+  /** Vacío = «no conté» (vale); escrito pero ilegible o negativo, no. */
+  readonly puedeCerrar = computed(() => {
+    if (this.guardando()) return false;
+    if (!this.textoReportado().trim()) return true;
+    const m = this.montoReportado();
+    return m != null && m >= 0;
+  });
+
   readonly puedeAbrir = computed(() => {
     const m = this.montoApertura();
     return !this.guardando() && m != null && Number.isFinite(m) && m >= 0;
@@ -211,7 +227,7 @@ export class CajaComponent implements OnInit {
   // ── Apertura ──
 
   abrirModalApertura() {
-    this.montoApertura.set(0);
+    this.textoApertura.set('0');
     this.obsApertura.set('');
     this.modalAbrir.set(true);
   }
@@ -239,12 +255,13 @@ export class CajaComponent implements OnInit {
   // ── Cierre ──
 
   abrirModalCierre() {
-    this.montoReportado.set(null);
+    this.textoReportado.set('');
     this.obsCierre.set('');
     this.modalCerrar.set(true);
   }
 
   pedirConfirmarCierre() {
+    if (!this.puedeCerrar()) return;
     this.modalCerrar.set(false);
     this.confirmCierre.set(true);
   }
@@ -276,7 +293,7 @@ export class CajaComponent implements OnInit {
 
   abrirModalMovimiento(tipo: 'INGRESO' | 'EGRESO') {
     this.movTipo.set(tipo);
-    this.movMonto.set(null);
+    this.textoMov.set('');
     this.movConcepto.set('');
     this.movMetodo.set(null);
     this.modalMovimiento.set(true);
@@ -350,11 +367,17 @@ export class CajaComponent implements OnInit {
 
   setMovMetodo(raw: string) { this.movMetodo.set(raw === '' ? null : Number(raw)); }
 
-  numeroODefault(raw: string, porDefecto: number | null = null): number | null {
-    if (raw === '') return porDefecto;
-    const n = Number(raw);
-    return Number.isFinite(n) ? n : porDefecto;
+  private monto(texto: string): number | null {
+    return parsearMonto(texto, this.monedas.moneda());
   }
+
+  /** Al salir del campo se reescribe con separadores: así se ve qué número se entendió. */
+  normalizarMonto(campo: { set(v: string): void }, valor: number | null) {
+    if (valor != null) campo.set(formatearMontoEditable(valor, this.monedas.moneda()));
+  }
+
+  /** Sin céntimos (COP, CLP) basta el teclado numérico; con ellos hace falta la coma. */
+  readonly modoTeclado = computed(() => (this.monedas.moneda().decimales > 0 ? 'decimal' : 'numeric'));
 
   totalSinCaja(): number {
     return this.sinCaja().reduce((a, c) => a + Number(c.monto_total ?? 0), 0);

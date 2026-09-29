@@ -318,33 +318,29 @@
   font-size: .85rem; line-height: 1.45;
 }
 
-.cred__campo {
-  display: flex; flex-direction: column; gap: .3rem;
-  padding: .8rem .95rem; border-radius: var(--radius-md); background: var(--color-bg-muted);
-
-  > span { font-size: .74rem; font-weight: 600; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: .04em; }
-  > div { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
-  strong { font-size: .95rem; color: var(--color-text-primary); min-width: 0; overflow-wrap: anywhere; }
+// El mensaje tal cual se va a enviar: texto plano, con sus saltos de línea, como se lee en
+// WhatsApp.
+.cred__mensaje {
+  margin: 0;
+  padding: .9rem 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-muted);
+  font-family: inherit;
+  font-size: .875rem;
+  line-height: 1.5;
+  color: var(--color-text-primary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
 }
 
-.cred__pass {
-  font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
-  letter-spacing: .05em;
-}
+.cred__acciones {
+  display: flex;
+  justify-content: flex-end;
+  gap: .6rem;
 
-// A lo ancho y con icono: es la acción que se espera hacer al llegar a esta pantalla,
-// no una más entre los dos botones de copiar.
-.cred__enviar {
-  width: 100%;
-  justify-content: center;
-  gap: .45rem;
-}
-
-.cred__nota {
-  margin: -.5rem 0 0;
-  text-align: center;
-  font-size: .78rem;
-  color: var(--color-text-muted);
+  .btn { gap: .45rem; }
 }
 
 @media (max-width: 767px) {

@@ -747,8 +747,6 @@ export interface ProfesionalPublico {
    * pinta el botón. `null` es la respuesta a «no hay a dónde enlazar».
    */
   whatsapp: string | null;
-  /** Sin asignaciones en la base: ofrece el catálogo entero. */
-  ofrece_todo: boolean;
   id_servicios: number[];
   horario: DiaHorario[];
   /** Trabajos del profesional (función portafolio). */

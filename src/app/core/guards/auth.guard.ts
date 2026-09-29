@@ -22,9 +22,13 @@ export const authGuard: CanActivateFn = async () => {
   if (slugDelNavegador()) return false;
 
   if (auth.isAuthenticated()) {
-    if (auth.session()?.permisos_cargados !== true) {
-      const ok = await refreshFromStored(auth);
-      if (!ok) { auth.logout(); return false; }
+    // La sesión viene de `localStorage`: al recargar se pide de nuevo para que un cambio de
+    // permisos del rol (o del plan) se note sin cerrar sesión. Sin red se sigue con la guardada,
+    // salvo que sea tan vieja que no traiga permisos.
+    const r = await auth.refrescarSesion(true);
+    if (r === 'rechazada' || (r === 'error' && auth.session()?.permisos_cargados !== true)) {
+      auth.logout();
+      return false;
     }
     theme.aplicar(auth.negocio()?.colores, auth.negocio()?.paleta);
     return true;
@@ -66,6 +70,17 @@ export const permissionGuard: CanActivateChildFn = (childRoute, state) => {
     ? `/${path.replace(/^\//, '')}`
     : `/${state.url.split('/').filter(Boolean)[0] || 'dashboard'}`;
 
+  // Recoge en segundo plano los cambios de permisos del rol. No se espera, para no cobrar una
+  // petición en cada navegación: el menú y los botones se actualizan solos (son signals) y, si
+  // lo que se está viendo dejó de estar permitido, se sale de ahí.
+  void auth.refrescarSesion().then(r => {
+    if (r === 'rechazada') { auth.logout(); return; }
+    if (r !== 'ok') return;
+    const actual = `/${router.url.split(/[?#]/)[0].split('/').filter(Boolean)[0] ?? ''}`;
+    if (RUTAS_SISTEMA.has(actual) || auth.canAccessRoute(actual)) return;
+    void router.navigateByUrl(auth.getFirstAccessibleRoute() ?? '/sin-acceso');
+  });
+
   if (RUTAS_SISTEMA.has(requested)) return true;
 
   if (auth.canAccessRoute(requested)) return true;
@@ -93,9 +108,3 @@ export const planGuard: CanActivateFn = (_route, state) => {
   if (auth.planActivo()) return true;
   return router.parseUrl('/sin-plan');
 };
-
-async function refreshFromStored(auth: AuthService): Promise<boolean> {
-  const t = auth.getAccessToken();
-  if (!t) return false;
-  return auth.validateAndSetToken(t);
-}

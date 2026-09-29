@@ -189,7 +189,8 @@ export class CitaFormComponent implements OnInit, OnChanges {
     const id = this.idProfesional();
     if (!id) return this.servicios();
     const pro = this.profesionales().find(p => p.id_profesional === id);
-    if (!pro?.servicios?.length) return this.servicios(); // sin restricción → todos
+    // Solo lo asignado: sin asignaciones no ofrece nada (misma regla que el backend).
+    if (!pro?.servicios?.length) return [];
     const set = new Set(pro.servicios.map(s => s.id_servicio));
     return this.servicios().filter(s => set.has(s.id_servicio));
   });

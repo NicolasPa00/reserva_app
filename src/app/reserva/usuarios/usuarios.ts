@@ -337,18 +337,16 @@ export class UsuariosComponent implements OnInit {
           this.modalUsuario.set(false);
         } else {
           this.toast.success('Usuario creado');
+          // El backend solo devuelve `password_temporal` cuando se dejó la contraseña vacía (es
+          // la cédula); si el admin escribió una, es la del formulario. En los dos casos se
+          // muestran las credenciales y la invitación en vez de cerrar sin más: el admin tiene
+          // que poder enviárselas al empleado, y no se vuelven a mostrar.
           const temporal = (r.data as { password_temporal?: string | null })?.password_temporal;
-          if (temporal) {
-            // Se muestran las credenciales en pantalla en vez de cerrar sin más: el admin tiene
-            // que poder dictárselas al empleado, y no se vuelven a mostrar.
-            this.credenciales.set({
-              nombre: payload.primer_nombre,
-              usuario: payload.num_identificacion,
-              password: temporal,
-            });
-          } else {
-            this.modalUsuario.set(false);
-          }
+          this.credenciales.set({
+            nombre: payload.primer_nombre,
+            usuario: payload.num_identificacion,
+            password: temporal || payload.password || payload.num_identificacion,
+          });
         }
         this.cargar();
       },
@@ -537,6 +535,9 @@ export class UsuariosComponent implements OnInit {
           this.toast.success('Permisos guardados');
           this.permisos.set(r.data ?? p);
           this.permisosSucios.set(false);
+          // Si el rol tocado es el de quien guarda, su menú cambia ya. Los demás usuarios lo
+          // recogen al cambiar de vista o recargar (`permissionGuard`).
+          void this.auth.refrescarSesion(true);
         } else this.toast.error(r?.message || 'No se pudieron guardar.');
       },
       error: e => {

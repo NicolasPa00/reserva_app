@@ -40,15 +40,6 @@
   }
 }
 
-.etiqueta {
-  margin-left: auto;
-  padding: .1rem .45rem; border-radius: var(--radius-full);
-  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
-  color: var(--color-primary);
-  font-style: normal; font-size: .68rem; font-weight: 700;
-  text-transform: none; letter-spacing: 0;
-}
-
 .vacio { margin: 0; font-size: .84rem; color: var(--color-text-muted); }
 
 .horario {

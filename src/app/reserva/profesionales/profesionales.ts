@@ -137,12 +137,12 @@ export class ProfesionalesComponent implements OnInit {
   /**
    * Cuántos servicios realiza, en texto.
    *
-   * Sin asignaciones ofrece el catálogo entero: es la convención del backend y la que espera el
-   * portal. Decir «0 servicios» sería justo lo contrario de lo que ocurre.
+   * Sin asignaciones no ofrece ninguno: ni aparece en el portal para reservar ni se le pueden
+   * agendar citas hasta que se le asignen.
    */
   conteoServicios(p: Profesional): string {
     const n = p.servicios?.length ?? 0;
-    if (n === 0) return 'Todos los servicios';
+    if (n === 0) return 'Sin servicios asignados';
     return n === 1 ? '1 servicio' : n + ' servicios';
   }
 

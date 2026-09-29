@@ -12,6 +12,8 @@ import {
 const TOKEN_KEY   = 'reserva_token';
 const SESSION_KEY = 'reserva_session';
 const NEGOCIO_KEY = 'reserva_negocio_activo';
+/** Intervalo mínimo entre dos refrescos de sesión al navegar (ver `refrescarSesion`). */
+const REFRESCO_MIN_MS = 5_000;
 
 // Orden en que se busca una ruta de respaldo cuando la pedida no está permitida. Debe contener
 // **todas** las rutas de módulo: una que falte aquí nunca podrá ser el destino de un usuario
@@ -229,6 +231,55 @@ export class AuthService {
       return false;
     }
   }
+
+  /**
+   * Vuelve a pedir la sesión al backend para recoger cambios de permisos, plan o perfil sin
+   * obligar a cerrar sesión: el backend los recalcula desde la BD en cada `verificar-token`.
+   *
+   * Se llama al recargar y al cambiar de vista. Por eso:
+   * - comparte la petición en curso y no repite antes de `REFRESCO_MIN_MS` (salvo `forzar`);
+   * - conserva el negocio activo: la respuesta trae `negocio = negocios[0]` y `setSession` lo
+   *   tomaría por una elección explícita, saltando de inquilino a un usuario multi-negocio;
+   * - un fallo de red no toca nada; solo un 401/403 dice que la sesión ya no vale.
+   */
+  refrescarSesion(forzar = false): Promise<'ok' | 'rechazada' | 'error'> {
+    if (this.refrescoEnCurso) return this.refrescoEnCurso;
+    if (!forzar && Date.now() - this.ultimoRefresco < REFRESCO_MIN_MS) {
+      return Promise.resolve('ok');
+    }
+    const token = this.getAccessToken();
+    if (!token) return Promise.resolve('rechazada');
+
+    this.refrescoEnCurso = (async () => {
+      try {
+        const res = await firstValueFrom(
+          this.http.post<ApiResponse<SesionReserva>>(
+            `${environment.apiUrl}/auth/verificar-token`, { token },
+          ),
+        );
+        if (!res?.success || !res.data) return 'error' as const;
+        // Otro flujo pudo cerrar o cambiar la sesión mientras volvía la respuesta.
+        if (this.getAccessToken() !== token) return 'error' as const;
+
+        const idActivo = this.negocio()?.id_negocio ?? null;
+        const conservado = idActivo !== null
+          ? res.data.negocios?.find(n => n.id_negocio === idActivo) ?? null
+          : null;
+        this.setSession(token, { ...res.data, negocio: conservado ?? res.data.negocio });
+        this.ultimoRefresco = Date.now();
+        return 'ok' as const;
+      } catch (err: unknown) {
+        const status = (err as { status?: number })?.status;
+        return status === 401 || status === 403 ? 'rechazada' as const : 'error' as const;
+      } finally {
+        this.refrescoEnCurso = null;
+      }
+    })();
+    return this.refrescoEnCurso;
+  }
+
+  private refrescoEnCurso: Promise<'ok' | 'rechazada' | 'error'> | null = null;
+  private ultimoRefresco = 0;
 
   async canjearCodigo(code: string): Promise<boolean> {
     try {

@@ -241,49 +241,35 @@
 
 <!-- Modal: crear / editar usuario -->
 <reserva-modal [open]="modalUsuario()"
-               [title]="credenciales() ? 'Datos de acceso' : (usuarioEditando() ? 'Editar usuario' : 'Nuevo usuario')"
-               [subtitle]="credenciales() ? 'Anótalos: la contraseña no se vuelve a mostrar.' : ''"
+               [title]="credenciales() ? 'Mensaje de bienvenida' : (usuarioEditando() ? 'Editar usuario' : 'Nuevo usuario')"
+               [subtitle]="credenciales() ? 'La contraseña no se vuelve a mostrar: envíalo ahora.' : ''"
                size="lg" (close)="cerrarModalUsuario()">
 
-  @if (credenciales(); as cred) {
+  @if (credenciales()) {
     <div class="cred">
       <p class="cred__intro">
         <lucide-icon name="check" [size]="16" />
-        Comparte estos datos con la persona. Se le pedirá cambiar la contraseña al entrar.
+        Usuario creado. Envíale este mensaje: lleva su usuario, la contraseña y el enlace para
+        entrar. Se le pedirá cambiar la contraseña al entrar.
       </p>
-      <!-- Decía «Usuario (email)» y era falso: el login pide el documento. Dictar el correo
-           dejaba a la persona intentando entrar con algo que no es su usuario. -->
-      <div class="cred__campo">
-        <span>Usuario (documento de identidad)</span>
-        <div>
-          <strong>{{ cred.usuario }}</strong>
-          <button type="button" class="mini" (click)="copiar(cred.usuario)">
-            <lucide-icon name="copy" [size]="13" /> Copiar
-          </button>
-        </div>
-      </div>
-      <div class="cred__campo">
-        <span>Contraseña temporal</span>
-        <div>
-          <strong class="cred__pass">{{ cred.password }}</strong>
-          <button type="button" class="mini" (click)="copiar(cred.password)">
-            <lucide-icon name="copy" [size]="13" /> Copiar
-          </button>
-        </div>
-      </div>
 
-      <!-- Dictar los dos campos uno a uno funciona, pero en el móvil lo natural es
-           mandar el mensaje entero por WhatsApp. Esto lo compone y abre el menú de
-           compartir; en escritorio, donde casi ningún navegador lo trae, lo copia. -->
-      <button type="button" class="btn btn-primary cred__enviar"
-              [disabled]="enviandoInvitacion()"
-              (click)="compartirInvitacion()">
-        <lucide-icon name="send" [size]="15" />
-        {{ enviandoInvitacion() ? 'Abriendo…' : 'Enviar invitación de bienvenida' }}
-      </button>
-      <p class="cred__nota">
-        Incluye el saludo, sus datos de acceso y el enlace para entrar.
-      </p>
+      <!-- Vista previa del mensaje tal cual se envía, como en el restaurante: el admin ve
+           qué va a mandar antes de compartirlo. El usuario es el documento, no el correo. -->
+      <pre class="cred__mensaje">{{ mensajeInvitacion() }}</pre>
+
+      <!-- En el móvil «Compartir» abre WhatsApp y compañía; en escritorio, donde casi ningún
+           navegador trae el menú de compartir, lo copia. -->
+      <div class="cred__acciones">
+        <button type="button" class="btn btn-outline" (click)="copiar(mensajeInvitacion())">
+          <lucide-icon name="copy" [size]="15" /> Copiar
+        </button>
+        <button type="button" class="btn btn-primary"
+                [disabled]="enviandoInvitacion()"
+                (click)="compartirInvitacion()">
+          <lucide-icon name="send" [size]="15" />
+          {{ enviandoInvitacion() ? 'Abriendo…' : 'Compartir' }}
+        </button>
+      </div>
     </div>
   } @else {
     <div class="form">

@@ -240,8 +240,7 @@
                   <strong>{{ p.nombre }}</strong>
                   @if (p.especialidad) { <span>{{ p.especialidad }}</span> }
                   <em>
-                    @if (p.ofrece_todo) { Todos los {{ terminos().servicios.toLowerCase() }} }
-                    @else { {{ p.id_servicios.length }} {{ (p.id_servicios.length === 1 ? terminos().servicio : terminos().servicios).toLowerCase() }} }
+                    {{ p.id_servicios.length }} {{ (p.id_servicios.length === 1 ? terminos().servicio : terminos().servicios).toLowerCase() }}
                   </em>
                 </div>
               </header>

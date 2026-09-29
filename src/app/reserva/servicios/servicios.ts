@@ -110,7 +110,8 @@ export class ServiciosComponent implements OnInit {
   readonly form = this.fb.nonNullable.group({
     nombre:       ['', [Validators.required, Validators.maxLength(150)]],
     duracion_min: [30, [Validators.required, Validators.min(5), Validators.max(600)]],
-    precio:       [0,  [Validators.required, Validators.min(0)]],
+    // Sin `required`: con el rango encendido el precio fijo es opcional (ver `guardar`).
+    precio:       [0,  [Validators.min(0)]],
     descripcion:  [''],
     id_categoria: [''],
     imagen_url:   [''],
@@ -120,8 +121,9 @@ export class ServiciosComponent implements OnInit {
     // Solo del formulario: en la base el rango son las dos columnas, y «lo usa» es simplemente
     // que alguna tenga valor. Aquí es un interruptor para que apagarlo borre las dos de una.
     usa_rango:               [false],
-    precio_min:              [''],
-    precio_max:              [''],
+    // `<input type="number">`: el control entrega número o null, nunca texto.
+    precio_min:              [null as number | null],
+    precio_max:              [null as number | null],
     requiere_consentimiento: [false],
     id_tipo_recurso:         [''],
   });
@@ -364,7 +366,7 @@ export class ServiciosComponent implements OnInit {
       nombre: '', duracion_min: 30, precio: 0, descripcion: '',
       imagen_url: '', id_categoria: '',
       proceso_desde_min: 0, proceso_min: 0, a_cotizar: false,
-      usa_rango: false, precio_min: '', precio_max: '',
+      usa_rango: false, precio_min: null, precio_max: null,
       requiere_consentimiento: false, id_tipo_recurso: '',
     });
     this.variantes.set([]);
@@ -387,8 +389,8 @@ export class ServiciosComponent implements OnInit {
       a_cotizar: !!s.a_cotizar,
       // «Usa rango» no es una columna: es que alguna de las dos tenga valor.
       usa_rango: s.precio_min != null || s.precio_max != null,
-      precio_min: s.precio_min != null ? String(Number(s.precio_min)) : '',
-      precio_max: s.precio_max != null ? String(Number(s.precio_max)) : '',
+      precio_min: s.precio_min != null ? Number(s.precio_min) : null,
+      precio_max: s.precio_max != null ? Number(s.precio_max) : null,
       requiere_consentimiento: !!s.requiere_consentimiento,
       id_tipo_recurso: s.id_tipo_recurso != null ? String(s.id_tipo_recurso) : '',
     });
@@ -499,11 +501,32 @@ export class ServiciosComponent implements OnInit {
     if (!idNegocio) return;
 
     const v = this.form.getRawValue();
+
+    // Con rango el precio fijo sobra: si se deja vacío se guarda el «desde» (o el «hasta») como
+    // referencia, que es lo que se propone al facturar. La columna no admite NULL.
+    const precioMin = v.usa_rango ? numeroOpcional(v.precio_min) : null;
+    const precioMax = v.usa_rango ? numeroOpcional(v.precio_max) : null;
+    let precio = numeroOpcional(v.precio);
+    if (v.usa_rango) {
+      if (precioMin == null && precioMax == null) {
+        this.toast.error('Escribe al menos uno de los dos precios del rango, o apaga el rango.');
+        return;
+      }
+      if (precioMin != null && precioMax != null && precioMin > precioMax) {
+        this.toast.error('El precio "desde" no puede ser mayor que "hasta".');
+        return;
+      }
+      precio ??= precioMin ?? precioMax;
+    } else if (precio == null) {
+      this.toast.error('Escribe el precio del servicio.');
+      return;
+    }
+
     const payload: Partial<Servicio> & { id_negocio: number } = {
       id_negocio: idNegocio,
       nombre: v.nombre.trim(),
       duracion_min: Number(v.duracion_min),
-      precio: Number(v.precio),
+      precio: precio ?? 0,
       descripcion: v.descripcion?.trim() || null,
       imagen_url: v.imagen_url?.trim() || null,
       // El `<select>` devuelve texto; `''` es «sin categoría» y viaja como null.
@@ -524,23 +547,8 @@ export class ServiciosComponent implements OnInit {
     // El rango va aparte de «a cotizar» y no depende de ninguna función del rubro: es una forma
     // de presentar el precio que cualquier negocio puede querer. Apagado, se limpian las dos
     // columnas para que la página deje de enseñarlo.
-    if (v.usa_rango) {
-      const precioMin = v.precio_min?.trim() ? Number(v.precio_min) : null;
-      const precioMax = v.precio_max?.trim() ? Number(v.precio_max) : null;
-      if (precioMin == null && precioMax == null) {
-        this.toast.error('Escribe al menos uno de los dos precios del rango, o apaga el rango.');
-        return;
-      }
-      if (precioMin != null && precioMax != null && precioMin > precioMax) {
-        this.toast.error('El precio "desde" no puede ser mayor que "hasta".');
-        return;
-      }
-      payload.precio_min = precioMin;
-      payload.precio_max = precioMax;
-    } else {
-      payload.precio_min = null;
-      payload.precio_max = null;
-    }
+    payload.precio_min = precioMin;
+    payload.precio_max = precioMax;
     if (this.conConsentimiento()) payload.requiere_consentimiento = v.requiere_consentimiento;
     if (this.conRecursos()) payload.id_tipo_recurso = v.id_tipo_recurso ? Number(v.id_tipo_recurso) : null;
     if (this.conVariantes()) {
@@ -610,4 +618,11 @@ export class ServiciosComponent implements OnInit {
     this.servicioAInactivar.set(null);
   }
 
+}
+
+/** Valor de un `<input type="number">`: vacío (null, '' o NaN) es «sin valor», no 0. */
+function numeroOpcional(x: unknown): number | null {
+  if (x == null || (typeof x === 'string' && !x.trim())) return null;
+  const n = Number(x);
+  return Number.isFinite(n) ? n : null;
 }

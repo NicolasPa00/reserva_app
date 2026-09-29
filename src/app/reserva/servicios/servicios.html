@@ -162,7 +162,7 @@
         <input class="input" type="number" formControlName="duracion_min" min="5" max="600" step="5" />
       </label>
       <label>
-        <span>Precio ({{ codigoMoneda() }}) *</span>
+        <span>Precio ({{ codigoMoneda() }}) @if (form.controls.usa_rango.value) { <small>(opcional)</small> } @else { * }</span>
         <input class="input" type="number" formControlName="precio" min="0" [step]="pasoPrecio()" />
       </label>
     </div>
@@ -193,7 +193,7 @@
         </div>
         <small class="hint">
           Con uno solo se lee «Desde $25.000» o «Hasta $40.000». Al facturar la cita se cobra el
-          precio de arriba, o el que escribas en ese momento.
+          precio de arriba (si lo dejas vacío, el «desde»), o el que escribas en ese momento.
         </small>
       }
     </div>
