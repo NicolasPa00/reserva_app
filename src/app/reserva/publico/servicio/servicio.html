@@ -397,8 +397,8 @@
         @if (enviando()) { Confirmando… } @else { Confirmar reserva }
       </button>
 
-      @if (reglas()?.ventana_cancelacion_horas; as h) {
-        <p class="hoja__nota">Puedes cancelar hasta {{ h }} horas antes con el código que te daremos.</p>
+      @if (ventanaCancelacion(); as v) {
+        <p class="hoja__nota">Puedes cancelar hasta {{ v }} antes con el código que te daremos.</p>
       }
     </div>
   </div>

@@ -11,6 +11,7 @@ import { PaisesService } from '../../../core/services/paises.service';
 import { UrlArchivoPipe } from '../../../shared/url-archivo.pipe';
 import { CitaPublica, DiaServicio, SlotsServicio, TAMANOS, VarianteServicio } from '../../../core/models';
 import { aHora12 } from '../../../core/utils/hora';
+import { duracionLegible, ventanaEnMinutos } from '../../../core/utils/duracion';
 import { paisPorMetadatos } from '../../../core/utils/pais-detectado';
 import { ProfesionalModalComponent } from '../profesional-modal/profesional-modal';
 import { IconoWhatsappComponent } from '../../../shared/iconos-marca/iconos-marca';
@@ -67,6 +68,11 @@ export class PublicoServicioComponent implements OnInit {
 
   readonly negocio = this.store.negocio;
   readonly reglas = this.store.reglas;
+  /** «1 hora», «30 minutos»: la ventana de cancelación como la lee el cliente. */
+  readonly ventanaCancelacion = computed(() => {
+    const m = ventanaEnMinutos(this.reglas());
+    return m ? duracionLegible(m) : null;
+  });
   readonly raiz = computed(() => `/p/${this.negocio()?.id_negocio ?? ''}`);
 
   readonly idServicio = signal<number>(0);

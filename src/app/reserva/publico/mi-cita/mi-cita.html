@@ -81,8 +81,8 @@
                     (click)="confirmandoCancelacion.set(true)">
               Cancelar mi cita
             </button>
-            @if (ventanaHoras(); as h) {
-              <small>Puedes cancelar hasta {{ h }} horas antes.</small>
+            @if (ventanaCancelacion(); as v) {
+              <small>Puedes cancelar hasta {{ v }} antes.</small>
             }
           } @else {
             <p class="confirmar">¿Seguro que quieres cancelar esta cita?</p>
@@ -154,8 +154,8 @@
             <button type="button" class="btn btn-outline" (click)="confirmandoCancelacion.set(true)">
               Cancelar mi reserva
             </button>
-            @if (ventanaHoras(); as h) {
-              <small>Puedes cancelar hasta {{ h }} horas antes de la llegada.</small>
+            @if (ventanaCancelacion(); as v) {
+              <small>Puedes cancelar hasta {{ v }} antes de la llegada.</small>
             }
           } @else {
             <p class="confirmar">¿Seguro que quieres cancelar esta reserva?</p>

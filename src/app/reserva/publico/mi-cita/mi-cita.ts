@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
+import { duracionLegible, ventanaEnMinutos } from '../../../core/utils/duracion';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
 
@@ -61,7 +62,11 @@ export class PublicoMiCitaComponent implements OnInit {
   readonly confirmandoCancelacion = signal(false);
   readonly mensaje = signal<string | null>(null);
 
-  readonly ventanaHoras = computed(() => this.store.reglas()?.ventana_cancelacion_horas ?? null);
+  /** «1 hora», «72 horas»: la ventana de cancelación como la lee el cliente (en minutos desde 2026-09-29). */
+  readonly ventanaCancelacion = computed(() => {
+    const m = ventanaEnMinutos(this.store.reglas());
+    return m ? duracionLegible(m) : null;
+  });
 
   /** Una cita ya cancelada, completada o marcada como inasistencia no se puede tocar. */
   readonly cancelable = computed(() => {

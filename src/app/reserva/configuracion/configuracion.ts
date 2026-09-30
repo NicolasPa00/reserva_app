@@ -190,10 +190,11 @@ export class ConfiguracionComponent implements OnInit {
   });
 
   readonly form = this.fb.nonNullable.group({
-    anticipacion_min_horas:    [1,  [Validators.required, Validators.min(0), Validators.max(168)]],
-    buffer_limpieza_min:       [10, [Validators.required, Validators.min(0), Validators.max(240)]],
-    ventana_cancelacion_horas: [4,  [Validators.required, Validators.min(0), Validators.max(168)]],
-    paso_slot_min:             [15, [Validators.required, Validators.min(5),  Validators.max(60)]],
+    // En minutos desde 2026-09-29 (antes la anticipación y la ventana iban en horas).
+    anticipacion_min_minutos:  [15, [Validators.required, Validators.min(0), Validators.max(10080)]],
+    buffer_limpieza_min:       [0,  [Validators.required, Validators.min(0), Validators.max(240)]],
+    ventana_cancelacion_min:   [60, [Validators.required, Validators.min(0), Validators.max(43200)]],
+    paso_slot_min:             [30, [Validators.required, Validators.min(5),  Validators.max(60)]],
     cobro_adelantado:          [false],
     instrucciones_pago:        [''],
     permite_cobro_profesional: [false],
@@ -286,9 +287,9 @@ export class ConfiguracionComponent implements OnInit {
         }
         if (cfg?.success && cfg.data) {
           this.form.patchValue({
-            anticipacion_min_horas:    cfg.data.anticipacion_min_horas,
+            anticipacion_min_minutos:  cfg.data.anticipacion_min_minutos,
             buffer_limpieza_min:       cfg.data.buffer_limpieza_min,
-            ventana_cancelacion_horas: cfg.data.ventana_cancelacion_horas,
+            ventana_cancelacion_min:   cfg.data.ventana_cancelacion_min,
             paso_slot_min:             cfg.data.paso_slot_min,
             cobro_adelantado:          cfg.data.cobro_adelantado,
             instrucciones_pago:        cfg.data.instrucciones_pago ?? '',
@@ -321,9 +322,9 @@ export class ConfiguracionComponent implements OnInit {
     this.guardando.set(true);
     this.api.actualizarConfig({
       id_negocio: idNegocio,
-      anticipacion_min_horas:    Number(v.anticipacion_min_horas),
+      anticipacion_min_minutos:  Number(v.anticipacion_min_minutos),
       buffer_limpieza_min:       Number(v.buffer_limpieza_min),
-      ventana_cancelacion_horas: Number(v.ventana_cancelacion_horas),
+      ventana_cancelacion_min:   Number(v.ventana_cancelacion_min),
       paso_slot_min:             Number(v.paso_slot_min),
       cobro_adelantado:          v.cobro_adelantado,
       // Las instrucciones sirven al cobro adelantado de siempre y al abono: solo se borran si

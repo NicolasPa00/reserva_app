@@ -31,7 +31,9 @@
            (change)="setFechaDesdeInput($any($event.target).value)" />
   </div>
 
-  @if (cargando()) {
+  <!-- «Cargando…» solo mientras no hay nada que enseñar: un refresco (tiempo real, cambio de
+       día) deja la rejilla a la vista y solo cambia lo que llegó distinto. -->
+  @if (cargando() && profesionales().length === 0) {
     <p class="hint">Cargando…</p>
   } @else if (profesionales().length === 0) {
     <div class="card vacio">

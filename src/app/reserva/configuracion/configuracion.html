@@ -323,21 +323,21 @@
 
         <div class="grid">
           <label>
-            <span>Anticipación mínima (horas)</span>
-            <input class="input" type="number" formControlName="anticipacion_min_horas" min="0" max="168" />
-            <small>Cuánto antes debe reservar un cliente.</small>
+            <span>Anticipación mínima (min)</span>
+            <input class="input" type="number" formControlName="anticipacion_min_minutos" min="0" max="10080" step="5" />
+            <small>Cuánto antes debe reservar un cliente. Con 15, se ofrecen horas hasta un cuarto de hora antes.</small>
           </label>
           @if (usaCitas()) {
           <label>
-            <span>Buffer de limpieza (min)</span>
+            <span>Tiempo de limpieza (min)</span>
             <input class="input" type="number" formControlName="buffer_limpieza_min" min="0" max="240" step="5" />
             <small>Tiempo libre entre citas consecutivas.</small>
           </label>
           }
           <label>
-            <span>Ventana de cancelación (horas)</span>
-            <input class="input" type="number" formControlName="ventana_cancelacion_horas" min="0" max="168" />
-            <small>Tiempo mínimo para que el cliente cancele.</small>
+            <span>Ventana de cancelación (min)</span>
+            <input class="input" type="number" formControlName="ventana_cancelacion_min" min="0" max="43200" step="5" />
+            <small>Hasta cuánto antes de la cita puede cancelar el cliente (60 = una hora).</small>
           </label>
           @if (usaCitas()) {
           <label>

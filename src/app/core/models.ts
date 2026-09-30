@@ -291,9 +291,10 @@ export interface Cita {
 
 export interface ConfigReserva {
   id_negocio: number;
-  anticipacion_min_horas: number;
+  /** En minutos desde 2026-09-29. */
+  anticipacion_min_minutos: number;
   buffer_limpieza_min: number;
-  ventana_cancelacion_horas: number;
+  ventana_cancelacion_min: number;
   paso_slot_min: number;
   cobro_adelantado: boolean;
   instrucciones_pago: string | null;
@@ -615,6 +616,9 @@ export interface InfoNegocioPublico {
   paleta: PaletaColor | null;
   cobro_adelantado: boolean;
   instrucciones_pago: string | null;
+  anticipacion_min_minutos?: number;
+  ventana_cancelacion_min?: number;
+  /** Espejo en horas (backend anterior). */
   anticipacion_min_horas: number;
   ventana_cancelacion_horas: number;
   pago?: PoliticaPago;
@@ -782,6 +786,9 @@ export interface NegocioPublico {
 export interface Vitrina {
   negocio: NegocioPublico;
   reglas: {
+    anticipacion_min_minutos?: number;
+    ventana_cancelacion_min?: number;
+    /** Espejo en horas (backend anterior). */
     anticipacion_min_horas: number;
     ventana_cancelacion_horas: number;
     paso_slot_min: number;

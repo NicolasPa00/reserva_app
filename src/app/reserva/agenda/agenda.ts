@@ -11,6 +11,8 @@ import { minutosDelDiaBogota } from '../../core/utils/hora';
 import { ReservaApiService } from '../../core/services/reserva-api.service';
 import { ToastService } from '../../core/services/toast.service';
 import { EventBusService } from '../../core/services/event-bus.service';
+import { RealtimeService } from '../../core/services/realtime.service';
+import { aplicarLista, mismoContenido } from '../../core/utils/refresco-vivo';
 import { environment } from '../../../environments/environment';
 import { Cita, DiaDisponible, EstadoCita, MetodoPago, Profesional } from '../../core/models';
 import { CitaFormComponent } from '../citas/cita-form/cita-form';
@@ -68,6 +70,14 @@ export class AgendaComponent implements OnInit, OnDestroy {
   private readonly api   = inject(ReservaApiService);
   private readonly toast = inject(ToastService);
   private readonly bus   = inject(EventBusService);
+  private readonly realtime = inject(RealtimeService);
+  /** Baja del tiempo real al salir de la vista. */
+  private bajaRealtime?: () => void;
+  /**
+   * Número de la última consulta pedida. Una respuesta vieja (de un día que ya no se mira, o
+   * adelantada por otra más nueva) se descarta en vez de pintarse encima de la buena.
+   */
+  private consulta = 0;
 
   readonly profesionales = signal<Profesional[]>([]);
   readonly citas = signal<Cita[]>([]);
@@ -240,15 +250,31 @@ export class AgendaComponent implements OnInit, OnDestroy {
     this.bus.on<Cita>('cita_cancelada').subscribe(() => this.cargar());
     this.bus.on<Cita>('cita_eliminada').subscribe(() => this.cargar());
     this.bus.on<Cita>('cita_pago_aprobado').subscribe(() => this.cargar());
+    // Tiempo real (SSE): una cita del asistente de WhatsApp, del portal o de un compañero
+    // aparece sola. Silencioso: si no cambió nada, no se toca ni un píxel.
+    this.bajaRealtime = this.realtime.alCambiar(['agenda'], () => this.cargar({ silencioso: true }));
     // La línea de «ahora» se mueve sola; cada minuto es suficiente para un píxel y medio.
     this.relojId = setInterval(() => this.ahora.set(new Date()), 60_000);
   }
 
   ngOnDestroy() {
     if (this.relojId) clearInterval(this.relojId);
+    this.bajaRealtime?.();
   }
 
-  cargar() {
+  /**
+   * Carga (o refresca) la agenda del día.
+   *
+   * ## Sin parpadeos (regla fija del tiempo real, 2026-09-29)
+   *
+   * Antes cada carga ponía `cargando` y la plantilla cambiaba la rejilla entera por «Cargando…»:
+   * cualquier refresco la hacía desaparecer y volver aunque no hubiera cambiado nada. Ahora:
+   *  - «Cargando…» solo en la PRIMERA carga, cuando no hay nada que enseñar;
+   *  - los datos entran con `aplicarLista`: si la respuesta es igual, la señal no se escribe y
+   *    no se repinta nada; si cambió una cita, las demás conservan su objeto (y su nodo);
+   *  - un refresco silencioso que falla no avisa ni borra lo que hay en pantalla.
+   */
+  cargar({ silencioso = false }: { silencioso?: boolean } = {}) {
     if (!this.idNegocio()) return;
     // El día que se mira, de medianoche a medianoche **en la zona de las citas**. Con la
     // medianoche del navegador, desde Chile el rango empezaba a las 22:00 del día anterior y
@@ -258,7 +284,9 @@ export class AgendaComponent implements OnInit, OnDestroy {
     const desde = `${dia}T00:00:00-05:00`;
     const hasta = `${this.claveDia(siguiente)}T00:00:00-05:00`;
 
-    this.cargando.set(true);
+    const numero = ++this.consulta;
+    const primeraCarga = this.profesionales().length === 0 && this.citas().length === 0;
+    if (primeraCarga && !silencioso) this.cargando.set(true);
     forkJoin({
       pros:  this.api.listarProfesionales(this.idNegocio()),
       citas: this.api.listarCitas({
@@ -268,13 +296,18 @@ export class AgendaComponent implements OnInit, OnDestroy {
       }),
     }).subscribe({
       next: ({ pros, citas }) => {
-        const profesionales = pros?.success && pros.data ? pros.data : [];
-        this.profesionales.set(profesionales);
-        if (citas?.success && citas.data) this.citas.set(citas.data);
+        if (numero !== this.consulta) return; // llegó tarde: hay una consulta más nueva
+        if (pros?.success && pros.data) aplicarLista(this.profesionales, pros.data, p => p.id_profesional);
+        if (citas?.success && citas.data) aplicarLista(this.citas, citas.data, c => c.id_cita);
         this.cargando.set(false);
-        this.cargarJornadas(profesionales);
+        this.cargarJornadas(this.profesionales(), numero);
       },
-      error: () => { this.toast.error('No se pudo cargar la agenda.'); this.cargando.set(false); },
+      error: () => {
+        if (numero !== this.consulta) return;
+        this.cargando.set(false);
+        // En silencio no se molesta: el próximo aviso o la reconexión lo pondrán al día.
+        if (!silencioso) this.toast.error('No se pudo cargar la agenda.');
+      },
     });
   }
 
@@ -285,8 +318,8 @@ export class AgendaComponent implements OnInit, OnDestroy {
    * agenda aparece de inmediato y el sombreado del horario entra un instante después, en vez de
    * retrasar todo hasta tener el dato menos crítico.
    */
-  private cargarJornadas(profesionales: Profesional[]) {
-    if (profesionales.length === 0) { this.diasPorPro.set(new Map()); return; }
+  private cargarJornadas(profesionales: Profesional[], numero = this.consulta) {
+    if (profesionales.length === 0) { this.aplicarJornadas(new Map()); return; }
     const fecha = this.fechaISO();
 
     forkJoin(
@@ -299,17 +332,28 @@ export class AgendaComponent implements OnInit, OnDestroy {
       ),
     ).subscribe({
       next: respuestas => {
+        if (numero !== this.consulta) return;
         const map = new Map<number, DiaDisponible>();
         respuestas.forEach((r, i) => {
           const dia = r?.data?.[0];
           if (dia) map.set(profesionales[i].id_profesional, dia);
         });
-        this.diasPorPro.set(map);
+        this.aplicarJornadas(map);
       },
       // Sin jornadas la agenda sigue siendo usable (solo pierde el sombreado): no se molesta
-      // al usuario con un toast por algo que no le impide trabajar.
-      error: () => this.diasPorPro.set(new Map()),
+      // al usuario con un toast, y tampoco se borra el sombreado que ya había.
+      error: () => {},
     });
+  }
+
+  /**
+   * Escribe las jornadas solo si cambiaron. Un `Map` no se compara por contenido con
+   * `mismoContenido` (no tiene claves propias), así que se comparan sus entradas.
+   */
+  private aplicarJornadas(nuevo: Map<number, DiaDisponible>) {
+    if (!mismoContenido([...this.diasPorPro().entries()], [...nuevo.entries()])) {
+      this.diasPorPro.set(nuevo);
+    }
   }
 
   // Cambiar de día recarga la agenda, no el contexto de cobro: las formas de pago y los flags
