@@ -7,7 +7,7 @@ import { LucideAngularModule } from 'lucide-angular';
 import { VitrinaStore } from '../vitrina.store';
 import { ReservaApiService } from '../../../core/services/reserva-api.service';
 import { CitaPublica, EstanciaPublica } from '../../../core/models';
-import { aHora12 } from '../../../core/utils/hora';
+import { aHora12, horaBogota } from '../../../core/utils/hora';
 import { normalizarEntradaCodigo } from '../../../core/utils/codigo-cita';
 import { MonedaPipe } from '../../../shared/moneda.pipe';
 
@@ -103,7 +103,9 @@ export class PublicoMiCitaComponent implements OnInit {
 
   hora12(fechaHora: string | null | undefined): string {
     if (!fechaHora) return '';
-    return aHora12(fechaHora.slice(11, 16));
+    // La API entrega el instante en UTC (`…T20:30:00.000Z`): recortar el texto mostraba la hora
+    // UTC, cinco horas de más. Se convierte a la hora de pared del negocio, como la fecha de arriba.
+    return aHora12(horaBogota(fechaHora));
   }
 
   buscar(): void {
