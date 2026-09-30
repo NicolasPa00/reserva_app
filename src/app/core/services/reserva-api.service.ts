@@ -240,10 +240,15 @@ export class ReservaApiService {
    */
   completarCita(id: number, idNegocio: number, pago?: {
     idMetodoPago?: number | null; pagos?: PagoLinea[];
+    /** Precio final de los servicios con rango o a cotizar. */
+    precios?: { id_servicio: number; precio: number }[];
+    tipoCobro?: 'SERVICIO' | 'ASESORIA';
   }) {
     const body: Record<string, unknown> = { id_negocio: idNegocio };
     if (pago?.pagos?.length) body['pagos'] = pago.pagos;
     else if (pago?.idMetodoPago != null) body['id_metodo_pago'] = pago.idMetodoPago;
+    if (pago?.precios?.length) body['precios'] = pago.precios;
+    if (pago?.tipoCobro) body['tipo_cobro'] = pago.tipoCobro;
     return this.http.post<ApiResponse<Cita>>(`${this.base}/citas/${id}/completar`, body);
   }
   noShowCita(id: number, idNegocio: number) {

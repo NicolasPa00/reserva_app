@@ -1,6 +1,7 @@
 import {
-  ChangeDetectionStrategy, Component, OnInit, computed, inject, signal, viewChild,
+  ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, signal, viewChild,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
@@ -35,6 +36,7 @@ export class ServiciosComponent implements OnInit {
   private readonly api  = inject(ReservaApiService);
   private readonly toast = inject(ToastService);
   private readonly fb   = inject(FormBuilder);
+  private readonly destroyRef = inject(DestroyRef);
   private readonly monedas = inject(MonedaService);
   private readonly perfilApi = inject(PerfilApiService);
 
@@ -110,8 +112,9 @@ export class ServiciosComponent implements OnInit {
   readonly form = this.fb.nonNullable.group({
     nombre:       ['', [Validators.required, Validators.maxLength(150)]],
     duracion_min: [30, [Validators.required, Validators.min(5), Validators.max(600)]],
-    // Sin `required`: con el rango encendido el precio fijo es opcional (ver `guardar`).
-    precio:       [0,  [Validators.min(0)]],
+    // Sin `required`: con el rango encendido el precio fijo no se usa (ver `guardar`). Empieza
+    // vacío (el 0 es solo el placeholder): un 0 escrito se confundía con «gratis».
+    precio:       [null as number | null, [Validators.min(0)]],
     descripcion:  [''],
     id_categoria: [''],
     imagen_url:   [''],
@@ -149,7 +152,21 @@ export class ServiciosComponent implements OnInit {
     return this.auth.permisosVistaActivos().find(p => p.url === '/servicios') ?? null;
   }
 
-  ngOnInit() { this.recargar(); }
+  ngOnInit() {
+    this.recargar();
+    // Con el rango encendido manda el rango: el precio único se bloquea para que no parezca que
+    // hay dos precios. Se hace aquí y no en la plantilla (`[disabled]` con formularios reactivos
+    // no funciona).
+    this.form.controls.usa_rango.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(usa => this.sincronizarPrecio(usa));
+  }
+
+  private sincronizarPrecio(usaRango: boolean) {
+    const precio = this.form.controls.precio;
+    if (usaRango) precio.disable({ emitEvent: false });
+    else precio.enable({ emitEvent: false });
+  }
 
   recargar() {
     const idNegocio = this.auth.negocio()?.id_negocio;
@@ -363,12 +380,13 @@ export class ServiciosComponent implements OnInit {
     this.limpiarImagenPendiente();
     this.editando.set(null);
     this.form.reset({
-      nombre: '', duracion_min: 30, precio: 0, descripcion: '',
+      nombre: '', duracion_min: 30, precio: null, descripcion: '',
       imagen_url: '', id_categoria: '',
       proceso_desde_min: 0, proceso_min: 0, a_cotizar: false,
       usa_rango: false, precio_min: null, precio_max: null,
       requiere_consentimiento: false, id_tipo_recurso: '',
     });
+    this.sincronizarPrecio(false);
     this.variantes.set([]);
     this.cargarTiposRecurso(this.auth.negocio()?.id_negocio ?? 0);
     this.modalAbierto.set(true);
@@ -394,6 +412,7 @@ export class ServiciosComponent implements OnInit {
       requiere_consentimiento: !!s.requiere_consentimiento,
       id_tipo_recurso: s.id_tipo_recurso != null ? String(s.id_tipo_recurso) : '',
     });
+    this.sincronizarPrecio(this.form.controls.usa_rango.value);
     this.variantes.set((s.variantes ?? []).map(v => ({ ...v, precio: Number(v.precio) })));
     this.cargarTiposRecurso(this.auth.negocio()?.id_negocio ?? 0);
     this.modalAbierto.set(true);
@@ -506,7 +525,7 @@ export class ServiciosComponent implements OnInit {
     // referencia, que es lo que se propone al facturar. La columna no admite NULL.
     const precioMin = v.usa_rango ? numeroOpcional(v.precio_min) : null;
     const precioMax = v.usa_rango ? numeroOpcional(v.precio_max) : null;
-    let precio = numeroOpcional(v.precio);
+    let precio = v.usa_rango ? null : numeroOpcional(v.precio);
     if (v.usa_rango) {
       if (precioMin == null && precioMax == null) {
         this.toast.error('Escribe al menos uno de los dos precios del rango, o apaga el rango.');
@@ -516,7 +535,9 @@ export class ServiciosComponent implements OnInit {
         this.toast.error('El precio "desde" no puede ser mayor que "hasta".');
         return;
       }
-      precio ??= precioMin ?? precioMax;
+      // El precio único está bloqueado: se guarda el «desde» (o el «hasta») como referencia, que
+      // es lo que se propone al cobrar. La columna no admite NULL.
+      precio = precioMin ?? precioMax;
     } else if (precio == null) {
       this.toast.error('Escribe el precio del servicio.');
       return;

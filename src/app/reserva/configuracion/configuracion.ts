@@ -19,6 +19,7 @@ import { ModalComponent } from '../../shared/modal/modal';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dialog';
 import { IconoTiktokComponent } from '../../shared/iconos-marca/iconos-marca';
 import { TelefonoPaisComponent } from '../../shared/telefono-pais/telefono-pais';
+import { environment } from '../../../environments/environment';
 
 /**
  * Configuración del vertical.
@@ -181,8 +182,10 @@ export class ConfiguracionComponent implements OnInit {
     const id = this.auth.negocio()?.id_negocio;
     if (!id) return '';
 
+    // En desarrollo el subdominio de producción no sirve para probar nada: se abre la misma
+    // página por su ruta local (`/p/:id`), que es la que el subdominio reescribe en producción.
     const slug = this.marca()?.slug;
-    if (slug) return `https://${slug}.escalapp.cloud`;
+    if (slug && environment.production) return `https://${slug}.escalapp.cloud`;
 
     // `location` no existe en SSR; se compone sin él y se completa en el navegador.
     const origen = typeof window !== 'undefined' ? window.location.origin : '';

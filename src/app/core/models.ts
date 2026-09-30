@@ -245,7 +245,11 @@ export interface CitaServicioDetalle {
   duracion_snapshot_min: number;
   id_variante?: number | null;
   variante_snapshot?: string | null;
-  servicio?: { id_servicio: number; nombre: string; requiere_consentimiento?: boolean; a_cotizar?: boolean };
+  servicio?: {
+    id_servicio: number; nombre: string; requiere_consentimiento?: boolean; a_cotizar?: boolean;
+    /** Rango de precio del catálogo: el precio final se decide al cobrar. */
+    precio_min?: number | string | null; precio_max?: number | string | null;
+  };
 }
 
 export interface Cita {
@@ -264,6 +268,8 @@ export interface Cita {
   codigo_publico: string;
   requiere_pago: boolean;
   monto_total: number;
+  /** Cómo se cerró: SERVICIO (cobrada) o ASESORIA (sin mover dinero). */
+  tipo_cobro?: 'SERVICIO' | 'ASESORIA';
   pago_estado: PagoEstado;
   comprobante_pago_url?: string | null;
   pago_rechazo_motivo?: string | null;
@@ -443,7 +449,8 @@ export interface PagoLinea {
 export interface MovimientoCaja {
   id_movimiento: number;
   id_caja: number;
-  tipo: 'INGRESO' | 'EGRESO';
+  /** ASESORIA: cita cerrada sin cobro; queda en el turno por 0. */
+  tipo: 'INGRESO' | 'EGRESO' | 'ASESORIA';
   monto: number | string;
   concepto: string | null;
   fecha: string;

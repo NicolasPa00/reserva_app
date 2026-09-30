@@ -113,7 +113,20 @@
               <em>{{ terminos().servicio }}</em>
             </span>
             <span class="opcion__cuanto">
-              <span class="opcion__precio">{{ s.precio | moneda }}</span>
+              <!-- Con rango, el rango: el precio único es solo la referencia interna para cobrar. -->
+              <span class="opcion__precio">
+                @if (tieneRangoPrecio()) {
+                  @if (precioMinCotizar() != null && precioMaxCotizar() != null) {
+                    {{ precioMinCotizar() | moneda }} - {{ precioMaxCotizar() | moneda }}
+                  } @else if (precioMinCotizar() != null) {
+                    Desde {{ precioMinCotizar() | moneda }}
+                  } @else {
+                    Hasta {{ precioMaxCotizar() | moneda }}
+                  }
+                } @else {
+                  {{ s.precio | moneda }}
+                }
+              </span>
               <span class="opcion__dur"><lucide-icon name="clock" [size]="13" /> {{ s.duracion_min }} min</span>
             </span>
           </div>

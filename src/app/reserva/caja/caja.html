@@ -265,11 +265,18 @@
                     (click)="alternarFila(m)">
                   <td>{{ horaMovimiento(m.fecha) }}</td>
                   <td>
-                    <span class="movs__tipo" [class.movs__tipo--in]="m.tipo === 'INGRESO'"
-                          [class.movs__tipo--out]="m.tipo === 'EGRESO'">
-                      <lucide-icon [name]="m.tipo === 'INGRESO' ? 'plus' : 'minus'" [size]="12" />
-                      {{ m.tipo === 'INGRESO' ? 'Ingreso' : 'Egreso' }}
-                    </span>
+                    <!-- Una asesoría queda en el turno pero no mueve dinero. -->
+                    @if (m.tipo === 'ASESORIA') {
+                      <span class="movs__tipo movs__tipo--asesoria">
+                        <lucide-icon name="message-circle" [size]="12" /> Asesoría
+                      </span>
+                    } @else {
+                      <span class="movs__tipo" [class.movs__tipo--in]="m.tipo === 'INGRESO'"
+                            [class.movs__tipo--out]="m.tipo === 'EGRESO'">
+                        <lucide-icon [name]="m.tipo === 'INGRESO' ? 'plus' : 'minus'" [size]="12" />
+                        {{ m.tipo === 'INGRESO' ? 'Ingreso' : 'Egreso' }}
+                      </span>
+                    }
                   </td>
                   <td>
                     @if (m.cita) {
@@ -286,9 +293,13 @@
                     @else { — }
                   </td>
                   <td class="num">
-                    <strong [class.pos]="m.tipo === 'INGRESO'" [class.neg]="m.tipo === 'EGRESO'">
-                      {{ m.tipo === 'EGRESO' ? '−' : '+' }}{{ m.monto | moneda }}
-                    </strong>
+                    @if (m.tipo === 'ASESORIA') {
+                      <strong class="movs__sin-monto">Sin cobro</strong>
+                    } @else {
+                      <strong [class.pos]="m.tipo === 'INGRESO'" [class.neg]="m.tipo === 'EGRESO'">
+                        {{ m.tipo === 'EGRESO' ? '−' : '+' }}{{ m.monto | moneda }}
+                      </strong>
+                    }
                   </td>
                   @if (permiteEliminar()) {
                     <td class="acc">

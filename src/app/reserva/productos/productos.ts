@@ -95,6 +95,9 @@ export class ProductosComponent implements OnInit {
 
   ngOnInit() {
     this.cargarCatalogo();
+    // Sin negocio (prerender en el servidor, sin sesión) no hay nada que pedir: la petición
+    // salía con id_negocio=0 y rompía el build con un 401.
+    if (!this.idNegocio()) return;
     this.reservaApi.listarMetodosPago(this.idNegocio()).subscribe((r) => {
       if (r?.success && r.data) this.metodosPago.set(r.data);
     });

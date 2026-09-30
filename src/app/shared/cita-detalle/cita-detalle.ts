@@ -2,7 +2,8 @@ import { ChangeDetectionStrategy, Component, Input, computed, inject, signal } f
 import { CommonModule, DatePipe } from '@angular/common';
 import { LucideAngularModule } from 'lucide-angular';
 
-import { Cita, EstadoCita, PagoEstado } from '../../core/models';
+import { Cita, CitaServicioDetalle, EstadoCita, PagoEstado } from '../../core/models';
+import { MonedaService } from '../../core/services/moneda.service';
 import { formatearCodigoCita } from '../../core/utils/codigo-cita';
 import { MonedaPipe } from '../moneda.pipe';
 import { AuthService } from '../../core/services/auth.service';
@@ -142,14 +143,24 @@ export function badgeEstado(e: EstadoCita): string {
                     {{ s.servicio?.nombre || 'Servicio #' + s.id_servicio }}@if (s.variante_snapshot) { · {{ s.variante_snapshot }} }
                   </span>
                   <em>{{ s.duracion_snapshot_min }} min</em>
-                  <strong>{{ s.precio_snapshot | moneda }}</strong>
+                  <!-- Mientras no se cobre, un servicio con rango enseña el rango: el precio final
+                       se escribe al completar y cobrar. -->
+                  @if (rangoLinea(s); as r) {
+                    <strong>{{ textoRango(r) }}</strong>
+                  } @else {
+                    <strong>{{ s.precio_snapshot | moneda }}</strong>
+                  }
                 </li>
               }
             </ul>
           }
           <p class="cd__total">
-            <span>Total</span>
-            <strong>{{ cita.monto_total | moneda }}</strong>
+            <span>Total@if (cita.tipo_cobro === 'ASESORIA') { <em class="cd__asesoria">Asesoría · sin cobro</em> }</span>
+            @if (rangoTotal(); as r) {
+              <strong>{{ textoRango(r) }}</strong>
+            } @else {
+              <strong>{{ cita.monto_total | moneda }}</strong>
+            }
           </p>
           @if (abono() > 0) {
             <p class="cd__abono">
@@ -305,6 +316,11 @@ export function badgeEstado(e: EstadoCita): string {
       strong { font-variant-numeric: tabular-nums; }
     }
     .cd__total--saldo strong { color: var(--color-primary); }
+    .cd__asesoria {
+      margin-left: .5rem; padding: .1rem .5rem; border-radius: 999px; font-style: normal;
+      font-size: .72rem; font-weight: 600;
+      background: color-mix(in srgb, var(--color-primary) 10%, transparent); color: var(--color-primary);
+    }
     .cd__aviso { display: block; font-style: normal; font-size: .78rem; color: var(--color-warning, #b45309); }
     .cd__notas {
       margin: 0; font-size: .88rem; color: var(--color-text-secondary);
@@ -319,6 +335,7 @@ export class CitaDetalleComponent {
   readonly codigoBonito = formatearCodigoCita;
   readonly auth = inject(AuthService);
   private readonly paises = inject(PaisesService);
+  private readonly monedas = inject(MonedaService);
 
   constructor() {
     // El indicativo sale del catálogo de países; se pide una vez por sesión (después es memoria).
@@ -356,6 +373,39 @@ export class CitaDetalleComponent {
     this.auth.tieneFuncion('consentimiento')
     && (this.citaSig()?.servicios ?? []).some(s => s.servicio?.requiere_consentimiento));
   readonly abono = computed(() => Number(this.citaSig()?.monto_abono ?? 0));
+
+  /** Una cita cobrada ya tiene su precio real; antes, un servicio con rango muestra el rango. */
+  private readonly sinCobrar = computed(() => {
+    const e = this.citaSig()?.estado;
+    return e === 'pendiente' || e === 'confirmada';
+  });
+
+  rangoLinea(s: CitaServicioDetalle): { min: number | null; max: number | null } | null {
+    if (!this.sinCobrar()) return null;
+    const min = s.servicio?.precio_min != null ? Number(s.servicio.precio_min) : null;
+    const max = s.servicio?.precio_max != null ? Number(s.servicio.precio_max) : null;
+    return min == null && max == null ? null : { min, max };
+  }
+
+  /** Suma de los rangos (los servicios de precio fijo suman su precio a los dos extremos). */
+  readonly rangoTotal = computed(() => {
+    const lineas = this.citaSig()?.servicios ?? [];
+    if (!lineas.some(l => this.rangoLinea(l))) return null;
+    let min = 0; let max = 0;
+    for (const l of lineas) {
+      const r = this.rangoLinea(l);
+      const fijo = Number(l.precio_snapshot ?? 0);
+      min += r ? (r.min ?? r.max ?? fijo) : fijo;
+      max += r ? (r.max ?? r.min ?? fijo) : fijo;
+    }
+    return { min, max };
+  });
+
+  textoRango(r: { min: number | null; max: number | null }): string {
+    const f = (n: number) => this.monedas.formatear(n);
+    if (r.min != null && r.max != null) return r.min === r.max ? f(r.min) : `${f(r.min)} - ${f(r.max)}`;
+    return r.min != null ? `Desde ${f(r.min)}` : `Hasta ${f(r.max ?? 0)}`;
+  }
   readonly saldo = computed(() => Math.max(0, Number(this.citaSig()?.monto_total ?? 0) - this.abono()));
 
   private readonly citaSig = signal<Cita | null>(null);

@@ -348,3 +348,9 @@
     }
   }
 }
+
+.movs__tipo--asesoria {
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+  color: var(--color-primary);
+}
+.movs__sin-monto { font-weight: 500; color: var(--color-text-muted); font-size: .85rem; }

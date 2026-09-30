@@ -8,7 +8,12 @@ import { LucideAngularModule } from 'lucide-angular';
 import { AuthService } from '../../core/services/auth.service';
 import { ReservaApiService } from '../../core/services/reserva-api.service';
 import { ToastService } from '../../core/services/toast.service';
-import { Cita, MetodoPago } from '../../core/models';
+import { Cita, CitaServicioDetalle, MetodoPago } from '../../core/models';
+import { MonedaService } from '../../core/services/moneda.service';
+import { formatearMontoEditable, parsearMonto } from '../../core/utils/monto';
+
+/** Cómo se cierra la cita. Una asesoría no mueve dinero: queda en la caja por 0. */
+export type TipoCobro = 'SERVICIO' | 'ASESORIA';
 import { ModalComponent } from '../modal/modal';
 import { MultipagoSelectorComponent, PagoSeleccion } from '../multipago-selector/multipago-selector';
 import { MonedaPipe } from '../moneda.pipe';
@@ -36,6 +41,7 @@ export class CobroDialogComponent {
   private readonly api = inject(ReservaApiService);
   readonly auth = inject(AuthService);
   private readonly toast = inject(ToastService);
+  private readonly monedas = inject(MonedaService);
 
   @Input({ required: true }) idNegocio!: number;
   @Input() metodos: MetodoPago[] = [];
@@ -48,6 +54,14 @@ export class CobroDialogComponent {
   readonly cajaAbierta = input(true);
 
   @Input() set cita(v: Cita | null) {
+    // Cada apertura empieza como «Servicio» y con los precios que ya tiene la cita.
+    this.tipoCobro.set('SERVICIO');
+    this.textoPrecios.set(new Map(
+      (v?.servicios ?? []).filter(s => this.precioEditable(s)).map(s => [
+        s.id_servicio,
+        Number(s.precio_snapshot) > 0 ? formatearMontoEditable(Number(s.precio_snapshot), this.monedas.moneda()) : '',
+      ] as [number, string]),
+    ));
     this.citaSig.set(v);
     if (v) this.seleccion.set(null);
   }
@@ -59,7 +73,59 @@ export class CobroDialogComponent {
   readonly seleccion = signal<PagoSeleccion | null>(null);
   readonly enviando = signal(false);
 
-  readonly total = computed(() => Number(this.citaSig()?.monto_total ?? 0));
+  /** Servicio (por defecto) o asesoría. */
+  readonly tipoCobro = signal<TipoCobro>('SERVICIO');
+  readonly esAsesoria = computed(() => this.tipoCobro() === 'ASESORIA');
+
+  /**
+   * Precio final escrito para cada servicio con rango (o a cotizar), como TEXTO: se interpreta
+   * con `parsearMonto` («40.000» son cuarenta mil, no cuarenta).
+   */
+  readonly textoPrecios = signal<Map<number, string>>(new Map());
+
+  /** ¿Se decide el precio al cobrar? Rango de precio en el catálogo, o servicio a cotizar. */
+  precioEditable(s: CitaServicioDetalle): boolean {
+    return !!s.servicio && (!!s.servicio.a_cotizar || s.servicio.precio_min != null || s.servicio.precio_max != null);
+  }
+
+  readonly lineasEditables = computed(() => (this.citaSig()?.servicios ?? []).filter(s => this.precioEditable(s)));
+
+  precioEscrito(idServicio: number): number | null {
+    return parsearMonto(this.textoPrecios().get(idServicio) ?? '', this.monedas.moneda());
+  }
+
+  setPrecio(idServicio: number, texto: string) {
+    this.textoPrecios.update(m => new Map(m).set(idServicio, texto));
+  }
+
+  normalizarPrecio(idServicio: number) {
+    const n = this.precioEscrito(idServicio);
+    if (n != null) this.setPrecio(idServicio, formatearMontoEditable(n, this.monedas.moneda()));
+  }
+
+  rangoDe(s: CitaServicioDetalle): string {
+    const f = (v: unknown) => this.monedas.formatear(Number(v));
+    const min = s.servicio?.precio_min;
+    const max = s.servicio?.precio_max;
+    if (min != null && max != null) return `rango ${f(min)} - ${f(max)}`;
+    if (min != null) return `desde ${f(min)}`;
+    if (max != null) return `hasta ${f(max)}`;
+    return 'precio a convenir';
+  }
+
+  /** Todos los precios que se deciden al cobrar están escritos (y son mayores que cero). */
+  readonly preciosCompletos = computed(() =>
+    this.lineasEditables().every(s => (this.precioEscrito(s.id_servicio) ?? 0) > 0));
+
+  /** El total con los precios escritos: el de la cita más la diferencia de cada línea editada. */
+  readonly total = computed(() => {
+    let total = Number(this.citaSig()?.monto_total ?? 0);
+    for (const s of this.lineasEditables()) {
+      const escrito = this.precioEscrito(s.id_servicio);
+      if (escrito != null) total += escrito - Number(s.precio_snapshot ?? 0);
+    }
+    return Math.max(0, total);
+  });
 
   /**
    * Abono ya recibido (perfiles con depósito). Solo cuenta si el comprobante se aprobó: uno
@@ -72,7 +138,7 @@ export class CobroDialogComponent {
     return Math.min(Number(c.monto_abono), this.total());
   });
   /** Lo que falta por cobrar ahora: el total menos el abono. */
-  readonly aCobrar = computed(() => Math.max(0, this.total() - this.abono()));
+  readonly aCobrar = computed(() => (this.esAsesoria() ? 0 : Math.max(0, this.total() - this.abono())));
   /** Un abono aprobado con la caja cerrada entra a la caja al completar la cita. */
   readonly abonoPorAsentar = computed(() => this.abono() > 0 && !this.citaSig()?.id_caja_abono);
 
@@ -87,7 +153,9 @@ export class CobroDialogComponent {
    * con `CAJA_CERRADA` pase lo que pase; esto es la mitad amable, para que el botón esté apagado
    * antes de intentarlo. Una cita de importe cero no mueve dinero, así que sí se puede completar.
    */
-  readonly bloqueadoPorCaja = computed(() => (this.requierePago() || this.abonoPorAsentar()) && !this.cajaAbierta());
+  // La asesoría también queda en el historial del turno, así que también necesita caja abierta.
+  readonly bloqueadoPorCaja = computed(() =>
+    (this.requierePago() || this.abonoPorAsentar() || this.esAsesoria()) && !this.cajaAbierta());
 
   /**
    * ¿Puede ESTE usuario abrir el turno, o tiene que pedírselo a alguien?
@@ -102,6 +170,7 @@ export class CobroDialogComponent {
 
   readonly puedeCobrar = computed(() => {
     if (this.enviando() || this.bloqueadoPorCaja()) return false;
+    if (!this.esAsesoria() && !this.preciosCompletos()) return false;
     if (!this.requierePago()) return true;
     return this.seleccion()?.valido === true;
   });
@@ -121,14 +190,23 @@ export class CobroDialogComponent {
 
     const sel = this.seleccion();
     this.enviando.set(true);
-    this.api.completarCita(cita.id_cita, this.idNegocio, this.requierePago() && sel
+    const pago = this.requierePago() && sel
       ? (sel.modo === 'multi' ? { pagos: sel.pagos } : { idMetodoPago: sel.idMetodoPago })
-      : undefined,
-    ).subscribe({
+      : {};
+    const precios = this.esAsesoria() ? [] : this.lineasEditables()
+      .map(s => ({ id_servicio: s.id_servicio, precio: this.precioEscrito(s.id_servicio) }))
+      .filter((p): p is { id_servicio: number; precio: number } => p.precio != null);
+    this.api.completarCita(cita.id_cita, this.idNegocio, {
+      ...pago,
+      precios,
+      tipoCobro: this.tipoCobro(),
+    }).subscribe({
       next: r => {
         this.enviando.set(false);
         if (r?.success) {
-          this.toast.success(`${this.auth.termino('cita')} completada y cobrada`);
+          this.toast.success(this.esAsesoria()
+            ? `${this.auth.termino('cita')} completada como asesoría`
+            : `${this.auth.termino('cita')} completada y cobrada`);
           this.cobrada.emit(r.data as Cita);
           this.cerrar();
         } else {

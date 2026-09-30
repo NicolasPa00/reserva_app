@@ -4,6 +4,30 @@
   @if (citaSig(); as c) {
     <div class="cb">
 
+      <!-- Servicio o asesoría. Por defecto servicio; una asesoría no cobra ni mueve la caja,
+           pero queda registrada en el turno. -->
+      <div class="cb__tipo" role="radiogroup" aria-label="Tipo de cobro">
+        <button type="button" role="radio" [attr.aria-checked]="!esAsesoria()"
+                [class.cb__tipo--on]="!esAsesoria()" (click)="tipoCobro.set('SERVICIO')">Servicio</button>
+        <button type="button" role="radio" [attr.aria-checked]="esAsesoria()"
+                [class.cb__tipo--on]="esAsesoria()" (click)="tipoCobro.set('ASESORIA')">Asesoría</button>
+      </div>
+
+      <!-- Precio final de los servicios con rango: se decide aquí, al cobrar. -->
+      @if (!esAsesoria() && lineasEditables().length) {
+        <div class="cb__precios">
+          @for (s of lineasEditables(); track s.id_servicio) {
+            <label class="cb__campo">
+              <span>Precio a cobrar · {{ s.servicio?.nombre }} <small>({{ rangoDe(s) }})</small></span>
+              <input class="input" type="text" inputmode="numeric" placeholder="0"
+                     [value]="textoPrecios().get(s.id_servicio) ?? ''"
+                     (input)="setPrecio(s.id_servicio, $any($event.target).value)"
+                     (blur)="normalizarPrecio(s.id_servicio)" />
+            </label>
+          }
+        </div>
+      }
+
       <!-- Qué se cobra -->
       <div class="cb__resumen">
         <div class="cb__linea">
@@ -46,7 +70,13 @@
         </p>
       }
 
-      @if (!requierePago()) {
+      @if (esAsesoria()) {
+        <p class="cb__aviso">
+          <lucide-icon name="info" [size]="15" />
+          Se completa como asesoría: no se cobra ni suma o resta dinero, pero queda registrada en
+          el turno de caja.
+        </p>
+      } @else if (!requierePago()) {
         <p class="cb__aviso">
           <lucide-icon name="info" [size]="15" />
           @if (abono() > 0) {
@@ -80,7 +110,7 @@
       Cancelar
     </button>
     <button type="button" class="btn btn-primary" (click)="cobrar()" [disabled]="!puedeCobrar()">
-      @if (enviando()) { Cobrando… } @else { Completar y cobrar }
+      @if (enviando()) { Guardando… } @else if (esAsesoria()) { Completar como asesoría } @else { Completar y cobrar }
     </button>
   </div>
 </reserva-modal>

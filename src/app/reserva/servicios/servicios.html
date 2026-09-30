@@ -148,8 +148,12 @@
 
 <reserva-modal [open]="modalAbierto()"
                [title]="(editando() ? 'Editar ' : 'Nuevo ') + ('servicio' | termino:'min')"
+               size="xl"
                (close)="cerrarModal()">
-  <form [formGroup]="form" (ngSubmit)="guardar()" class="form">
+  <!-- En pantallas grandes, dos columnas: los datos a la izquierda y las imágenes a la derecha.
+       En móvil se apilan (ver .form--servicio). -->
+  <form [formGroup]="form" (ngSubmit)="guardar()" class="form form--servicio">
+    <div class="form__col">
     <div class="form__row">
       <label>
         <span>Nombre *</span>
@@ -162,21 +166,17 @@
         <input class="input" type="number" formControlName="duracion_min" min="5" max="600" step="5" />
       </label>
       <label>
-        <span>Precio ({{ codigoMoneda() }}) @if (form.controls.usa_rango.value) { <small>(opcional)</small> } @else { * }</span>
-        <input class="input" type="number" formControlName="precio" min="0" [step]="pasoPrecio()" />
+        <span>Precio ({{ codigoMoneda() }}) @if (form.controls.usa_rango.value) { <small>(usa el rango)</small> } @else { * }</span>
+        <input class="input" type="number" formControlName="precio" min="0" [step]="pasoPrecio()" placeholder="0" />
       </label>
     </div>
 
     <!-- Rango de precio: una forma de PRESENTAR el precio en la página pública, no un precio
          distinto. El de arriba sigue siendo el que se cobra al facturar la cita. -->
     <div class="form__row">
-      <label class="check">
+      <label class="check check--fila">
         <input type="checkbox" formControlName="usa_rango" />
-        <span>
-          <strong>Mostrar un rango de precio</strong>
-          <em>Para servicios cuyo valor cambia (largo del cabello, tamaño, zona). En tu página
-              se ve «$25.000 - $40.000» en vez de un solo valor.</em>
-        </span>
+        <strong>Mostrar un rango de precio</strong>
       </label>
       @if (form.controls.usa_rango.value) {
         <div class="form__grid">
@@ -191,10 +191,6 @@
                    placeholder="40.000" />
           </label>
         </div>
-        <small class="hint">
-          Con uno solo se lee «Desde $25.000» o «Hasta $40.000». Al facturar la cita se cobra el
-          precio de arriba (si lo dejas vacío, el «desde»), o el que escribas en ese momento.
-        </small>
       }
     </div>
     <div class="form__row">
@@ -325,6 +321,9 @@
       </fieldset>
     }
 
+    </div>
+
+    <div class="form__col form__col--media">
     <div class="form__row">
       <span class="lab">Imagen del servicio</span>
       <div class="foto">
@@ -362,6 +361,7 @@
     <div class="form__row">
       <span class="lab">Más fotos</span>
       <reserva-galeria-servicio-editor [idServicio]="editando()?.id_servicio ?? null" />
+    </div>
     </div>
   </form>
 
