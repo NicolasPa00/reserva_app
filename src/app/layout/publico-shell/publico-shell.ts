@@ -55,7 +55,7 @@ export class PublicoShellComponent implements OnInit, OnDestroy {
   readonly anio = new Date().getFullYear();
 
   // ── Datos de EscalApp para el pie ──
-  readonly escalappSitio = 'https://escalapp.cloud/admin/';
+  readonly escalappSitio = 'https://escalapp.cloud/';
 
   /** El mismo login al que `authGuard` manda a un usuario sin sesión (ver core/guards/auth.guard.ts). */
   readonly ingresarUrl = `${environment.adminUrl}/auth/login`;

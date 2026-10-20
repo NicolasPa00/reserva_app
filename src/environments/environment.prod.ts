@@ -1,7 +1,7 @@
 export const environment = {
   production: true,
   apiUrl: 'https://api.escalapp.cloud/reserva',
-  adminUrl: 'https://escalapp.cloud/admin',
+  adminUrl: 'https://escalapp.cloud',
   /**
    * El botón «?» del encabezado, que abre el Centro de ayuda.
    *
