@@ -2,7 +2,7 @@ import {
   ChangeDetectionStrategy, Component, OnDestroy, PLATFORM_ID, computed, effect, inject, signal,
 } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
-import { RouterOutlet } from '@angular/router';
+import { Router, RouterOutlet } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
 
 import { SidebarComponent } from './sidebar/sidebar';
@@ -53,6 +53,18 @@ const ANCHO_ESCRITORIO = 1024;
                     title="Ir al panel principal" aria-label="Ir al panel principal">
               <lucide-icon name="house" [size]="20" />
             </button>
+
+            <!--
+              Ayuda de ESTA pantalla. Abre en otra pestaña para no perder el trabajo en curso, y
+              apunta a /ayuda/ir, que es quien sabe traducir la ruta actual al módulo de ayuda
+              (el mapeo vive en la base y lo edita el panel, no cada frontend).
+            -->
+            @if (ayudaHabilitada) {
+              <button type="button" class="topbar__home" (click)="abrirAyuda()"
+                      title="Ayuda de esta pantalla" aria-label="Ayuda de esta pantalla">
+                <lucide-icon name="circle-help" [size]="20" />
+              </button>
+            }
 
             @if (auth.usuario(); as u) {
               <div class="user-chip" aria-label="Sesión activa">
@@ -168,6 +180,8 @@ const ANCHO_ESCRITORIO = 1024;
 export class LayoutComponent implements OnDestroy {
   protected readonly auth = inject(AuthService);
   private readonly platformId = inject(PLATFORM_ID);
+  /** Solo para saber en qué vista está el usuario al abrir la ayuda contextual. */
+  private readonly router = inject(Router);
   private readonly favicon = inject(FaviconService);
   private readonly manifest = inject(ManifestNegocioService);
   private readonly api = inject(ReservaApiService);
@@ -215,9 +229,38 @@ export class LayoutComponent implements OnDestroy {
     isPlatformBrowser(this.platformId) ? window.innerWidth < ANCHO_ESCRITORIO : false,
   );
 
+  /**
+   * ¿Se pinta el botón «?» del encabezado?
+   *
+   * Apagado en producción mientras el catálogo de tutoriales esté a medio grabar. No se esconde
+   * la función: se esconde la puerta a un sitio que todavía no tiene qué contestar.
+   */
+  protected readonly ayudaHabilitada = environment.ayudaHabilitada;
+
   /** Vuelve al panel central del admin_app conservando la sesión. */
   irAlInicio(): void {
     void this.auth.irAlInicio();
+  }
+
+  /**
+   * Abre el Centro de ayuda en la vista en la que está el usuario.
+   *
+   * Ver `admin_ws/docs/centro-de-ayuda.md`. Mismo planteamiento que en `negocio_app`: pestaña
+   * nueva para no perder el trabajo en curso, y `/ayuda/ir` en vez de componer aquí
+   * `/ayuda/reserva/agenda` — el mapeo ruta → módulo vive en la base y lo edita el panel, así que
+   * este archivo solo necesita saber la clave de su aplicativo.
+   *
+   * `app=reserva` es la clave del catálogo de ayuda, NO un `id_tipo_negocio`: esos ids no valen
+   * lo mismo en desarrollo que en producción (CLAUDE.md).
+   */
+  abrirAyuda(): void {
+    if (!isPlatformBrowser(this.platformId)) return;
+    // `router.url` y no `location.pathname`: el Router ya la da relativa al baseHref, así que no
+    // hay que recortar el `/reserva` de producción a mano (y acertar también en desarrollo).
+    const ruta = this.router.url.split('?')[0].split('#')[0];
+    const destino = `${environment.adminUrl}/ayuda/ir`
+      + `?app=reserva&ruta=${encodeURIComponent(ruta)}`;
+    window.open(destino, '_blank', 'noopener');
   }
 
   alternarMenu(): void { this.colapsado.update(v => !v); }
