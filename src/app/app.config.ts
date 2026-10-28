@@ -12,8 +12,8 @@ import { authInterceptor } from './core/interceptors/auth.interceptor';
 import { TituloVitrinaStrategy } from './core/services/titulo-vitrina.strategy';
 import { resolverPortalDeSubdominio } from './core/subdominio';
 
+import { LUCIDE_ICONS, LucideIconProvider } from 'lucide-angular';
 import {
-  LUCIDE_ICONS, LucideIconProvider,
   LayoutDashboard, CalendarDays, CalendarCheck, CalendarClock, Clock, Scissors,
   Users, Settings, LogOut, Sun, Moon, Plus, Minus, Search, Trash2, Pencil,
   X, Check, TriangleAlert, ChevronDown, ChevronUp, ChevronRight, ChevronLeft, ArrowLeft,
@@ -27,7 +27,7 @@ import {
   // Página pública del negocio: contacto, redes y el asistente de reserva.
   // Navegación responsive del admin: hamburguesa y barra inferior.
   Menu,
-  CalendarPlus, MessageCircle, Facebook, Instagram, ExternalLink,
+  CalendarPlus, MessageCircle, MessageSquare, Facebook, Instagram, ExternalLink,
   CircleCheckBig, Globe, Contact, FileSpreadsheet, Send,
   // Perfiles de rubro: salón, spa, estética, tatuaje, mascotas y alojamiento.
   Sparkles, Flower2, PenTool, PawPrint, BedDouble, DoorOpen, CalendarRange, Hotel, Dog, Syringe,
@@ -36,7 +36,7 @@ import {
   HandHeart, Download, Unlink, CircleX, House, UsersRound, ArrowRightLeft, CircleHelp,
   // Venta de productos (docs/productos-en-reserva.md).
   Package, ShoppingBag, ShoppingCart, Camera,
-} from 'lucide-angular';
+} from './core/icons/phosphor';
 
 registerLocaleData(localeEsCO);
 
@@ -59,7 +59,9 @@ export const icons = {
   // Página pública del negocio: contacto, redes y el asistente de reserva.
   // Navegación responsive del admin: hamburguesa y barra inferior.
   Menu,
-  CalendarPlus, MessageCircle, Facebook, Instagram, ExternalLink,
+  // MessageCircle es el logo de WhatsApp; MessageSquare, la burbuja genérica (asesoría,
+  // «cuéntanos tu idea»). Antes ambos eran el mismo dibujo y daba igual cuál se usara.
+  CalendarPlus, MessageCircle, MessageSquare, Facebook, Instagram, ExternalLink,
   CircleCheckBig, Globe, Contact, FileSpreadsheet, Send,
   // Perfiles de rubro: salón, spa, estética, tatuaje, mascotas y alojamiento.
   Sparkles, Flower2, PenTool, PawPrint, BedDouble, DoorOpen, CalendarRange, Hotel, Dog, Syringe,
