@@ -11,13 +11,26 @@
   <!-- Icono de marca.
        Las rutas van SIN barra inicial a propósito: se resuelven contra el <base href>,
        que el build reescribe a /admin/, /restaurante/ o /reserva/ según la app. Con
-       "/images/icono.png" el navegador las pedía a la raíz del dominio, donde no están. -->
-  <link rel="icon" href="favicon.ico" sizes="any">
-  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png">
-  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+       "/images/icono.png" el navegador las pedía a la raíz del dominio, donde no están.
+
+       Los archivos los genera "admin_app_v21/scripts/generar-iconos.mjs", que lee el logotipo
+       oficial del diseñador y escribe en las TRES apps: hasta el 2026-10-28 estas dos seguían
+       con el hexágono anterior al Brand Book mientras la landing ya llevaba el isotipo nuevo.
+       Es el isotipo blanco sobre el fondo "#191a24" del logotipo; SIN la palabra «EscalApp»,
+       que a 16 px es un borrón de tres píxeles de alto.
+
+       Este es el icono de respaldo: en el portal público, que lo abre el CLIENTE del negocio, lo
+       reemplaza el logo del inquilino vía "FaviconService"; este solo se ve cuando el negocio no
+       tiene logo subido.
+
+       El "?v=2" es lo único que obliga al navegador a volver a pedirlo. Al cambiarlo: subir a v3.
+       Los PNG de 16/32 ya no se declaran: Chrome los escoge antes que el SVG, que es más nítido. -->
+  <link rel="icon" href="favicon.ico?v=2" sizes="any">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg?v=2">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=2">
   <link rel="manifest" href="site.webmanifest">
-  <meta name="theme-color" content="#4338CA">
+  <!-- El fondo del logotipo, el mismo que el manifiesto (antes "#4338CA", el índigo anterior). -->
+  <meta name="theme-color" content="#191a24">
   <!-- Nombre bajo el icono al añadir a la pantalla de inicio en iOS. -->
   <meta name="apple-mobile-web-app-title" content="EscalApp">
 </head>

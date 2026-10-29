@@ -27,11 +27,15 @@ const TIPOS: Record<string, string> = {
 /**
  * ## Por qué se retiran TODOS los `<link rel="icon">` y no se edita uno
  *
- * `index.html` declara varios: el `.ico` multi-tamaño y los PNG de 16 y 32 con su atributo
- * `sizes`. Cambiarle el `href` solo al primero no sirve de nada: los otros siguen apuntando
- * al icono de EscalApp, y el navegador **prefiere** el que declara el tamaño exacto que
- * necesita. El resultado era el logo de EscalApp en la pestaña del portal de un cliente,
+ * `index.html` declara varios: el `.ico` multi-tamaño y el SVG. Cambiarle el `href` solo al
+ * primero no sirve de nada: el otro sigue apuntando al icono de EscalApp, y el navegador elige
+ * entre todos los declarados —prefiriendo el vectorial o el que anuncia el tamaño exacto que
+ * necesita—. El resultado era el logo de EscalApp en la pestaña del portal de un cliente,
  * que es justo lo contrario de lo que este servicio existe para hacer.
+ *
+ * (Hasta el 2026-10-28 los declarados eran el `.ico` y los PNG de 16 y 32; hoy son el `.ico` y
+ * el SVG. `querySelectorAll('link[rel~="icon"]')` los recoge igual, que es justo por lo que
+ * este servicio no enumera nombres de archivo.)
  *
  * Así que mientras el portal está abierto se apartan todos y queda uno solo, el del negocio.
  * Al salir se devuelven tal cual estaban.
